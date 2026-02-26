@@ -10,34 +10,37 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow connections from anywhere (change this for prod!)
+    origin: "*", 
     methods: ["GET", "POST"]
   }
 });
 
-// Store room state in memory for now (MVP)
-// In production, use Redis for this.
+// Store room state
+// Structure: { roomCode: { timer: null, duration: int, startTime: int, isRunning: bool, players: { socketId: { char: string } } } }
 const rooms = {}; 
 
 io.on('connection', (socket) => {
   console.log(`User Connected: ${socket.id}`);
 
-  // 1. Join Room
-  socket.on('join_room', (roomCode) => {
+  // 1. Join Room with Character Selection
+  socket.on('join_room', ({ roomCode, character }) => {
     socket.join(roomCode);
     
     if (!rooms[roomCode]) {
       rooms[roomCode] = { 
-        timer: null, 
-        duration: 25 * 60, // Default 25 mins in seconds
+        duration: 25 * 60, 
         startTime: null,
-        isRunning: false 
+        isRunning: false,
+        players: {} // Store players here
       };
     }
+
+    // Add/Update the player in the room
+    rooms[roomCode].players[socket.id] = { char: character };
     
-    // Send current status to the user who just joined
-    socket.emit('sync_state', rooms[roomCode]);
-    console.log(`User ${socket.id} joined room: ${roomCode}`);
+    // Send full room state (timer + players) to everyone in the room
+    io.to(roomCode).emit('sync_state', rooms[roomCode]);
+    console.log(`User ${socket.id} joined ${roomCode} as ${character}`);
   });
 
   // 2. Start Timer
@@ -47,7 +50,6 @@ io.on('connection', (socket) => {
       rooms[roomCode].startTime = Date.now();
       rooms[roomCode].isRunning = true;
       
-      // Tell everyone in the room (including sender) to start
       io.to(roomCode).emit('timer_started', { 
         startTime: rooms[roomCode].startTime,
         duration: rooms[roomCode].duration 
@@ -62,6 +64,12 @@ io.on('connection', (socket) => {
       rooms[roomCode].startTime = null;
       io.to(roomCode).emit('timer_stopped');
     }
+  });
+
+  // Optional: Handle disconnect (remove player from visual)
+  socket.on('disconnect', () => {
+    // In a real app, you'd find which room they were in and remove them from rooms[code].players
+    console.log("User Disconnected", socket.id);
   });
 });
 
