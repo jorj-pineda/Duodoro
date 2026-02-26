@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import io, { Socket } from "socket.io-client";
 
 // Change this URL when you deploy to Render!
-const SOCKET_URL = "http://localhost:3001";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 let socket: Socket;
 
 export default function DuoTimer() {
