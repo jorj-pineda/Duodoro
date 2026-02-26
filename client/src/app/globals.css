@@ -1,54 +1,66 @@
-/* PIXEL ART UTILS */
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Pixel Art Utilities
+───────────────────────────────────────────────────────────────────────────── */
+
 .pixel-sprite {
-  width: 64px;  /* Size of the character on screen */
-  height: 64px;
   image-rendering: pixelated;
-  background-size: cover;
-  background-repeat: no-repeat;
+  image-rendering: crisp-edges;
 }
 
-/* --- ANIMATIONS --- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Character Animation Classes (applied to the outer <svg> element)
+───────────────────────────────────────────────────────────────────────────── */
 
-/* Walking: Shift background image to show next frame */
-/* Assuming a sprite sheet with 4 frames */
-@keyframes walk-anim {
-  from { background-position: 0px; }
-  to { background-position: -256px; } /* 64px * 4 frames = 256px */
-}
-
-/* Idle: Just bounce slightly */
+/* Idle — gentle floating bob */
 @keyframes idle-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-3px); }
 }
-
-.walking {
-  /* Adjust 'steps(4)' to match the number of frames in your image */
-  animation: walk-anim 0.8s steps(4) infinite;
-}
-
-.idle {
+.pixel-idle {
   animation: idle-bounce 2s ease-in-out infinite;
-  background-position: 0px; /* First frame is usually standing */
 }
 
-/* --- CHARACTER SKINS --- */
-/* You need to add these images to your /public folder! */
-
-.cat {
-  /* Replace with your file */
-  background-image: url('https://art.pixilart.com/sr2c380963d348a.png'); 
+/* Jump — bouncy up-and-down for celebration */
+@keyframes jump-anim {
+  0%   { transform: translateY(0px) scaleY(1); }
+  20%  { transform: translateY(-18px) scaleY(1.05); }
+  45%  { transform: translateY(0px) scaleY(0.92); }
+  60%  { transform: translateY(-10px) scaleY(1); }
+  80%  { transform: translateY(0px) scaleY(0.96); }
+  100% { transform: translateY(0px) scaleY(1); }
+}
+.pixel-jump {
+  animation: jump-anim 0.9s ease-in-out infinite;
+  transform-origin: bottom center;
 }
 
-.dog {
-  background-color: transparent; 
-  /* Placeholder if you don't have an image yet */
-  border: 4px solid orange;
-  background-image: none; 
+/* Float — slow sinusoidal drift for returning phase */
+@keyframes float-anim {
+  0%, 100% { transform: translateY(0px) rotate(-1deg); }
+  33%       { transform: translateY(-6px) rotate(0deg); }
+  66%       { transform: translateY(-3px) rotate(1deg); }
+}
+.pixel-float {
+  animation: float-anim 2.5s ease-in-out infinite;
 }
 
-.bot {
-  background-color: transparent;
-  border: 4px solid cyan;
-  background-image: none;
+/* Sparkle — for celebration hearts floating up */
+@keyframes sparkle-rise {
+  0%   { opacity: 0; transform: translateY(0) scale(0.5); }
+  20%  { opacity: 1; transform: translateY(-12px) scale(1); }
+  80%  { opacity: 0.8; transform: translateY(-40px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
 }
+.sparkle {
+  animation: sparkle-rise 2s ease-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Scrollbar (dark theme)
+───────────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #111827; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
