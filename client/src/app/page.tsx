@@ -1,4 +1,4 @@
-import DuoTimer from "../components/DuoTimer";
+import DuoTimer from "@/components/DuoTimer";
 
 export default function Home() {
   return (
