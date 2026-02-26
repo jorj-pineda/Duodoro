@@ -214,31 +214,31 @@ export default function PixelCharacter({
       {/* ── HAIR BACK (behind body for long hair) ── */}
       <HairBack style={hairStyle} color={hairColor} />
 
-      {/* ── ARMS ── */}
+      {/* ── ARMS (sleeve cap + forearm) ── */}
       {isSitting ? (
-        // Arms at sides when sitting
+        // Sitting: arms resting at sides
         <>
-          <rect x={1} y={14} width={3} height={4} fill={skinColor} />
-          <rect x={12} y={14} width={3} height={4} fill={skinColor} />
+          {/* Left sleeve cap */}
+          <rect x={1} y={14} width={3} height={2} fill={outfitColor} />
+          {/* Left forearm (skin) */}
+          <rect x={1} y={16} width={3} height={2} fill={skinColor} />
+          {/* Right sleeve cap */}
+          <rect x={12} y={14} width={3} height={2} fill={outfitColor} />
+          {/* Right forearm (skin) */}
+          <rect x={12} y={16} width={3} height={2} fill={skinColor} />
         </>
       ) : (
         <>
-          <rect
-            x={1}
-            y={12}
-            width={3}
-            height={5}
-            fill={skinColor}
-            transform={anim === "walk" && walkFrame % 4 < 2 ? "translate(0,1)" : ""}
-          />
-          <rect
-            x={12}
-            y={12}
-            width={3}
-            height={5}
-            fill={skinColor}
-            transform={anim === "walk" && walkFrame % 4 >= 2 ? "translate(0,1)" : ""}
-          />
+          {/* Left arm */}
+          <g transform={anim === "walk" && walkFrame % 4 < 2 ? "translate(0,1)" : ""}>
+            <rect x={1} y={12} width={3} height={2} fill={outfitColor} />
+            <rect x={1} y={14} width={3} height={3} fill={skinColor} />
+          </g>
+          {/* Right arm */}
+          <g transform={anim === "walk" && walkFrame % 4 >= 2 ? "translate(0,1)" : ""}>
+            <rect x={12} y={12} width={3} height={2} fill={outfitColor} />
+            <rect x={12} y={14} width={3} height={3} fill={skinColor} />
+          </g>
         </>
       )}
 
