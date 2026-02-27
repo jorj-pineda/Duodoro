@@ -4,14 +4,22 @@ import { io, Socket } from "socket.io-client";
 import AvatarCreator from "./AvatarCreator";
 import WorldPicker from "./WorldPicker";
 import GameWorld, { type GamePhase } from "./GameWorld";
+import LandingPage from "./LandingPage";
+import FriendsPanel from "./FriendsPanel";
+import StickyNote from "./StickyNote";
+import PremiumModal from "./PremiumModal";
 import { playSound } from "@/lib/sounds";
 import { DEFAULT_AVATAR, type AvatarConfig, type WorldId } from "@/lib/avatarData";
+import { getSupabase } from "@/lib/supabase";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import type { Profile, PetType } from "@/lib/types";
+import { PET_OPTIONS } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AppStep = "avatar" | "world" | "room" | "game";
+type AppStep = "loading" | "landing" | "avatar" | "world" | "room" | "game";
 
 interface PlayerData {
   avatar: AvatarConfig;
@@ -58,47 +66,106 @@ function generateRoomCode(): string {
 
 function ConnectionDot({ connected }: { connected: boolean }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <div
-        className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-400" : "bg-red-400"}`}
-        style={{ boxShadow: connected ? "0 0 6px #34d399" : "0 0 6px #f87171" }}
+    <div
+      className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? "bg-emerald-400" : "bg-red-400"}`}
+      style={{ boxShadow: connected ? "0 0 6px #34d399" : "0 0 6px #f87171" }}
+      title={connected ? "Connected" : "Disconnected"}
+    />
+  );
+}
+
+function DurationSlider({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  unit,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <span className="text-gray-500 text-xs font-mono w-14 text-right shrink-0">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 accent-emerald-500 h-1.5"
       />
-      <span className="text-xs text-gray-400 font-mono">
-        {connected ? "connected" : "disconnected"}
+      <span className="text-emerald-400 text-xs font-mono font-bold w-12 shrink-0">
+        {value}{unit}
       </span>
     </div>
   );
 }
 
-function DurationPicker({
-  label,
-  value,
-  onChange,
-  options,
+function PhaseDots({ filled = 0, total = 7 }: { filled?: number; total?: number }) {
+  return (
+    <div className="flex gap-1.5 items-center">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={`w-2.5 h-2.5 rounded-full border transition-all ${
+            i < filled
+              ? "bg-emerald-500 border-emerald-500"
+              : "bg-transparent border-gray-600"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PetPicker({
+  selected,
+  onSelect,
+  isPremium,
+  onPremiumClick,
 }: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  options: number[];
+  selected: PetType | null;
+  onSelect: (pet: PetType | null) => void;
+  isPremium: boolean;
+  onPremiumClick: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-gray-400 text-xs font-mono">{label}</span>
-      <div className="flex gap-1">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={`px-2 py-1 rounded text-xs font-mono font-bold transition-all ${
-              value === opt
-                ? "bg-emerald-500 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-          >
-            {opt}m
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center gap-2 flex-wrap justify-center">
+      <span className="text-gray-600 text-xs font-mono">PET:</span>
+      <button
+        onClick={() => isPremium ? onSelect(null) : onPremiumClick()}
+        className={`w-7 h-7 rounded-full border text-xs flex items-center justify-center transition-all ${
+          selected === null
+            ? "border-gray-500 bg-gray-700 text-gray-300"
+            : "border-gray-700 bg-gray-800 text-gray-600 hover:border-gray-600"
+        }`}
+        title="No pet"
+      >
+        ✕
+      </button>
+      {PET_OPTIONS.map(({ type, emoji, label }) => (
+        <button
+          key={type}
+          onClick={() => isPremium ? onSelect(type) : onPremiumClick()}
+          className={`w-7 h-7 rounded-full border text-sm flex items-center justify-center transition-all ${
+            selected === type
+              ? "border-emerald-500 bg-emerald-500/20"
+              : "border-gray-700 bg-gray-800 hover:border-gray-500"
+          } ${!isPremium ? "opacity-50" : ""}`}
+          title={isPremium ? label : `${label} (Premium)`}
+        >
+          {isPremium ? emoji : "🔒"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -108,10 +175,16 @@ function DurationPicker({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DuoTimer() {
-  // ── App flow ──────────────────────────────────────────────────────────────
-  const [appStep, setAppStep] = useState<AppStep>("avatar");
+  // ── Auth & profile ────────────────────────────────────────────────────────
+  const [appStep, setAppStep] = useState<AppStep>("loading");
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  // ── Avatar & world ────────────────────────────────────────────────────────
   const [myAvatar, setMyAvatar] = useState<AvatarConfig>(DEFAULT_AVATAR);
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
+  const [myPet, setMyPet] = useState<PetType | null>(null);
+
+  // ── Room ──────────────────────────────────────────────────────────────────
   const [roomInput, setRoomInput] = useState("");
   const [roomCode, setRoomCode] = useState("");
 
@@ -122,8 +195,8 @@ export default function DuoTimer() {
   // ── Game state ────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<GamePhase>("waiting");
   const [phaseStartTime, setPhaseStartTime] = useState<number | null>(null);
-  const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60); // seconds
-  const [serverBreakDuration, setServerBreakDuration] = useState(5 * 60);  // seconds
+  const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60);
+  const [serverBreakDuration, setServerBreakDuration] = useState(5 * 60);
   const [players, setPlayers] = useState<Record<string, PlayerData>>({});
   const [sessionStarted, setSessionStarted] = useState(false);
 
@@ -132,15 +205,97 @@ export default function DuoTimer() {
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
 
-  // ── Timer tick — drives Date.now() re-evaluation every 500ms ─────────────
+  // ── Timer tick ────────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
   }, []);
 
+  // ── UI panels ─────────────────────────────────────────────────────────────
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   // ── Sound tracking ────────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
+
+  const sb = getSupabase();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Auth init
+  // ─────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadUser = async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!mounted) return;
+
+      if (!session) {
+        setAppStep("landing");
+        return;
+      }
+
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!mounted) return;
+
+      if (prof) {
+        const p = prof as Profile;
+        setProfile(p);
+        if (p.avatar_config) {
+          setMyAvatar(p.avatar_config);
+          setAppStep("room");
+        } else {
+          setAppStep("avatar");
+        }
+      } else {
+        setAppStep("avatar");
+      }
+    };
+
+    loadUser();
+
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (!mounted) return;
+      if (event === "SIGNED_IN" && session) {
+        const { data: prof } = await sb
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        if (!mounted) return;
+        if (prof) {
+          const p = prof as Profile;
+          setProfile(p);
+          if (p.avatar_config) {
+            setMyAvatar(p.avatar_config);
+            setAppStep("room");
+          } else {
+            setAppStep("avatar");
+          }
+        } else {
+          setAppStep("avatar");
+        }
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setAppStep("landing");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Socket setup
@@ -157,7 +312,6 @@ export default function DuoTimer() {
     socket.on("connect", () => {
       setIsConnected(true);
       setMyId(socket.id ?? "");
-      // If we were in a room, re-join on reconnect
       if (roomCode) {
         socket.emit("join_room", { roomCode, avatar: myAvatar, world: myWorld });
       }
@@ -194,9 +348,7 @@ export default function DuoTimer() {
       });
     });
 
-    return () => {
-      socket.disconnect();
-    };
+    return () => { socket.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -238,25 +390,61 @@ export default function DuoTimer() {
   const playerCount = Object.keys(players).length;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Actions
+  // Supabase actions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const saveAvatar = async (config: AvatarConfig) => {
+    if (!profile) return;
+    await sb.from("profiles").update({ avatar_config: config }).eq("id", profile.id);
+    setMyAvatar(config);
+    setProfile((p) => p ? { ...p, avatar_config: config } : p);
+  };
+
+  const writeCurrentRoom = async (code: string) => {
+    if (!profile) return;
+    await sb.from("profiles").update({ current_room: code }).eq("id", profile.id);
+    setProfile((p) => p ? { ...p, current_room: code } : p);
+  };
+
+  const clearCurrentRoom = async () => {
+    if (!profile) return;
+    await sb.from("profiles").update({ current_room: null }).eq("id", profile.id);
+    setProfile((p) => p ? { ...p, current_room: null } : p);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Room actions
   // ─────────────────────────────────────────────────────────────────────────
 
   const joinRoom = useCallback(
-    (code: string) => {
+    async (code: string) => {
       const socket = socketRef.current;
       if (!socket) return;
       setRoomCode(code);
       setAppStep("game");
       socket.emit("join_room", { roomCode: code, avatar: myAvatar, world: myWorld });
+      await writeCurrentRoom(code);
     },
-    [myAvatar, myWorld]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [myAvatar, myWorld, profile]
   );
+
+  const leaveRoom = useCallback(async () => {
+    socketRef.current?.emit("stop_session", roomCode);
+    await clearCurrentRoom();
+    setAppStep("room");
+    setSessionStarted(false);
+    setPhase("waiting");
+    setPlayers({});
+    setRoomCode("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode, profile]);
 
   const startSession = useCallback(() => {
     socketRef.current?.emit("start_session", {
       roomCode,
-      focusDuration,
-      breakDuration,
+      focusDuration: focusDuration * 60,
+      breakDuration: breakDuration * 60,
     });
     playSound("click");
   }, [roomCode, focusDuration, breakDuration]);
@@ -268,21 +456,48 @@ export default function DuoTimer() {
   }, [roomCode]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Render: App Steps
+  // Render: Loading
+  // ─────────────────────────────────────────────────────────────────────────
+
+  if (appStep === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-gray-500 text-xs font-mono">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render: Landing
+  // ─────────────────────────────────────────────────────────────────────────
+
+  if (appStep === "landing") {
+    return <LandingPage />;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render: Avatar creator
   // ─────────────────────────────────────────────────────────────────────────
 
   if (appStep === "avatar") {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
         <AvatarCreator
-          onSave={(config) => {
-            setMyAvatar(config);
+          onSave={async (config) => {
+            await saveAvatar(config);
             setAppStep("world");
           }}
         />
       </div>
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render: World picker
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (appStep === "world") {
     return (
@@ -298,84 +513,158 @@ export default function DuoTimer() {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render: Room screen
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const isPremium = profile?.is_premium ?? false;
+  const displayName = profile?.display_name ?? profile?.username ?? "You";
+  const initial = displayName.charAt(0).toUpperCase();
+
   if (appStep === "room") {
     const generated = generateRoomCode();
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-8 w-full max-w-md">
-          <div>
-            <h1 className="text-3xl font-bold text-center text-white font-mono tracking-widest">
-              DuoFocus
-            </h1>
-            <p className="text-gray-400 text-center text-sm mt-1">
-              Almost there — share your room code!
-            </p>
-          </div>
-
-          <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700 w-full space-y-6">
-            {/* Create room */}
-            <div>
-              <p className="text-gray-400 text-xs font-mono mb-2">CREATE A ROOM</p>
-              <div className="bg-gray-900 rounded-xl px-4 py-3 flex items-center justify-between border border-gray-600">
-                <span className="font-mono text-xl font-bold text-emerald-400 tracking-widest">
-                  {generated}
-                </span>
-                <button
-                  onClick={() => joinRoom(generated)}
-                  className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold px-4 py-2 rounded-lg font-mono text-sm transition-all"
-                >
-                  CREATE
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-gray-500 text-xs font-mono">OR JOIN</span>
-              <div className="flex-1 h-px bg-gray-700" />
-            </div>
-
-            {/* Join room */}
-            <div>
-              <p className="text-gray-400 text-xs font-mono mb-2">JOIN A ROOM</p>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 px-4 py-2 bg-gray-900 border border-gray-600 rounded-xl text-white font-mono uppercase placeholder-gray-600 focus:outline-none focus:border-emerald-500"
-                  placeholder="Enter code..."
-                  maxLength={8}
-                  value={roomInput}
-                  onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === "Enter" && roomInput && joinRoom(roomInput)}
-                />
-                <button
-                  onClick={() => roomInput && joinRoom(roomInput)}
-                  disabled={!roomInput}
-                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 active:scale-95 text-white font-bold px-4 py-2 rounded-xl font-mono transition-all"
-                >
-                  JOIN
-                </button>
-              </div>
+      <div className="min-h-screen bg-gray-900 flex flex-col" onClick={() => setProfileMenuOpen(false)}>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 border-b border-gray-700">
+          <span className="text-white font-black font-mono tracking-widest text-lg">DuoFocus</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={(e) => { e.stopPropagation(); setFriendsOpen(true); }}
+              className="text-gray-400 hover:text-white text-sm font-mono transition-colors flex items-center gap-1.5"
+            >
+              👥 <span className="hidden sm:inline text-xs">Friends</span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={(e) => { e.stopPropagation(); setProfileMenuOpen((o) => !o); }}
+                className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm font-bold hover:bg-emerald-500/30 transition-colors"
+              >
+                {initial}
+              </button>
+              {profileMenuOpen && (
+                <div className="absolute top-10 right-0 z-50 bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-2xl min-w-44" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-white font-bold text-sm mb-0.5">{displayName}</p>
+                  <p className="text-gray-500 text-xs font-mono mb-3">@{profile?.username}</p>
+                  {!isPremium && (
+                    <button
+                      onClick={() => { setPremiumOpen(true); setProfileMenuOpen(false); }}
+                      className="w-full text-left text-xs font-mono text-yellow-400 hover:text-yellow-300 py-1.5 transition-colors"
+                    >
+                      ⭐ Upgrade to Premium
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      const { signOut } = await import("@/lib/supabase");
+                      await signOut();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="w-full text-left text-xs font-mono text-gray-400 hover:text-red-400 py-1.5 transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-
-          <button
-            onClick={() => setAppStep("world")}
-            className="text-gray-400 hover:text-white text-sm font-mono transition-colors"
-          >
-            ← Back to world
-          </button>
         </div>
+
+        {/* Room content */}
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-8 w-full max-w-md">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-white font-mono tracking-widest">DuoFocus</h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Welcome back, {displayName}! Ready to focus together?
+              </p>
+            </div>
+
+            <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700 w-full space-y-6">
+              {/* Create room */}
+              <div>
+                <p className="text-gray-400 text-xs font-mono mb-2">CREATE A ROOM</p>
+                <div className="bg-gray-900 rounded-xl px-4 py-3 flex items-center justify-between border border-gray-600">
+                  <span className="font-mono text-xl font-bold text-emerald-400 tracking-widest">
+                    {generated}
+                  </span>
+                  <button
+                    onClick={() => joinRoom(generated)}
+                    className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold px-4 py-2 rounded-lg font-mono text-sm transition-all"
+                  >
+                    CREATE
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-700" />
+                <span className="text-gray-500 text-xs font-mono">OR JOIN</span>
+                <div className="flex-1 h-px bg-gray-700" />
+              </div>
+
+              {/* Join room */}
+              <div>
+                <p className="text-gray-400 text-xs font-mono mb-2">JOIN A ROOM</p>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 px-4 py-2 bg-gray-900 border border-gray-600 rounded-xl text-white font-mono uppercase placeholder-gray-600 focus:outline-none focus:border-emerald-500"
+                    placeholder="Enter code..."
+                    maxLength={8}
+                    value={roomInput}
+                    onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && roomInput && joinRoom(roomInput)}
+                  />
+                  <button
+                    onClick={() => roomInput && joinRoom(roomInput)}
+                    disabled={!roomInput}
+                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 active:scale-95 text-white font-bold px-4 py-2 rounded-xl font-mono transition-all"
+                  >
+                    JOIN
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setAppStep("world")}
+              className="text-gray-400 hover:text-white text-sm font-mono transition-colors"
+            >
+              ← Change world / avatar
+            </button>
+          </div>
+        </div>
+
+        {/* Panels */}
+        {profile && (
+          <>
+            <FriendsPanel
+              open={friendsOpen}
+              onClose={() => setFriendsOpen(false)}
+              myProfile={profile}
+              onJoinRoom={joinRoom}
+              onInviteFriend={(_friendId) => {
+                const code = generateRoomCode();
+                sb.from("profiles").update({ current_room: code }).eq("id", profile.id);
+                return code;
+              }}
+            />
+            <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+          </>
+        )}
       </div>
     );
   }
 
-  // ── Game Screen ────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render: Game Screen
+  // ─────────────────────────────────────────────────────────────────────────
 
   const phaseLabel: Record<GamePhase, string> = {
     waiting:     "WAITING FOR PARTNER",
-    focus:       "FOCUS TIME",
+    focus:       "FOCUS TIME ⏰",
     celebration: "YOU MET! ❤️",
-    break:       "BREAK TIME",
+    break:       "BREAK TIME 🎮",
     returning:   "HEADING BACK...",
   };
 
@@ -384,14 +673,72 @@ export default function DuoTimer() {
   const canStop = sessionStarted && phase !== "waiting";
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div
+      className="min-h-screen bg-gray-900 text-white flex flex-col"
+      onClick={() => setProfileMenuOpen(false)}
+    >
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 backdrop-blur border-b border-gray-700">
-        <div>
-          <span className="text-xs font-mono text-gray-400">ROOM </span>
-          <span className="text-sm font-mono font-bold text-emerald-400">{roomCode}</span>
+      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/90 backdrop-blur border-b border-gray-700 z-10">
+        <div className="flex items-center gap-2.5">
+          <span className="text-white font-black font-mono tracking-widest text-sm">DuoFocus</span>
+          <ConnectionDot connected={isConnected} />
         </div>
-        <ConnectionDot connected={isConnected} />
+        <div className="flex items-center gap-1.5">
+          {/* Friends */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setFriendsOpen((o) => !o); }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              friendsOpen ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-700"
+            }`}
+          >
+            👥 <span className="hidden sm:inline">Friends</span>
+          </button>
+          {/* Notes */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setNotesOpen((o) => !o); }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              notesOpen ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-700"
+            }`}
+          >
+            📝 <span className="hidden sm:inline">Notes</span>
+          </button>
+          {/* Profile */}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setProfileMenuOpen((o) => !o); }}
+              className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-colors ml-1"
+            >
+              {initial}
+            </button>
+            {profileMenuOpen && (
+              <div
+                className="absolute top-9 right-0 z-50 bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-2xl min-w-44"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-white font-bold text-sm mb-0.5">{displayName}</p>
+                <p className="text-gray-500 text-xs font-mono mb-3">@{profile?.username}</p>
+                {!isPremium && (
+                  <button
+                    onClick={() => { setPremiumOpen(true); setProfileMenuOpen(false); }}
+                    className="w-full text-left text-xs font-mono text-yellow-400 hover:text-yellow-300 py-1.5 transition-colors"
+                  >
+                    ⭐ Upgrade to Premium
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    const { signOut } = await import("@/lib/supabase");
+                    await signOut();
+                    setProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left text-xs font-mono text-gray-400 hover:text-red-400 py-1.5 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Game World ── */}
@@ -402,14 +749,21 @@ export default function DuoTimer() {
         returningProgress={returningProgress}
         me={{ id: myId, avatar: myAvatar }}
         partner={partner}
+        myPet={myPet}
+        partnerPet={null}
       />
 
       {/* ── HUD ── */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-4">
         {/* Phase label */}
-        <div className="text-lg font-mono font-bold tracking-widest text-gray-300">
+        <div className="text-sm font-mono font-bold tracking-widest text-gray-400 uppercase">
           {phaseLabel[phase]}
         </div>
+
+        {/* Phase dots */}
+        {(phase === "focus" || phase === "break") && (
+          <PhaseDots filled={phase === "focus" ? 4 : 0} />
+        )}
 
         {/* Timer */}
         {showTimer && (
@@ -420,54 +774,70 @@ export default function DuoTimer() {
           </div>
         )}
 
-        {/* Partner count indicator */}
-        <div className="flex items-center gap-2 text-sm">
-          <div className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-emerald-400" : "bg-gray-600"}`} />
-          <span className="text-gray-400 text-xs font-mono">YOU</span>
-          <div className="w-8 h-px bg-gray-700" />
-          <div className={`w-2 h-2 rounded-full ${playerCount >= 2 ? "bg-emerald-400" : "bg-gray-600"}`} />
-          <span className="text-gray-400 text-xs font-mono">
-            {partner ? "PARTNER CONNECTED" : "WAITING FOR PARTNER"}
-          </span>
-        </div>
-
-        {/* Session controls — shown before starting */}
+        {/* Duration sliders — before session starts */}
         {!sessionStarted && phase === "waiting" && (
-          <div className="flex gap-6 mt-2">
-            <DurationPicker
+          <div className="w-full max-w-xs space-y-2 mt-1">
+            <DurationSlider
               label="FOCUS"
               value={focusDuration}
               onChange={setFocusDuration}
-              options={[15, 25, 45, 60]}
+              min={5}
+              max={120}
+              step={5}
+              unit="m"
             />
-            <DurationPicker
+            <DurationSlider
               label="BREAK"
               value={breakDuration}
               onChange={setBreakDuration}
-              options={[5, 10, 15]}
+              min={1}
+              max={30}
+              step={1}
+              unit="m"
             />
           </div>
         )}
 
-        {/* Start / stop buttons */}
-        <div className="flex gap-3 mt-2">
+        {/* Pet picker */}
+        {phase === "waiting" && (
+          <PetPicker
+            selected={myPet}
+            onSelect={setMyPet}
+            isPremium={isPremium}
+            onPremiumClick={() => setPremiumOpen(true)}
+          />
+        )}
+
+        {/* Partner connection dots */}
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-emerald-400" : "bg-gray-600"}`} />
+          <span className="text-gray-600 text-xs font-mono">YOU</span>
+          <div className="w-8 h-px bg-gray-700" />
+          <div className={`w-2 h-2 rounded-full ${playerCount >= 2 ? "bg-emerald-400" : "bg-gray-600"}`} />
+          <span className="text-gray-600 text-xs font-mono">
+            {partner ? "PARTNER" : "WAITING..."}
+          </span>
+        </div>
+
+        {/* Start / stop */}
+        <div className="flex flex-col items-center gap-2">
           {canStart && (
             <button
               onClick={startSession}
-              className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold px-8 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-emerald-700"
+              className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-emerald-700 text-sm"
             >
-              START SESSION
+              ▶ START SESSION
             </button>
           )}
           {playerCount < 2 && phase === "waiting" && (
-            <p className="text-gray-500 text-sm font-mono text-center">
-              Share code <span className="text-emerald-400 font-bold">{roomCode}</span> with your partner
+            <p className="text-gray-600 text-xs font-mono text-center">
+              Share <span className="text-emerald-400 font-bold">{roomCode}</span> with your partner
             </p>
           )}
           {canStop && (
             <button
               onClick={stopSession}
-              className="text-gray-500 hover:text-red-400 text-xs font-mono transition-colors mt-2"
+              className="text-gray-600 hover:text-red-400 text-xs font-mono transition-colors"
             >
               end session
             </button>
@@ -478,18 +848,36 @@ export default function DuoTimer() {
       {/* ── Leave room ── */}
       <div className="text-center pb-4">
         <button
-          onClick={() => {
-            socketRef.current?.emit("stop_session", roomCode);
-            setAppStep("room");
-            setSessionStarted(false);
-            setPhase("waiting");
-            setPlayers({});
-          }}
-          className="text-gray-600 hover:text-gray-400 text-xs font-mono transition-colors"
+          onClick={leaveRoom}
+          className="text-gray-700 hover:text-gray-400 text-xs font-mono transition-colors"
         >
           ← leave room
         </button>
       </div>
+
+      {/* ── Slide-in panels & modals ── */}
+      {profile && (
+        <>
+          <FriendsPanel
+            open={friendsOpen}
+            onClose={() => setFriendsOpen(false)}
+            myProfile={profile}
+            onJoinRoom={joinRoom}
+            onInviteFriend={(_friendId) => {
+              const code = generateRoomCode();
+              sb.from("profiles").update({ current_room: code }).eq("id", profile.id);
+              return code;
+            }}
+          />
+          <StickyNote
+            open={notesOpen}
+            onClose={() => setNotesOpen(false)}
+            userId={profile.id}
+            roomCode={roomCode}
+          />
+          <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+        </>
+      )}
     </div>
   );
 }

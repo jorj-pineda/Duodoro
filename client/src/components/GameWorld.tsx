@@ -2,7 +2,9 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PixelCharacter, { type AnimState } from "./PixelCharacter";
+import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
+import type { PetType } from "@/lib/types";
 
 export type GamePhase =
   | "waiting"
@@ -25,6 +27,8 @@ interface Props {
   returningProgress: number;
   me: PlayerInfo;
   partner: PlayerInfo | null;
+  myPet?: PetType | null;
+  partnerPet?: PetType | null;
 }
 
 // ── World Decorations ──────────────────────────────────────────────────────
@@ -215,6 +219,8 @@ export default function GameWorld({
   returningProgress,
   me,
   partner,
+  myPet,
+  partnerPet,
 }: Props) {
   const world = getWorld(worldId);
 
@@ -302,7 +308,14 @@ export default function GameWorld({
         animate={{ left: myLeft }}
         transition={{ type: "tween", ease: "linear", duration: 0.8 }}
       >
-        <PixelCharacter {...me.avatar} anim={myAnim} facing="right" size={3} />
+        <div className="flex items-end gap-1">
+          {myPet && (
+            <div className="mb-1">
+              <PetCharacter type={myPet} anim={myAnim} facing="right" size={2} />
+            </div>
+          )}
+          <PixelCharacter {...me.avatar} anim={myAnim} facing="right" size={3} />
+        </div>
         <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono">
           YOU
         </div>
@@ -316,7 +329,14 @@ export default function GameWorld({
           animate={{ right: partnerRight }}
           transition={{ type: "tween", ease: "linear", duration: 0.8 }}
         >
-          <PixelCharacter {...partner.avatar} anim={partnerAnim} facing="left" size={3} />
+          <div className="flex items-end gap-1">
+            <PixelCharacter {...partner.avatar} anim={partnerAnim} facing="left" size={3} />
+            {partnerPet && (
+              <div className="mb-1">
+                <PetCharacter type={partnerPet} anim={partnerAnim} facing="left" size={2} />
+              </div>
+            )}
+          </div>
           <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono">
             THEM
           </div>
