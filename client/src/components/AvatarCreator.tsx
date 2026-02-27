@@ -15,7 +15,11 @@ import {
 } from "@/lib/avatarData";
 
 interface Props {
-  onSave: (config: AvatarConfig) => void;
+  onSave: (config: AvatarConfig, displayName: string) => void;
+  initialConfig?: AvatarConfig;
+  initialDisplayName?: string;
+  /** When provided, shows a back button (edit mode, not first setup) */
+  onBack?: () => void;
 }
 
 function ColorSwatch({
@@ -85,11 +89,14 @@ function CycleRow<T extends string>({
   );
 }
 
-export default function AvatarCreator({ onSave }: Props) {
-  const [config, setConfig] = useState<AvatarConfig>(DEFAULT_AVATAR);
+export default function AvatarCreator({ onSave, initialConfig, initialDisplayName, onBack }: Props) {
+  const [config, setConfig] = useState<AvatarConfig>(initialConfig ?? DEFAULT_AVATAR);
+  const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
 
   const set = <K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: value }));
+
+  const isEditing = !!onBack;
 
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-md mx-auto">
@@ -98,13 +105,13 @@ export default function AvatarCreator({ onSave }: Props) {
           Duodoro
         </h1>
         <p className="text-gray-400 text-center text-sm mt-1">
-          Focus together, no matter the distance
+          {isEditing ? "Update your character" : "Focus together, no matter the distance"}
         </p>
       </div>
 
       <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700 w-full">
         <h2 className="text-lg font-bold text-white font-mono tracking-widest text-center mb-6">
-          DESIGN YOUR HERO
+          {isEditing ? "EDIT CHARACTER" : "DESIGN YOUR HERO"}
         </h2>
 
         {/* ── Live Preview ── */}
@@ -122,9 +129,22 @@ export default function AvatarCreator({ onSave }: Props) {
           </div>
         </div>
 
+        {/* ── Display Name ── */}
+        {!isEditing && (
+          <div className="mb-4">
+            <p className="text-gray-400 text-xs font-bold font-mono mb-2">YOUR NAME</p>
+            <input
+              className="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+              placeholder="e.g. Jorge"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              maxLength={24}
+            />
+          </div>
+        )}
+
         {/* ── Controls ── */}
         <div className="space-y-3 font-mono text-sm mb-5">
-          {/* Hair style */}
           <CycleRow
             label="HAIR"
             options={HAIR_STYLES}
@@ -132,8 +152,6 @@ export default function AvatarCreator({ onSave }: Props) {
             value={config.hairStyle}
             onChange={(v) => set("hairStyle", v)}
           />
-
-          {/* Eye style */}
           <CycleRow
             label="EYES"
             options={EYE_STYLES}
@@ -147,36 +165,33 @@ export default function AvatarCreator({ onSave }: Props) {
         <div className="space-y-3 mb-6">
           <div>
             <p className="text-gray-400 text-xs font-bold font-mono mb-2">SKIN</p>
-            <ColorSwatch
-              colors={SKIN_COLORS}
-              selected={config.skinColor}
-              onSelect={(hex) => set("skinColor", hex)}
-            />
+            <ColorSwatch colors={SKIN_COLORS} selected={config.skinColor} onSelect={(hex) => set("skinColor", hex)} />
           </div>
           <div>
             <p className="text-gray-400 text-xs font-bold font-mono mb-2">HAIR COLOR</p>
-            <ColorSwatch
-              colors={HAIR_COLORS}
-              selected={config.hairColor}
-              onSelect={(hex) => set("hairColor", hex)}
-            />
+            <ColorSwatch colors={HAIR_COLORS} selected={config.hairColor} onSelect={(hex) => set("hairColor", hex)} />
           </div>
           <div>
             <p className="text-gray-400 text-xs font-bold font-mono mb-2">OUTFIT</p>
-            <ColorSwatch
-              colors={OUTFIT_COLORS}
-              selected={config.outfitColor}
-              onSelect={(hex) => set("outfitColor", hex)}
-            />
+            <ColorSwatch colors={OUTFIT_COLORS} selected={config.outfitColor} onSelect={(hex) => set("outfitColor", hex)} />
           </div>
         </div>
 
         <button
-          onClick={() => onSave(config)}
+          onClick={() => onSave(config, displayName.trim())}
           className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold py-3 px-4 rounded-xl border-b-4 border-emerald-700 transition-all font-mono tracking-widest"
         >
-          READY TO FOCUS →
+          {isEditing ? "SAVE CHANGES →" : "READY TO FOCUS →"}
         </button>
+
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="w-full mt-3 text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors"
+          >
+            ← Cancel
+          </button>
+        )}
       </div>
     </div>
   );

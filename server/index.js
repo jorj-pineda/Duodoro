@@ -101,8 +101,8 @@ function advancePhase(roomCode) {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  // join_room: { roomCode, avatar: AvatarConfig, world?: string }
-  socket.on('join_room', ({ roomCode, avatar, world }) => {
+  // join_room: { roomCode, avatar: AvatarConfig, world?: string, displayName?: string }
+  socket.on('join_room', ({ roomCode, avatar, world, displayName }) => {
     // Leave any previous room
     const prevRoom = socketToRoom[socket.id];
     if (prevRoom && prevRoom !== roomCode) {
@@ -124,15 +124,16 @@ io.on('connection', (socket) => {
       };
     }
 
-    rooms[roomCode].players[socket.id] = { avatar };
+    rooms[roomCode].players[socket.id] = { avatar, displayName: displayName || 'Player' };
 
     const playerCount = Object.keys(rooms[roomCode].players).length;
-    console.log(`[${roomCode}] ${socket.id} joined (${playerCount} players)`);
+    console.log(`[${roomCode}] ${displayName || socket.id} joined (${playerCount} players)`);
 
     // Notify everyone in the room of new player
     socket.to(roomCode).emit('player_joined', {
       playerId: socket.id,
       avatar,
+      displayName: displayName || 'Player',
     });
 
     // Send full state to the joining player

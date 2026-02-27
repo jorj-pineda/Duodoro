@@ -2,14 +2,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import AvatarCreator from "./AvatarCreator";
-import WorldPicker from "./WorldPicker";
 import GameWorld, { type GamePhase } from "./GameWorld";
 import LandingPage from "./LandingPage";
 import FriendsPanel from "./FriendsPanel";
 import StickyNote from "./StickyNote";
 import PremiumModal from "./PremiumModal";
 import { playSound } from "@/lib/sounds";
-import { DEFAULT_AVATAR, type AvatarConfig, type WorldId } from "@/lib/avatarData";
+import { DEFAULT_AVATAR, WORLDS, type AvatarConfig, type WorldId } from "@/lib/avatarData";
 import { getSupabase } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import type { Profile, PetType } from "@/lib/types";
@@ -19,10 +18,11 @@ import { PET_OPTIONS } from "@/lib/types";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AppStep = "loading" | "landing" | "avatar" | "world" | "room" | "game";
+type AppStep = "loading" | "landing" | "avatar" | "room" | "game";
 
 interface PlayerData {
   avatar: AvatarConfig;
+  displayName?: string;
 }
 
 interface SyncPayload {
@@ -382,6 +382,7 @@ export default function DuoTimer() {
       setServerFocusDuration(data.focusDuration);
       setServerBreakDuration(data.breakDuration);
       setPlayers(data.players || {});
+      if (data.world) setMyWorld(data.world as WorldId);
       if (data.phase !== "waiting") setSessionStarted(true);
     });
 
@@ -393,8 +394,8 @@ export default function DuoTimer() {
       if (data.phase !== "waiting") setSessionStarted(true);
     });
 
-    socket.on("player_joined", ({ playerId, avatar }: { playerId: string; avatar: AvatarConfig }) => {
-      setPlayers((prev) => ({ ...prev, [playerId]: { avatar } }));
+    socket.on("player_joined", ({ playerId, avatar, displayName }: { playerId: string; avatar: AvatarConfig; displayName?: string }) => {
+      setPlayers((prev) => ({ ...prev, [playerId]: { avatar, displayName } }));
     });
 
     socket.on("player_left", ({ playerId }: { playerId: string }) => {
@@ -443,6 +444,7 @@ export default function DuoTimer() {
   const partner = partnerEntry
     ? { id: partnerEntry[0], avatar: partnerEntry[1].avatar }
     : null;
+  const partnerName = partnerEntry?.[1].displayName;
 
   const playerCount = Object.keys(players).length;
 
@@ -545,31 +547,21 @@ export default function DuoTimer() {
   // ─────────────────────────────────────────────────────────────────────────
 
   if (appStep === "avatar") {
+    const isEditing = !!profile?.avatar_config;
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
         <AvatarCreator
-          onSave={async (config) => {
+          initialConfig={myAvatar}
+          initialDisplayName={profile?.display_name ?? ""}
+          onBack={isEditing ? () => setAppStep("room") : undefined}
+          onSave={async (config, name) => {
             await saveAvatar(config);
-            setAppStep("world");
-          }}
-        />
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render: World picker
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (appStep === "world") {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
-        <WorldPicker
-          onSelect={(world) => {
-            setMyWorld(world);
+            if (name && profile) {
+              await sb.from("profiles").update({ display_name: name }).eq("id", profile.id);
+              setProfile((p) => p ? { ...p, display_name: name } : p);
+            }
             setAppStep("room");
           }}
-          onBack={() => setAppStep("avatar")}
         />
       </div>
     );
@@ -608,6 +600,12 @@ export default function DuoTimer() {
                 <div className="absolute top-10 right-0 z-50 bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-2xl min-w-44" onClick={(e) => e.stopPropagation()}>
                   <p className="text-white font-bold text-sm mb-0.5">{displayName}</p>
                   <p className="text-gray-500 text-xs font-mono mb-3">@{profile?.username}</p>
+                  <button
+                    onClick={() => { setAppStep("avatar"); setProfileMenuOpen(false); }}
+                    className="w-full text-left text-xs font-mono text-gray-400 hover:text-white py-1.5 transition-colors"
+                  >
+                    ✏️ Edit character
+                  </button>
                   {!isPremium && (
                     <button
                       onClick={() => { setPremiumOpen(true); setProfileMenuOpen(false); }}
@@ -643,6 +641,26 @@ export default function DuoTimer() {
             </div>
 
             <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700 w-full space-y-6">
+              {/* World picker */}
+              <div>
+                <p className="text-gray-400 text-xs font-mono mb-2">CHOOSE WORLD</p>
+                <div className="flex gap-2">
+                  {WORLDS.map((w) => (
+                    <button
+                      key={w.id}
+                      onClick={() => setMyWorld(w.id as WorldId)}
+                      className={`flex-1 py-2 rounded-xl border text-sm font-mono transition-all ${
+                        myWorld === w.id
+                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                          : "border-gray-600 bg-gray-900 text-gray-400 hover:border-gray-500"
+                      }`}
+                    >
+                      {w.emoji} {w.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Create room */}
               <div>
                 <p className="text-gray-400 text-xs font-mono mb-2">CREATE A ROOM</p>
@@ -689,10 +707,10 @@ export default function DuoTimer() {
             </div>
 
             <button
-              onClick={() => setAppStep("world")}
+              onClick={() => setAppStep("avatar")}
               className="text-gray-400 hover:text-white text-sm font-mono transition-colors"
             >
-              ← Change world / avatar
+              ← Edit avatar
             </button>
           </div>
         </div>
@@ -779,6 +797,12 @@ export default function DuoTimer() {
               >
                 <p className="text-white font-bold text-sm mb-0.5">{displayName}</p>
                 <p className="text-gray-500 text-xs font-mono mb-3">@{profile?.username}</p>
+                <button
+                  onClick={() => { setAppStep("avatar"); setProfileMenuOpen(false); }}
+                  className="w-full text-left text-xs font-mono text-gray-400 hover:text-white py-1.5 transition-colors"
+                >
+                  ✏️ Edit character
+                </button>
                 {!isPremium && (
                   <button
                     onClick={() => { setPremiumOpen(true); setProfileMenuOpen(false); }}
@@ -803,17 +827,23 @@ export default function DuoTimer() {
         </div>
       </div>
 
-      {/* ── Game World ── */}
-      <GameWorld
-        worldId={myWorld}
-        phase={phase}
-        focusProgress={focusProgress}
-        returningProgress={returningProgress}
-        me={{ id: myId, avatar: myAvatar }}
-        partner={partner}
-        myPet={myPet}
-        partnerPet={null}
-      />
+      {/* ── Game World (contained card) ── */}
+      <div className="w-full max-w-3xl mx-auto px-3 pt-3">
+        <div className="rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl">
+          <GameWorld
+            worldId={myWorld}
+            phase={phase}
+            focusProgress={focusProgress}
+            returningProgress={returningProgress}
+            me={{ id: myId, avatar: myAvatar }}
+            partner={partner}
+            myPet={myPet}
+            partnerPet={null}
+            myName={profile?.display_name ?? profile?.username}
+            partnerName={partnerName}
+          />
+        </div>
+      </div>
 
       {/* ── HUD ── */}
       <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-4">
