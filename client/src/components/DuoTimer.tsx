@@ -238,20 +238,6 @@ export default function DuoTimer() {
       if (mounted) setAppStep("landing");
     }, hasOAuthCode ? 20000 : 8000);
 
-    // Navigate to the correct step based on what the DB profile contains
-    const applyProfile = (prof: Profile) => {
-      if (window.location.search.includes("code=")) {
-        window.history.replaceState({}, "", window.location.pathname);
-      }
-      setProfile(prof);
-      if (prof.avatar_config) {
-        setMyAvatar(prof.avatar_config);
-        setAppStep("room");
-      } else {
-        setAppStep("avatar");
-      }
-    };
-
     // Build a provisional profile from OAuth metadata immediately — no DB query needed
     const profileFromSession = (session: Session): Profile => {
       const { id, user_metadata, email } = session.user;
@@ -273,38 +259,45 @@ export default function DuoTimer() {
     };
 
     // Called as soon as we have a confirmed session.
-    // Applies provisional profile immediately so the user never hangs on the
-    // loading screen, then loads the real DB profile in the background.
+    // Waits up to 4s for the DB profile so returning users skip the avatar creator.
+    // Falls back to the avatar creator if DB is unavailable.
     const handleSession = async (session: Session) => {
       if (sessionHandled) return; // prevent duplicate calls from loadUser + onAuthStateChange
       sessionHandled = true;
       clearTimeout(timeoutId);
       if (!mounted) return;
 
-      // Step 1: apply provisional profile right away (no DB wait)
-      const provisional = profileFromSession(session);
-      applyProfile(provisional);
-
-      // Step 2: fetch the real DB profile with a 6s timeout
       try {
+        // Wait for DB (4s timeout) before navigating so returning users don't see a flash
         const result = await Promise.race([
           sb.from("profiles").select("*").eq("id", session.user.id).single(),
-          new Promise<{ data: null; error: Error }>((resolve) =>
-            setTimeout(() => resolve({ data: null, error: new Error("db_timeout") }), 6000)
+          new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 4000)
           ),
         ]);
         if (!mounted) return;
 
         if (result.data) {
           const dbProf = result.data as Profile;
+          if (window.location.search.includes("code=")) {
+            window.history.replaceState({}, "", window.location.pathname);
+          }
           setProfile(dbProf);
           if (dbProf.avatar_config) {
             setMyAvatar(dbProf.avatar_config);
             setAppStep("room");
+          } else {
+            setAppStep("avatar");
           }
-          // else avatar step already set above
         } else {
-          // DB unavailable or no row yet — fire-and-forget upsert so the trigger has a chance to retry
+          // DB timeout — use provisional and send to avatar creator
+          const provisional = profileFromSession(session);
+          if (window.location.search.includes("code=")) {
+            window.history.replaceState({}, "", window.location.pathname);
+          }
+          setProfile(provisional);
+          setAppStep("avatar");
+          // Fire-and-forget upsert so the row exists for next login
           sb.from("profiles").upsert({
             id: provisional.id,
             username: provisional.username + "_" + provisional.id.slice(0, 4),
@@ -312,7 +305,12 @@ export default function DuoTimer() {
           }).then(() => {});
         }
       } catch {
-        // DB unreachable — stay on whatever step applyProfile set
+        const provisional = profileFromSession(session);
+        if (window.location.search.includes("code=")) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+        setProfile(provisional);
+        setAppStep("avatar");
       }
     };
 
