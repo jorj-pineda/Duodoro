@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DuoFocus — Focus together, anywhere",
+  title: "Duodoro — Focus together, anywhere.",
   description: "A real-time focus timer for long-distance couples and friends. Walk toward each other, meet in the middle, and celebrate your session together.",
   openGraph: {
-    title: "DuoFocus",
-    description: "Focus together, anywhere.",
+    title: "Duodoro",
+    description: "Focus together, anywhere..",
     type: "website",
   },
 };

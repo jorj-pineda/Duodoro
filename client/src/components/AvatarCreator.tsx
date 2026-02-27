@@ -95,7 +95,7 @@ export default function AvatarCreator({ onSave }: Props) {
     <div className="flex flex-col items-center gap-8 w-full max-w-md mx-auto">
       <div>
         <h1 className="text-3xl font-bold text-center text-white font-mono tracking-widest">
-          DuoFocus
+          Duodoro
         </h1>
         <p className="text-gray-400 text-center text-sm mt-1">
           Focus together, no matter the distance

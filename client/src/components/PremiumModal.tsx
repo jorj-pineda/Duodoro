@@ -71,7 +71,7 @@ export default function PremiumModal({ open, onClose }: Props) {
               <div className="text-center mb-6">
                 <div className="text-5xl mb-3">🐾</div>
                 <h2 className="text-2xl font-black font-mono text-white">
-                  DuoFocus Premium
+                  Duodoro Premium
                 </h2>
                 <p className="text-gray-400 text-sm mt-1 font-mono">
                   Coming soon — join the waitlist

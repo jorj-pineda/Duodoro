@@ -125,7 +125,7 @@ export default function LandingPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 gap-6 text-center">
         <div>
           <h1 className="text-5xl font-black font-mono tracking-tight text-white drop-shadow-lg">
-            DuoFocus
+            Duodoro
           </h1>
           <p className="mt-2 text-gray-400 text-lg font-mono">
             Focus together, no matter the distance

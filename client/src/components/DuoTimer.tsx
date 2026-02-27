@@ -249,6 +249,32 @@ export default function DuoTimer() {
       }
     };
 
+    const ensureProfile = async (userId: string, meta: Record<string, string>) => {
+      // Fetch existing profile
+      const { data: existing } = await sb
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (existing) return existing as Profile;
+
+      // No profile yet — create one client-side (trigger may have failed)
+      const raw = (
+        meta?.preferred_username ||
+        meta?.user_name ||
+        meta?.email?.split("@")[0] ||
+        "user"
+      ).replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() || "user";
+
+      const username = raw + "_" + userId.slice(0, 4);
+      const { data: created } = await sb
+        .from("profiles")
+        .upsert({ id: userId, username, display_name: meta?.full_name || meta?.name || raw })
+        .select()
+        .single();
+      return created as Profile | null;
+    };
+
     const loadUser = async () => {
       try {
         const { data: { session } } = await sb.auth.getSession();
@@ -259,14 +285,9 @@ export default function DuoTimer() {
           return;
         }
 
-        const { data: prof } = await sb
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
+        const prof = await ensureProfile(session.user.id, session.user.user_metadata as Record<string, string>);
         if (!mounted) return;
-        applyProfile(prof as Profile | null);
+        applyProfile(prof);
       } catch {
         if (mounted) setAppStep("landing");
       }
@@ -278,13 +299,9 @@ export default function DuoTimer() {
       if (!mounted) return;
       if (event === "SIGNED_IN" && session) {
         try {
-          const { data: prof } = await sb
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+          const prof = await ensureProfile(session.user.id, session.user.user_metadata as Record<string, string>);
           if (!mounted) return;
-          applyProfile(prof as Profile | null);
+          applyProfile(prof);
         } catch {
           if (mounted) setAppStep("avatar");
         }
@@ -468,7 +485,7 @@ export default function DuoTimer() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
-          <div className="text-4xl font-black font-mono text-white tracking-widest">DuoFocus</div>
+          <div className="text-4xl font-black font-mono text-white tracking-widest">Duodoro</div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "0ms" }} />
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -537,7 +554,7 @@ export default function DuoTimer() {
       <div className="min-h-screen bg-gray-900 flex flex-col" onClick={() => setProfileMenuOpen(false)}>
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 border-b border-gray-700">
-          <span className="text-white font-black font-mono tracking-widest text-lg">DuoFocus</span>
+          <span className="text-white font-black font-mono tracking-widest text-lg">Duodoro</span>
           <div className="flex items-center gap-3">
             <button
               onClick={(e) => { e.stopPropagation(); setFriendsOpen(true); }}
@@ -584,7 +601,7 @@ export default function DuoTimer() {
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="flex flex-col items-center gap-8 w-full max-w-md">
             <div className="text-center">
-              <h1 className="text-3xl font-bold text-white font-mono tracking-widest">DuoFocus</h1>
+              <h1 className="text-3xl font-bold text-white font-mono tracking-widest">Duodoro</h1>
               <p className="text-gray-400 text-sm mt-1">
                 Welcome back, {displayName}! Ready to focus together?
               </p>
@@ -690,7 +707,7 @@ export default function DuoTimer() {
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/90 backdrop-blur border-b border-gray-700 z-10">
         <div className="flex items-center gap-2.5">
-          <span className="text-white font-black font-mono tracking-widest text-sm">DuoFocus</span>
+          <span className="text-white font-black font-mono tracking-widest text-sm">Duodoro</span>
           <ConnectionDot connected={isConnected} />
         </div>
         <div className="flex items-center gap-1.5">
