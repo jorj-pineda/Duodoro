@@ -229,65 +229,103 @@ export default function DuoTimer() {
 
   useEffect(() => {
     let mounted = true;
+    let sessionHandled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
-    // Fall back to landing if loading takes more than 8 seconds
-    const timeout = setTimeout(() => {
+    // Fallback: if nothing resolves within the window, go to landing
+    const hasOAuthCode = window.location.search.includes("code=");
+    timeoutId = setTimeout(() => {
       if (mounted) setAppStep("landing");
-    }, 8000);
+    }, hasOAuthCode ? 20000 : 8000);
 
-    const applyProfile = (prof: Profile | null) => {
-      if (prof) {
-        setProfile(prof);
-        if (prof.avatar_config) {
-          setMyAvatar(prof.avatar_config);
-          setAppStep("room");
-        } else {
-          setAppStep("avatar");
-        }
+    // Navigate to the correct step based on what the DB profile contains
+    const applyProfile = (prof: Profile) => {
+      if (window.location.search.includes("code=")) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      setProfile(prof);
+      if (prof.avatar_config) {
+        setMyAvatar(prof.avatar_config);
+        setAppStep("room");
       } else {
         setAppStep("avatar");
       }
     };
 
-    const ensureProfile = async (userId: string, meta: Record<string, string>) => {
-      // Fetch existing profile
-      const { data: existing } = await sb
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      if (existing) return existing as Profile;
-
-      // No profile yet — create one client-side (trigger may have failed)
+    // Build a provisional profile from OAuth metadata immediately — no DB query needed
+    const profileFromSession = (session: Session): Profile => {
+      const { id, user_metadata, email } = session.user;
       const raw = (
-        meta?.preferred_username ||
-        meta?.user_name ||
-        meta?.email?.split("@")[0] ||
+        user_metadata?.preferred_username ||
+        user_metadata?.user_name ||
+        (email ?? "").split("@")[0] ||
         "user"
       ).replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() || "user";
+      return {
+        id,
+        username: raw,
+        display_name: user_metadata?.full_name ?? user_metadata?.name ?? raw,
+        avatar_config: null,
+        is_premium: false,
+        current_room: null,
+        updated_at: new Date().toISOString(),
+      };
+    };
 
-      const username = raw + "_" + userId.slice(0, 4);
-      const { data: created } = await sb
-        .from("profiles")
-        .upsert({ id: userId, username, display_name: meta?.full_name || meta?.name || raw })
-        .select()
-        .single();
-      return created as Profile | null;
+    // Called as soon as we have a confirmed session.
+    // Applies provisional profile immediately so the user never hangs on the
+    // loading screen, then loads the real DB profile in the background.
+    const handleSession = async (session: Session) => {
+      if (sessionHandled) return; // prevent duplicate calls from loadUser + onAuthStateChange
+      sessionHandled = true;
+      clearTimeout(timeoutId);
+      if (!mounted) return;
+
+      // Step 1: apply provisional profile right away (no DB wait)
+      const provisional = profileFromSession(session);
+      applyProfile(provisional);
+
+      // Step 2: fetch the real DB profile with a 6s timeout
+      try {
+        const result = await Promise.race([
+          sb.from("profiles").select("*").eq("id", session.user.id).single(),
+          new Promise<{ data: null; error: Error }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: new Error("db_timeout") }), 6000)
+          ),
+        ]);
+        if (!mounted) return;
+
+        if (result.data) {
+          const dbProf = result.data as Profile;
+          setProfile(dbProf);
+          if (dbProf.avatar_config) {
+            setMyAvatar(dbProf.avatar_config);
+            setAppStep("room");
+          }
+          // else avatar step already set above
+        } else {
+          // DB unavailable or no row yet — fire-and-forget upsert so the trigger has a chance to retry
+          sb.from("profiles").upsert({
+            id: provisional.id,
+            username: provisional.username + "_" + provisional.id.slice(0, 4),
+            display_name: provisional.display_name,
+          }).then(() => {});
+        }
+      } catch {
+        // DB unreachable — stay on whatever step applyProfile set
+      }
     };
 
     const loadUser = async () => {
       try {
         const { data: { session } } = await sb.auth.getSession();
         if (!mounted) return;
-
         if (!session) {
-          setAppStep("landing");
+          // PKCE exchange still in progress if code= is in URL; wait for onAuthStateChange
+          if (!window.location.search.includes("code=")) setAppStep("landing");
           return;
         }
-
-        const prof = await ensureProfile(session.user.id, session.user.user_metadata as Record<string, string>);
-        if (!mounted) return;
-        applyProfile(prof);
+        await handleSession(session);
       } catch {
         if (mounted) setAppStep("landing");
       }
@@ -295,25 +333,22 @@ export default function DuoTimer() {
 
     loadUser();
 
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      if (!mounted) return;
-      if (event === "SIGNED_IN" && session) {
-        try {
-          const prof = await ensureProfile(session.user.id, session.user.user_metadata as Record<string, string>);
-          if (!mounted) return;
-          applyProfile(prof);
-        } catch {
-          if (mounted) setAppStep("avatar");
+    const { data: { subscription } } = sb.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        if (!mounted) return;
+        // Handle both SIGNED_IN (normal) and INITIAL_SESSION (already signed in on subscribe)
+        if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+          await handleSession(session);
+        } else if (event === "SIGNED_OUT") {
+          setProfile(null);
+          setAppStep("landing");
         }
-      } else if (event === "SIGNED_OUT") {
-        setProfile(null);
-        setAppStep("landing");
       }
-    });
+    );
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

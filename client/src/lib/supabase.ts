@@ -1,22 +1,28 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Browser-side Supabase client (singleton pattern)
-let _client: ReturnType<typeof createBrowserClient> | null = null;
+// Browser-side Supabase client (singleton)
+// Uses localStorage for session storage (not cookies) — avoids SSR cookie handoff issues.
+// detectSessionInUrl: true + flowType: pkce lets the client exchange the OAuth code itself.
+let _client: SupabaseClient | null = null;
 
-export function getSupabase() {
+export function getSupabase(): SupabaseClient {
   if (!_client) {
-    _client = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        detectSessionInUrl: true,
+        persistSession: true,
+        flowType: "pkce",
+      },
+    });
   }
   return _client;
 }
 
-// Convenience: sign in with OAuth provider
 export async function signInWithProvider(provider: "google" | "discord") {
-  const sb = getSupabase();
-  const { error } = await sb.auth.signInWithOAuth({
+  const { error } = await getSupabase().auth.signInWithOAuth({
     provider,
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
@@ -26,6 +32,5 @@ export async function signInWithProvider(provider: "google" | "discord") {
 }
 
 export async function signOut() {
-  const sb = getSupabase();
-  await sb.auth.signOut();
+  await getSupabase().auth.signOut();
 }
