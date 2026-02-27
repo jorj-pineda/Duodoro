@@ -20,13 +20,15 @@ CREATE TABLE IF NOT EXISTS friendships (
   requester_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   addressee_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   status       TEXT CHECK (status IN ('pending', 'accepted')) DEFAULT 'pending',
-  created_at   TIMESTAMPTZ DEFAULT NOW(),
-  -- Prevent duplicate pairs regardless of direction
-  UNIQUE (
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Prevent duplicate pairs regardless of direction (A→B same as B→A)
+CREATE UNIQUE INDEX IF NOT EXISTS friendships_pair_unique
+  ON friendships (
     LEAST(requester_id::text, addressee_id::text),
     GREATEST(requester_id::text, addressee_id::text)
-  )
-);
+  );
 
 -- ── Tasks (sticky note journal) ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
