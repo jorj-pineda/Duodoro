@@ -29,6 +29,8 @@ interface Props {
   partner: PlayerInfo | null;
   myPet?: PetType | null;
   partnerPet?: PetType | null;
+  myName?: string;
+  partnerName?: string;
 }
 
 // ── World Decorations ──────────────────────────────────────────────────────
@@ -221,6 +223,8 @@ export default function GameWorld({
   partner,
   myPet,
   partnerPet,
+  myName,
+  partnerName,
 }: Props) {
   const world = getWorld(worldId);
 
@@ -305,6 +309,7 @@ export default function GameWorld({
       <motion.div
         className="absolute z-20"
         style={{ bottom: "calc(38% - 4px)" }}
+        initial={{ left: myLeft }}
         animate={{ left: myLeft }}
         transition={{ type: "tween", ease: "linear", duration: 0.8 }}
       >
@@ -316,16 +321,18 @@ export default function GameWorld({
           )}
           <PixelCharacter {...me.avatar} anim={myAnim} facing="right" size={3} />
         </div>
-        <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono">
-          YOU
+        <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
+          {myName ?? "YOU"}
         </div>
       </motion.div>
 
-      {/* Partner (right side, walks left) */}
+      {/* Partner (right side, walks left) — key on partner.id so initial position applies fresh on join */}
       {partner && (
         <motion.div
+          key={partner.id}
           className="absolute z-20"
           style={{ bottom: "calc(38% - 4px)" }}
+          initial={{ right: partnerRight }}
           animate={{ right: partnerRight }}
           transition={{ type: "tween", ease: "linear", duration: 0.8 }}
         >
@@ -337,8 +344,8 @@ export default function GameWorld({
               </div>
             )}
           </div>
-          <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono">
-            THEM
+          <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
+            {partnerName ?? "THEM"}
           </div>
         </motion.div>
       )}
