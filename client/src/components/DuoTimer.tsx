@@ -230,28 +230,16 @@ export default function DuoTimer() {
   useEffect(() => {
     let mounted = true;
 
-    const loadUser = async () => {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!mounted) return;
+    // Fall back to landing if loading takes more than 8 seconds
+    const timeout = setTimeout(() => {
+      if (mounted) setAppStep("landing");
+    }, 8000);
 
-      if (!session) {
-        setAppStep("landing");
-        return;
-      }
-
-      const { data: prof } = await sb
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!mounted) return;
-
+    const applyProfile = (prof: Profile | null) => {
       if (prof) {
-        const p = prof as Profile;
-        setProfile(p);
-        if (p.avatar_config) {
-          setMyAvatar(p.avatar_config);
+        setProfile(prof);
+        if (prof.avatar_config) {
+          setMyAvatar(prof.avatar_config);
           setAppStep("room");
         } else {
           setAppStep("avatar");
@@ -261,28 +249,44 @@ export default function DuoTimer() {
       }
     };
 
-    loadUser();
+    const loadUser = async () => {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!mounted) return;
 
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      if (!mounted) return;
-      if (event === "SIGNED_IN" && session) {
+        if (!session) {
+          setAppStep("landing");
+          return;
+        }
+
         const { data: prof } = await sb
           .from("profiles")
           .select("*")
           .eq("id", session.user.id)
           .single();
+
         if (!mounted) return;
-        if (prof) {
-          const p = prof as Profile;
-          setProfile(p);
-          if (p.avatar_config) {
-            setMyAvatar(p.avatar_config);
-            setAppStep("room");
-          } else {
-            setAppStep("avatar");
-          }
-        } else {
-          setAppStep("avatar");
+        applyProfile(prof as Profile | null);
+      } catch {
+        if (mounted) setAppStep("landing");
+      }
+    };
+
+    loadUser();
+
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (!mounted) return;
+      if (event === "SIGNED_IN" && session) {
+        try {
+          const { data: prof } = await sb
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+          if (!mounted) return;
+          applyProfile(prof as Profile | null);
+        } catch {
+          if (mounted) setAppStep("avatar");
         }
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
@@ -292,6 +296,7 @@ export default function DuoTimer() {
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -462,9 +467,14 @@ export default function DuoTimer() {
   if (appStep === "loading") {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-500 text-xs font-mono">Loading...</span>
+        <div className="flex flex-col items-center gap-5">
+          <div className="text-4xl font-black font-mono text-white tracking-widest">DuoFocus</div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+          </div>
+          <span className="text-gray-600 text-xs font-mono">signing you in...</span>
         </div>
       </div>
     );
