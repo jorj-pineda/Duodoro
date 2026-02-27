@@ -139,14 +139,14 @@ io.on('connection', (socket) => {
     socket.emit('sync_state', buildSyncPayload(rooms[roomCode]));
   });
 
-  // start_session: { roomCode, focusDuration (minutes), breakDuration (minutes) }
+  // start_session: { roomCode, focusDuration (seconds), breakDuration (seconds) }
   socket.on('start_session', ({ roomCode, focusDuration, breakDuration }) => {
     const room = getRoom(roomCode);
     if (!room) return;
     if (Object.keys(room.players).length < 2) return; // Need 2 players
 
-    room.focusDuration = (focusDuration || 25) * 60;
-    room.breakDuration = (breakDuration || 5) * 60;
+    room.focusDuration = focusDuration || 25 * 60;
+    room.breakDuration = breakDuration || 5 * 60;
     room.phase = 'focus';
     room.phaseStartTime = Date.now();
 
