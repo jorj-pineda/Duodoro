@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
 
     // Schedule end of focus phase
     room.phaseTimer = setTimeout(() => advancePhase(roomCode), room.focusDuration * 1000);
-    console.log(`[${roomCode}] Session started: ${focusDuration}m focus, ${breakDuration}m break`);
+    console.log(`[${roomCode}] Session started: ${Math.round(room.focusDuration / 60)}m focus, ${Math.round(room.breakDuration / 60)}m break`);
   });
 
   // stop_session: roomCode

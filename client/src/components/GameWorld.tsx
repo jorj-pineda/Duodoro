@@ -164,7 +164,7 @@ function PalmTree() {
 
 // ── Character Positioning ──────────────────────────────────────────────────
 
-function getCharacterAnim(phase: GamePhase, isMe: boolean): AnimState {
+function getCharacterAnim(phase: GamePhase): AnimState {
   switch (phase) {
     case "waiting": return "idle";
     case "focus": return "walk";
@@ -243,8 +243,8 @@ export default function GameWorld({
     return `calc(${focusProgress * 42}% + 8px)`;
   }, [phase, focusProgress, returningProgress]);
 
-  const myAnim = getCharacterAnim(phase, true);
-  const partnerAnim = getCharacterAnim(phase, false);
+  const myAnim = getCharacterAnim(phase);
+  const partnerAnim = getCharacterAnim(phase);
 
   // Ground height: bottom 38% of world container
   const GROUND_HEIGHT = "38%";

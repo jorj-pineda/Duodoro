@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { io, Socket } from "socket.io-client";
 import AvatarCreator from "./AvatarCreator";
 import GameWorld, { type GamePhase } from "./GameWorld";
@@ -368,7 +368,7 @@ export default function DuoTimer() {
       setIsConnected(true);
       setMyId(socket.id ?? "");
       if (roomCode) {
-        socket.emit("join_room", { roomCode, avatar: myAvatar, world: myWorld });
+        socket.emit("join_room", { roomCode, avatar: myAvatar, world: myWorld, displayName: profile?.display_name ?? profile?.username ?? "Player" });
       }
     });
 
@@ -479,7 +479,12 @@ export default function DuoTimer() {
       if (!socket) return;
       setRoomCode(code);
       setAppStep("game");
-      socket.emit("join_room", { roomCode: code, avatar: myAvatar, world: myWorld });
+      socket.emit("join_room", {
+        roomCode: code,
+        avatar: myAvatar,
+        world: myWorld,
+        displayName: profile?.display_name ?? profile?.username ?? "Player",
+      });
       await writeCurrentRoom(code);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -573,8 +578,11 @@ export default function DuoTimer() {
   const displayName = profile?.display_name ?? profile?.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();
 
+  // Stable room code that only changes when the room screen mounts fresh
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const generated = useMemo(() => generateRoomCode(), [appStep === "room"]);
+
   if (appStep === "room") {
-    const generated = generateRoomCode();
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col" onClick={() => setProfileMenuOpen(false)}>
         {/* Top bar */}
