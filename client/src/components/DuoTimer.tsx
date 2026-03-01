@@ -7,6 +7,8 @@ import LandingPage from "./LandingPage";
 import FriendsPanel from "./FriendsPanel";
 import StickyNote from "./StickyNote";
 import PremiumModal from "./PremiumModal";
+import StatsPanel from "./StatsPanel";
+import StatsScreen from "./StatsScreen";
 import { playSound } from "@/lib/sounds";
 import { DEFAULT_AVATAR, WORLDS, type AvatarConfig, type WorldId } from "@/lib/avatarData";
 import { getSupabase } from "@/lib/supabase";
@@ -217,9 +219,15 @@ export default function DuoTimer() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [fullStatsOpen, setFullStatsOpen] = useState(false);
 
   // ── Sound tracking ────────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
+
+  // Stable room code — regenerates only when user returns to the room screen
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const generated = useMemo(() => generateRoomCode(), [appStep === "room"]);
 
   const sb = getSupabase();
 
@@ -368,7 +376,7 @@ export default function DuoTimer() {
       setIsConnected(true);
       setMyId(socket.id ?? "");
       if (roomCode) {
-        socket.emit("join_room", { roomCode, avatar: myAvatar, world: myWorld, displayName: profile?.display_name ?? profile?.username ?? "Player" });
+        socket.emit("join_room", { roomCode, avatar: myAvatar, world: myWorld, displayName: profile?.display_name ?? profile?.username ?? "Player", userId: profile?.id });
       }
     });
 
@@ -484,6 +492,7 @@ export default function DuoTimer() {
         avatar: myAvatar,
         world: myWorld,
         displayName: profile?.display_name ?? profile?.username ?? "Player",
+        userId: profile?.id,
       });
       await writeCurrentRoom(code);
     },
@@ -578,10 +587,6 @@ export default function DuoTimer() {
   const displayName = profile?.display_name ?? profile?.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();
 
-  // Stable room code that only changes when the room screen mounts fresh
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const generated = useMemo(() => generateRoomCode(), [appStep === "room"]);
-
   if (appStep === "room") {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col" onClick={() => setProfileMenuOpen(false)}>
@@ -590,10 +595,18 @@ export default function DuoTimer() {
           <span className="text-white font-black font-mono tracking-widest text-lg">Duodoro</span>
           <div className="flex items-center gap-3">
             <button
-              onClick={(e) => { e.stopPropagation(); setFriendsOpen(true); }}
+              onClick={(e) => { e.stopPropagation(); setFriendsOpen(true); setStatsOpen(false); }}
               className="text-gray-400 hover:text-white text-sm font-mono transition-colors flex items-center gap-1.5"
             >
               👥 <span className="hidden sm:inline text-xs">Friends</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setStatsOpen((o) => !o); setFriendsOpen(false); }}
+              className={`text-sm font-mono transition-colors flex items-center gap-1.5 ${
+                statsOpen ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              📊 <span className="hidden sm:inline text-xs">Stats</span>
             </button>
             <div className="relative">
               <button
@@ -735,6 +748,17 @@ export default function DuoTimer() {
                 return code;
               }}
             />
+            <StatsPanel
+              open={statsOpen}
+              onClose={() => setStatsOpen(false)}
+              userId={profile.id}
+              onViewFullStats={() => { setStatsOpen(false); setFullStatsOpen(true); }}
+            />
+            <StatsScreen
+              open={fullStatsOpen}
+              onClose={() => setFullStatsOpen(false)}
+              userId={profile.id}
+            />
             <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
           </>
         )}
@@ -772,7 +796,7 @@ export default function DuoTimer() {
         <div className="flex items-center gap-1.5">
           {/* Friends */}
           <button
-            onClick={(e) => { e.stopPropagation(); setFriendsOpen((o) => !o); }}
+            onClick={(e) => { e.stopPropagation(); setFriendsOpen((o) => !o); setNotesOpen(false); setStatsOpen(false); }}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
               friendsOpen ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-700"
             }`}
@@ -781,12 +805,21 @@ export default function DuoTimer() {
           </button>
           {/* Notes */}
           <button
-            onClick={(e) => { e.stopPropagation(); setNotesOpen((o) => !o); }}
+            onClick={(e) => { e.stopPropagation(); setNotesOpen((o) => !o); setFriendsOpen(false); setStatsOpen(false); }}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
               notesOpen ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-700"
             }`}
           >
             📝 <span className="hidden sm:inline">Notes</span>
+          </button>
+          {/* Stats */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setStatsOpen((o) => !o); setNotesOpen(false); setFriendsOpen(false); }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              statsOpen ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-700"
+            }`}
+          >
+            📊 <span className="hidden sm:inline">Stats</span>
           </button>
           {/* Profile */}
           <div className="relative">
@@ -972,6 +1005,17 @@ export default function DuoTimer() {
             onClose={() => setNotesOpen(false)}
             userId={profile.id}
             roomCode={roomCode}
+          />
+          <StatsPanel
+            open={statsOpen}
+            onClose={() => setStatsOpen(false)}
+            userId={profile.id}
+            onViewFullStats={() => { setStatsOpen(false); setFullStatsOpen(true); }}
+          />
+          <StatsScreen
+            open={fullStatsOpen}
+            onClose={() => setFullStatsOpen(false)}
+            userId={profile.id}
           />
           <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
         </>

@@ -2,7 +2,17 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+
+// ── Supabase (service role — bypasses RLS for server-side writes) ──────────
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+  : null;
+
+if (!supabase) {
+  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — session recording disabled');
+}
 
 const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
@@ -22,7 +32,7 @@ const io = new Server(server, {
 //   phaseStartTime: number | null (ms),
 //   phaseTimer: NodeJS.Timeout | null,
 //   world: string,
-//   players: { [socketId]: { avatar: AvatarConfig } }
+//   players: { [socketId]: { avatar: AvatarConfig, displayName: string, userId: string|null } }
 // }
 const rooms = {};
 
@@ -45,6 +55,55 @@ function buildSyncPayload(room) {
   };
 }
 
+// ── Session Recording ──────────────────────────────────────────────────────
+async function recordSession(roomCode, room, completed) {
+  if (!supabase) return;
+
+  const elapsed = room.phaseStartTime
+    ? Math.round((Date.now() - room.phaseStartTime) / 1000)
+    : 0;
+  const actualFocus = completed ? room.focusDuration : Math.min(elapsed, room.focusDuration);
+
+  const userIds = Object.values(room.players)
+    .map(p => p.userId)
+    .filter(Boolean);
+
+  if (userIds.length === 0) return;
+
+  try {
+    const { data: session, error } = await supabase
+      .from('sessions')
+      .insert({
+        room_code: roomCode,
+        world: room.world,
+        focus_duration: room.focusDuration,
+        break_duration: room.breakDuration,
+        actual_focus: actualFocus,
+        completed,
+        started_at: new Date(room.phaseStartTime).toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error(`[${roomCode}] Failed to record session:`, error.message);
+      return;
+    }
+
+    const { error: pError } = await supabase
+      .from('session_participants')
+      .insert(userIds.map(uid => ({ session_id: session.id, user_id: uid })));
+
+    if (pError) {
+      console.error(`[${roomCode}] Failed to record participants:`, pError.message);
+    } else {
+      console.log(`[${roomCode}] Session recorded: ${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ${userIds.length} participants`);
+    }
+  } catch (err) {
+    console.error(`[${roomCode}] Session recording error:`, err);
+  }
+}
+
 function advancePhase(roomCode) {
   const room = getRoom(roomCode);
   if (!room) return;
@@ -65,6 +124,7 @@ function advancePhase(roomCode) {
     case 'focus':
       nextPhase = 'celebration';
       delay = CELEBRATION_MS;
+      recordSession(roomCode, room, true);
       break;
     case 'celebration':
       nextPhase = 'break';
@@ -101,8 +161,8 @@ function advancePhase(roomCode) {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  // join_room: { roomCode, avatar: AvatarConfig, world?: string, displayName?: string }
-  socket.on('join_room', ({ roomCode, avatar, world, displayName }) => {
+  // join_room: { roomCode, avatar: AvatarConfig, world?: string, displayName?: string, userId?: string }
+  socket.on('join_room', ({ roomCode, avatar, world, displayName, userId }) => {
     // Leave any previous room
     const prevRoom = socketToRoom[socket.id];
     if (prevRoom && prevRoom !== roomCode) {
@@ -124,7 +184,7 @@ io.on('connection', (socket) => {
       };
     }
 
-    rooms[roomCode].players[socket.id] = { avatar, displayName: displayName || 'Player' };
+    rooms[roomCode].players[socket.id] = { avatar, displayName: displayName || 'Player', userId: userId || null };
 
     const playerCount = Object.keys(rooms[roomCode].players).length;
     console.log(`[${roomCode}] ${displayName || socket.id} joined (${playerCount} players)`);
@@ -174,6 +234,11 @@ io.on('connection', (socket) => {
     const room = getRoom(roomCode);
     if (!room) return;
 
+    // Record incomplete session if stopped during focus
+    if (room.phase === 'focus') {
+      recordSession(roomCode, room, false);
+    }
+
     if (room.phaseTimer) {
       clearTimeout(room.phaseTimer);
       room.phaseTimer = null;
@@ -215,6 +280,10 @@ function leaveRoom(socket, roomCode) {
 
   // If fewer than 2 players, pause the session
   if (playerCount < 2 && room.phase !== 'waiting') {
+    // Record incomplete session if someone left during focus
+    if (room.phase === 'focus') {
+      recordSession(roomCode, room, false);
+    }
     if (room.phaseTimer) {
       clearTimeout(room.phaseTimer);
       room.phaseTimer = null;

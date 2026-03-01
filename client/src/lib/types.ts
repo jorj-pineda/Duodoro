@@ -42,3 +42,45 @@ export const PET_OPTIONS: { type: PetType; label: string; emoji: string }[] = [
   { type: "dragon", label: "Dragon", emoji: "🐉" },
   { type: "rabbit", label: "Rabbit", emoji: "🐰" },
 ];
+
+// ── Session Stats ─────────────────────────────────────────────────────────────
+
+export type Session = {
+  id: string;
+  room_code: string;
+  world: string;
+  focus_duration: number;
+  break_duration: number;
+  actual_focus: number;
+  completed: boolean;
+  started_at: string;
+  ended_at: string;
+};
+
+export type SessionParticipant = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type SessionWithPartner = Session & {
+  partner_name: string | null;
+  partner_id: string | null;
+};
+
+export type PersonalStats = {
+  totalFocusTime: number;
+  weeklyFocusTime: number;
+  sessionsCompleted: number;
+  currentStreak: number;
+  longestStreak: number;
+  avgSessionLength: number;
+};
+
+export type DuoStats = {
+  partnerId: string;
+  partnerName: string;
+  totalCoFocusTime: number;
+  sessionsTogether: number;
+};
