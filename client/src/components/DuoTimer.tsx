@@ -66,12 +66,23 @@ function formatTime(seconds: number): string {
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConnectionDot({ connected }: { connected: boolean }) {
+function SessionStatusDot({ phase }: { phase: GamePhase }) {
+  const color =
+    phase === "focus"
+      ? "bg-emerald-400"
+      : phase === "waiting"
+        ? "bg-red-400"
+        : "bg-yellow-400";
+  const shadow =
+    phase === "focus"
+      ? "0 0 6px #34d399"
+      : phase === "waiting"
+        ? "0 0 6px #f87171"
+        : "0 0 6px #facc15";
   return (
     <div
-      className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? "bg-emerald-400" : "bg-red-400"}`}
-      style={{ boxShadow: connected ? "0 0 6px #34d399" : "0 0 6px #f87171" }}
-      title={connected ? "Connected" : "Disconnected"}
+      className={`w-2 h-2 rounded-full ${color}`}
+      style={{ boxShadow: shadow }}
     />
   );
 }
@@ -211,7 +222,6 @@ export default function DuoTimer() {
   const [sessionStarted, setSessionStarted] = useState(false);
 
   // ── Connection ────────────────────────────────────────────────────────────
-  const [isConnected, setIsConnected] = useState(false);
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
 
@@ -381,11 +391,8 @@ export default function DuoTimer() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      setIsConnected(true);
       setMyId(socket.id ?? "");
     });
-
-    socket.on("disconnect", () => setIsConnected(false));
 
     socket.on("session_created", ({ sessionId: sid }: { sessionId: string }) => {
       setSessionId(sid);
@@ -505,6 +512,14 @@ export default function DuoTimer() {
     (world: WorldId) => {
       const socket = socketRef.current;
       if (!socket) return;
+      // If already in a session, leave it first
+      if (sessionId) {
+        socket.emit("leave_session", { sessionId });
+        setSessionStarted(false);
+        setPhase("waiting");
+        setPlayers({});
+        setSessionId("");
+      }
       setMyWorld(world);
       setAppStep("game");
       socket.emit("create_session", {
@@ -514,7 +529,7 @@ export default function DuoTimer() {
         userId: profile?.id,
       });
     },
-    [myAvatar, profile],
+    [myAvatar, profile, sessionId],
   );
 
   const joinSession = useCallback(
@@ -641,7 +656,9 @@ export default function DuoTimer() {
       <>
         <HomeDashboard
           profile={profile!}
+          activeSessionId={sessionId || undefined}
           onFocus={createSession}
+          onRejoinSession={() => setAppStep("game")}
           onJoinSession={joinSession}
           onEditAvatar={() => setAppStep("avatar")}
           onSignOut={async () => {
@@ -713,13 +730,11 @@ export default function DuoTimer() {
       onClick={() => setProfileMenuOpen(false)}
     >
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/90 backdrop-blur border-b border-gray-700 z-10">
-        <div className="flex items-center gap-2.5">
-          <span className="text-white font-black font-mono tracking-widest text-sm">
-            Duodoro
-          </span>
-          <ConnectionDot connected={isConnected} />
-        </div>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-800/90 backdrop-blur border-b border-gray-700 z-10">
+        {/* Left spacer */}
+        <div />
+
+        {/* Center: nav items + Duodoro + status dot */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={(e) => {
@@ -736,6 +751,20 @@ export default function DuoTimer() {
           >
             {"👥"} <span className="hidden sm:inline">Friends</span>
           </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setAppStep("home");
+            }}
+            className="flex flex-col items-center px-3 py-0.5 rounded-lg hover:bg-gray-700/50 transition-colors"
+          >
+            <span className="text-white font-black font-mono tracking-widest text-sm">
+              Duodoro
+            </span>
+            <SessionStatusDot phase={phase} />
+          </button>
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -766,13 +795,17 @@ export default function DuoTimer() {
           >
             {"📊"} <span className="hidden sm:inline">Stats</span>
           </button>
+        </div>
+
+        {/* Right: profile avatar */}
+        <div className="flex justify-end">
           <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setProfileMenuOpen((o) => !o);
               }}
-              className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-colors ml-1"
+              className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
             >
               {initial}
             </button>
