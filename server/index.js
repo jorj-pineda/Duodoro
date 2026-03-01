@@ -33,6 +33,10 @@ const io = new Server(server, {
 const sessions = {};
 const socketToSession = {};
 
+// Presence: track which users have the app open (userId <-> socketId)
+const userSockets = new Map();   // userId  -> socket.id
+const socketToUser = new Map();  // socket.id -> userId
+
 function getSession(sessionId) {
   return sessions[sessionId];
 }
@@ -68,6 +72,30 @@ async function clearPresence(userId) {
     .update({ current_session_id: null, current_world_id: null, current_room: null })
     .eq('id', userId)
     .then(() => {});
+}
+
+// ── Presence Helpers ──────────────────────────────────────────────────────
+
+async function getFriendIds(userId) {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('friendships')
+    .select('requester_id, addressee_id')
+    .eq('status', 'accepted')
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+  if (!data) return [];
+  return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+}
+
+function broadcastPresence(userId, online) {
+  getFriendIds(userId).then(friendIds => {
+    for (const fid of friendIds) {
+      const fSocketId = userSockets.get(fid);
+      if (fSocketId) {
+        io.to(fSocketId).emit('presence_update', { userId, online });
+      }
+    }
+  });
 }
 
 // ── Session Recording ──────────────────────────────────────────────────────
@@ -222,6 +250,42 @@ function leaveSession(socket, sessionId) {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
+  // ── Presence registration ───────────────────────────────────────────────
+  socket.on('register_user', ({ userId }) => {
+    if (!userId) return;
+    // If this user already has a socket, clean up the old one
+    const oldSocketId = userSockets.get(userId);
+    if (oldSocketId && oldSocketId !== socket.id) {
+      socketToUser.delete(oldSocketId);
+    }
+    userSockets.set(userId, socket.id);
+    socketToUser.set(socket.id, userId);
+    broadcastPresence(userId, true);
+    console.log(`[presence] ${userId} registered (${socket.id})`);
+  });
+
+  socket.on('get_online_friends', ({ friendIds }, callback) => {
+    const online = (friendIds || []).filter(id => userSockets.has(id));
+    if (typeof callback === 'function') callback(online);
+  });
+
+  // ── Invite relay ────────────────────────────────────────────────────────
+  socket.on('send_invite', ({ targetUserId, sessionId, worldId, fromName }) => {
+    const targetSocketId = userSockets.get(targetUserId);
+    if (!targetSocketId) {
+      socket.emit('invite_error', { message: 'Friend is offline' });
+      return;
+    }
+    const fromUserId = socketToUser.get(socket.id) || null;
+    io.to(targetSocketId).emit('session_invite', {
+      sessionId,
+      worldId,
+      fromName,
+      fromUserId,
+    });
+    console.log(`[invite] ${fromName} invited ${targetUserId} to ${sessionId}`);
+  });
+
   // create_session: { avatar, world, displayName, userId }
   // Creates a new session with a UUID, user becomes host.
   socket.on('create_session', ({ avatar, world, displayName, userId }) => {
@@ -349,6 +413,15 @@ io.on('connection', (socket) => {
     console.log(`Disconnected: ${socket.id}`);
     const sessionId = socketToSession[socket.id];
     if (sessionId) leaveSession(socket, sessionId);
+
+    // Clean up presence
+    const userId = socketToUser.get(socket.id);
+    if (userId) {
+      userSockets.delete(userId);
+      socketToUser.delete(socket.id);
+      broadcastPresence(userId, false);
+      console.log(`[presence] ${userId} disconnected`);
+    }
   });
 });
 

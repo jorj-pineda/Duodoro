@@ -13,6 +13,7 @@ import HomeDashboard from "./HomeDashboard";
 import { playSound } from "@/lib/sounds";
 import {
   DEFAULT_AVATAR,
+  WORLDS,
   type AvatarConfig,
   type WorldId,
 } from "@/lib/avatarData";
@@ -50,17 +51,21 @@ interface PhaseChangePayload {
   breakDuration: number;
 }
 
+interface InviteData {
+  sessionId: string;
+  worldId: string;
+  fromName: string;
+  fromUserId: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { formatTime } from "@/lib/format";
+
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
-
-function formatTime(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -192,6 +197,43 @@ function PetPicker({
   );
 }
 
+function InvitePopup({
+  invite,
+  onAccept,
+  onDismiss,
+}: {
+  invite: InviteData;
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const world = WORLDS.find((w) => w.id === invite.worldId);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-gray-800 border border-gray-600 rounded-2xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4">
+        <p className="text-3xl">{world?.emoji ?? "🌍"}</p>
+        <p className="text-white font-bold font-mono text-sm">
+          {invite.fromName} invited you to focus
+          {world ? ` in ${world.label}` : ""}!
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onDismiss}
+            className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-mono font-bold text-sm transition-colors"
+          >
+            Dismiss
+          </button>
+          <button
+            onClick={onAccept}
+            className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-mono font-bold text-sm transition-colors"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +281,7 @@ export default function DuoTimer() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [fullStatsOpen, setFullStatsOpen] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
 
   // ── Sound tracking ────────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
@@ -493,10 +536,30 @@ export default function DuoTimer() {
       });
     });
 
+    socket.on("session_invite", (data: InviteData) => {
+      setPendingInvite(data);
+    });
+
     return () => {
       socket.disconnect();
     };
   }, []);
+
+  // ── Register presence when profile + socket are ready ────────────────────
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !profile?.id) return;
+    if (socket.connected) {
+      socket.emit("register_user", { userId: profile.id });
+    }
+    const onConnect = () => {
+      socket.emit("register_user", { userId: profile.id });
+    };
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, [profile?.id]);
 
   // ── Play sounds on phase transitions ──────────────────────────────────────
   useEffect(() => {
@@ -622,6 +685,20 @@ export default function DuoTimer() {
     playSound("click");
   }, [sessionId]);
 
+  const sendInvite = useCallback(
+    (targetUserId: string) => {
+      const socket = socketRef.current;
+      if (!socket) return;
+      socket.emit("send_invite", {
+        targetUserId,
+        sessionId: sessionId || null,
+        worldId: myWorld,
+        fromName: profile?.display_name ?? profile?.username ?? "Someone",
+      });
+    },
+    [sessionId, myWorld, profile],
+  );
+
   // ─────────────────────────────────────────────────────────────────────────
   // Render: Loading
   // ─────────────────────────────────────────────────────────────────────────
@@ -707,9 +784,11 @@ export default function DuoTimer() {
         <HomeDashboard
           profile={profile!}
           activeSessionId={sessionId || undefined}
+          socketRef={socketRef}
           onFocus={createSession}
           onRejoinSession={() => setAppStep("game")}
           onJoinSession={joinSession}
+          onInvite={sendInvite}
           onEditAvatar={() => setAppStep("avatar")}
           onSignOut={async () => {
             const { signOut } = await import("@/lib/supabase");
@@ -724,6 +803,16 @@ export default function DuoTimer() {
             setFriendsOpen(false);
           }}
         />
+        {pendingInvite && (
+          <InvitePopup
+            invite={pendingInvite}
+            onAccept={() => {
+              if (pendingInvite.sessionId) joinSession(pendingInvite.sessionId);
+              setPendingInvite(null);
+            }}
+            onDismiss={() => setPendingInvite(null)}
+          />
+        )}
         {/* Panels available from home */}
         {profile && (
           <>
@@ -732,7 +821,7 @@ export default function DuoTimer() {
               onClose={() => setFriendsOpen(false)}
               myProfile={profile}
               onJoinSession={joinSession}
-              onInviteFriend={() => {}}
+              onInviteFriend={sendInvite}
             />
             <StatsPanel
               open={statsOpen}
@@ -1036,6 +1125,16 @@ export default function DuoTimer() {
         </button>
       </div>
 
+      {pendingInvite && (
+        <InvitePopup
+          invite={pendingInvite}
+          onAccept={() => {
+            if (pendingInvite.sessionId) joinSession(pendingInvite.sessionId);
+            setPendingInvite(null);
+          }}
+          onDismiss={() => setPendingInvite(null)}
+        />
+      )}
       {/* ── Slide-in panels & modals ── */}
       {profile && (
         <>
@@ -1044,7 +1143,7 @@ export default function DuoTimer() {
             onClose={() => setFriendsOpen(false)}
             myProfile={profile}
             onJoinSession={joinSession}
-            onInviteFriend={() => {}}
+            onInviteFriend={sendInvite}
           />
           <StickyNote
             open={notesOpen}

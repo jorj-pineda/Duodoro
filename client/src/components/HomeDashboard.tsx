@@ -4,25 +4,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSupabase } from "@/lib/supabase";
 import { useStats } from "@/lib/useStats";
 import { WORLDS, type WorldId } from "@/lib/avatarData";
+import { formatDuration } from "@/lib/format";
 import type { Profile, Task } from "@/lib/types";
+import type { Socket } from "socket.io-client";
 
 interface Props {
   profile: Profile;
   activeSessionId?: string;
+  socketRef: { current: Socket | null };
   onFocus: (world: WorldId) => void;
   onRejoinSession: () => void;
   onJoinSession: (sessionId: string) => void;
+  onInvite: (friendId: string) => void;
   onEditAvatar: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
   onOpenStats: () => void;
-}
-
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 function QuickStat({
@@ -53,9 +50,11 @@ function QuickStat({
 export default function HomeDashboard({
   profile,
   activeSessionId,
+  socketRef,
   onFocus,
   onRejoinSession,
   onJoinSession,
+  onInvite,
   onEditAvatar,
   onSignOut,
   onOpenFriends,
@@ -68,6 +67,9 @@ export default function HomeDashboard({
   const sb = getSupabase();
   const { personalStats, loading, fetchStats } = useStats(profile.id);
 
+  const [friends, setFriends] = useState<Profile[]>([]);
+  const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(new Set());
+
   const displayName = profile.display_name ?? profile.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();
   const isPremium = profile.is_premium ?? false;
@@ -75,6 +77,64 @@ export default function HomeDashboard({
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  // Fetch accepted friends list
+  const fetchFriends = useCallback(async () => {
+    const { data } = await sb
+      .from("friendships")
+      .select(`
+        id, requester_id, addressee_id,
+        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_session_id, current_world_id),
+        addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_session_id, current_world_id)
+      `)
+      .eq("status", "accepted");
+    if (data) {
+      const myId = profile.id;
+      setFriends(
+        data.map((f: any) =>
+          f.requester_id === myId ? f.addressee : f.requester,
+        ) as Profile[],
+      );
+    }
+  }, [sb, profile.id]);
+
+  useEffect(() => {
+    fetchFriends();
+  }, [fetchFriends]);
+
+  // Query online status via socket + listen for presence updates
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || friends.length === 0) return;
+
+    const friendIds = friends.map((f) => f.id);
+    socket.emit(
+      "get_online_friends",
+      { friendIds },
+      (online: string[]) => {
+        setOnlineFriendIds(new Set(online));
+      },
+    );
+
+    const handlePresence = ({ userId, online }: { userId: string; online: boolean }) => {
+      setOnlineFriendIds((prev) => {
+        const next = new Set(prev);
+        if (online) next.add(userId);
+        else next.delete(userId);
+        return next;
+      });
+    };
+
+    socket.on("presence_update", handlePresence);
+    return () => {
+      socket.off("presence_update", handlePresence);
+    };
+  }, [socketRef, friends]);
+
+  const WORLD_LABEL: Record<string, { emoji: string; label: string }> =
+    Object.fromEntries(WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }]));
+
+  const onlineFriends = friends.filter((f) => onlineFriendIds.has(f.id) || !!f.current_session_id);
 
   const fetchTasks = useCallback(async () => {
     const { data } = await sb
@@ -368,6 +428,73 @@ export default function HomeDashboard({
               </button>
             </div>
           </div>
+
+          {/* Friends Online */}
+          {onlineFriends.length > 0 && (
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold font-mono text-gray-400 uppercase tracking-wider">
+                  Friends Online
+                </h2>
+                <button
+                  onClick={onOpenFriends}
+                  className="text-[10px] font-mono text-gray-600 hover:text-emerald-400 transition-colors"
+                >
+                  See all
+                </button>
+              </div>
+              <div className="space-y-1">
+                {onlineFriends.slice(0, 5).map((f) => {
+                  const inSession = !!f.current_session_id;
+                  const worldInfo = f.current_world_id ? WORLD_LABEL[f.current_world_id] : null;
+                  const name = f.display_name ?? f.username;
+                  return (
+                    <div
+                      key={f.id}
+                      className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl hover:bg-gray-700/50 transition-colors group"
+                    >
+                      <div
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${inSession ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{name}</p>
+                        {inSession && worldInfo ? (
+                          <p className="text-[10px] text-emerald-400 font-mono truncate">
+                            {worldInfo.emoji} In {worldInfo.label}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-gray-500 font-mono">Online</p>
+                        )}
+                      </div>
+                      {inSession && f.current_session_id ? (
+                        <button
+                          onClick={() => onJoinSession(f.current_session_id!)}
+                          className="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 font-mono font-bold px-2 py-1 rounded-lg transition-colors"
+                        >
+                          Join
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onInvite(f.id)}
+                          className="text-[10px] bg-gray-700/50 hover:bg-gray-700 text-gray-400 font-mono font-bold px-2 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          Invite
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {onlineFriends.length > 5 && (
+                  <button
+                    onClick={onOpenFriends}
+                    className="w-full text-center text-[10px] font-mono text-gray-500 hover:text-emerald-400 py-1.5 transition-colors"
+                  >
+                    +{onlineFriends.length - 5} more
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* World Picker */}
           <div>
