@@ -5,7 +5,7 @@
 
 export type HairStyle = 'bob' | 'mohawk' | 'long' | 'spiky' | 'bald';
 export type EyeStyle = 'normal' | 'anime' | 'sleepy';
-export type WorldId = 'forest' | 'space' | 'beach';
+export type WorldId = 'forest' | 'space' | 'beach' | 'city' | 'mountain' | 'library' | 'cafe' | 'lofi';
 
 export type AvatarConfig = {
   skinColor: string;
@@ -104,6 +104,46 @@ export const WORLDS: WorldConfig[] = [
     skyGradient: 'linear-gradient(180deg, #FF8C42 0%, #FFD166 100%)',
     groundColor: '#C9A84C',
     groundPatternColor: '#B89238',
+  },
+  {
+    id: 'city',
+    label: 'City',
+    emoji: '🏙️',
+    skyGradient: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+    groundColor: '#3a3a4a',
+    groundPatternColor: '#2d2d3d',
+  },
+  {
+    id: 'mountain',
+    label: 'Mountain',
+    emoji: '🏔️',
+    skyGradient: 'linear-gradient(180deg, #87CEEB 0%, #E0F0FF 100%)',
+    groundColor: '#6b8e5e',
+    groundPatternColor: '#5a7d4d',
+  },
+  {
+    id: 'library',
+    label: 'Library',
+    emoji: '📚',
+    skyGradient: 'linear-gradient(180deg, #3e2723 0%, #5d4037 100%)',
+    groundColor: '#6d4c41',
+    groundPatternColor: '#5d3f35',
+  },
+  {
+    id: 'cafe',
+    label: 'Café',
+    emoji: '☕',
+    skyGradient: 'linear-gradient(180deg, #f5e6d3 0%, #e8d5b7 100%)',
+    groundColor: '#8d6e63',
+    groundPatternColor: '#795548',
+  },
+  {
+    id: 'lofi',
+    label: 'Lo-fi',
+    emoji: '🎧',
+    skyGradient: 'linear-gradient(180deg, #2d1b69 0%, #1a0a3e 60%, #11063a 100%)',
+    groundColor: '#1a1040',
+    groundPatternColor: '#231550',
   },
 ];
 

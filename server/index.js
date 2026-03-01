@@ -1,11 +1,11 @@
 const express = require('express');
 const http = require('http');
+const { randomUUID } = require('crypto');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// ── Supabase (service role — bypasses RLS for server-side writes) ──────────
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
   : null;
@@ -25,93 +25,110 @@ const io = new Server(server, {
   cors: { origin: allowedOrigin, methods: ['GET', 'POST'] }
 });
 
-// rooms[roomCode] = {
-//   phase: 'waiting' | 'focus' | 'celebration' | 'break' | 'returning',
-//   focusDuration: number (seconds),
-//   breakDuration: number (seconds),
-//   phaseStartTime: number | null (ms),
-//   phaseTimer: NodeJS.Timeout | null,
-//   world: string,
-//   players: { [socketId]: { avatar: AvatarConfig, displayName: string, userId: string|null } }
+// sessions[sessionId] = {
+//   phase, focusDuration, breakDuration, phaseStartTime, phaseTimer,
+//   world, hostId (socketId), soloAllowed,
+//   players: { [socketId]: { avatar, displayName, userId } }
 // }
-const rooms = {};
+const sessions = {};
+const socketToSession = {};
 
-// socketToRoom[socketId] = roomCode
-const socketToRoom = {};
-
-function getRoom(roomCode) {
-  return rooms[roomCode];
+function getSession(sessionId) {
+  return sessions[sessionId];
 }
 
-function buildSyncPayload(room) {
+function buildSyncPayload(session) {
   return {
-    phase: room.phase,
-    focusDuration: room.focusDuration,
-    breakDuration: room.breakDuration,
-    phaseStartTime: room.phaseStartTime,
-    world: room.world,
-    players: room.players,
-    playerCount: Object.keys(room.players).length,
+    phase: session.phase,
+    focusDuration: session.focusDuration,
+    breakDuration: session.breakDuration,
+    phaseStartTime: session.phaseStartTime,
+    world: session.world,
+    players: session.players,
+    playerCount: Object.keys(session.players).length,
+    sessionId: session.id,
   };
 }
 
+// ── Supabase Presence Helpers ──────────────────────────────────────────────
+
+async function setPresence(userId, sessionId, worldId) {
+  if (!supabase || !userId) return;
+  await supabase
+    .from('profiles')
+    .update({ current_session_id: sessionId, current_world_id: worldId, current_room: sessionId })
+    .eq('id', userId)
+    .then(() => {});
+}
+
+async function clearPresence(userId) {
+  if (!supabase || !userId) return;
+  await supabase
+    .from('profiles')
+    .update({ current_session_id: null, current_world_id: null, current_room: null })
+    .eq('id', userId)
+    .then(() => {});
+}
+
 // ── Session Recording ──────────────────────────────────────────────────────
-async function recordSession(roomCode, room, completed) {
+
+async function recordSession(sessionId, session, completed) {
   if (!supabase) return;
 
-  const elapsed = room.phaseStartTime
-    ? Math.round((Date.now() - room.phaseStartTime) / 1000)
+  const elapsed = session.phaseStartTime
+    ? Math.round((Date.now() - session.phaseStartTime) / 1000)
     : 0;
-  const actualFocus = completed ? room.focusDuration : Math.min(elapsed, room.focusDuration);
+  const actualFocus = completed ? session.focusDuration : Math.min(elapsed, session.focusDuration);
 
-  const userIds = Object.values(room.players)
+  const userIds = Object.values(session.players)
     .map(p => p.userId)
     .filter(Boolean);
 
   if (userIds.length === 0) return;
 
   try {
-    const { data: session, error } = await supabase
+    const { data: row, error } = await supabase
       .from('sessions')
       .insert({
-        room_code: roomCode,
-        world: room.world,
-        focus_duration: room.focusDuration,
-        break_duration: room.breakDuration,
+        room_code: sessionId,
+        world: session.world,
+        focus_duration: session.focusDuration,
+        break_duration: session.breakDuration,
         actual_focus: actualFocus,
         completed,
-        started_at: new Date(room.phaseStartTime).toISOString(),
+        started_at: new Date(session.phaseStartTime).toISOString(),
       })
       .select('id')
       .single();
 
     if (error) {
-      console.error(`[${roomCode}] Failed to record session:`, error.message);
+      console.error(`[${sessionId}] Failed to record session:`, error.message);
       return;
     }
 
     const { error: pError } = await supabase
       .from('session_participants')
-      .insert(userIds.map(uid => ({ session_id: session.id, user_id: uid })));
+      .insert(userIds.map(uid => ({ session_id: row.id, user_id: uid })));
 
     if (pError) {
-      console.error(`[${roomCode}] Failed to record participants:`, pError.message);
+      console.error(`[${sessionId}] Failed to record participants:`, pError.message);
     } else {
-      console.log(`[${roomCode}] Session recorded: ${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ${userIds.length} participants`);
+      console.log(`[${sessionId}] Session recorded: ${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ${userIds.length} participants`);
     }
   } catch (err) {
-    console.error(`[${roomCode}] Session recording error:`, err);
+    console.error(`[${sessionId}] Session recording error:`, err);
   }
 }
 
-function advancePhase(roomCode) {
-  const room = getRoom(roomCode);
-  if (!room) return;
+// ── Phase Advance ──────────────────────────────────────────────────────────
 
-  // Clear any existing timer
-  if (room.phaseTimer) {
-    clearTimeout(room.phaseTimer);
-    room.phaseTimer = null;
+function advancePhase(sessionId) {
+  const session = getSession(sessionId);
+  if (!session) return;
+
+  if (session.phaseTimer) {
+    clearTimeout(session.phaseTimer);
+    session.phaseTimer = null;
   }
 
   const CELEBRATION_MS = 4000;
@@ -120,15 +137,15 @@ function advancePhase(roomCode) {
   let nextPhase;
   let delay;
 
-  switch (room.phase) {
+  switch (session.phase) {
     case 'focus':
       nextPhase = 'celebration';
       delay = CELEBRATION_MS;
-      recordSession(roomCode, room, true);
+      recordSession(sessionId, session, true);
       break;
     case 'celebration':
       nextPhase = 'break';
-      delay = room.breakDuration * 1000;
+      delay = session.breakDuration * 1000;
       break;
     case 'break':
       nextPhase = 'returning';
@@ -136,176 +153,204 @@ function advancePhase(roomCode) {
       break;
     case 'returning':
       nextPhase = 'focus';
-      delay = room.focusDuration * 1000;
+      delay = session.focusDuration * 1000;
       break;
     default:
       return;
   }
 
-  room.phase = nextPhase;
-  room.phaseStartTime = Date.now();
+  session.phase = nextPhase;
+  session.phaseStartTime = Date.now();
 
-  io.to(roomCode).emit('phase_change', {
+  io.to(sessionId).emit('phase_change', {
     phase: nextPhase,
-    phaseStartTime: room.phaseStartTime,
-    focusDuration: room.focusDuration,
-    breakDuration: room.breakDuration,
+    phaseStartTime: session.phaseStartTime,
+    focusDuration: session.focusDuration,
+    breakDuration: session.breakDuration,
   });
 
-  console.log(`[${roomCode}] Phase: ${nextPhase}`);
-
-  // Schedule next transition
-  room.phaseTimer = setTimeout(() => advancePhase(roomCode), delay);
+  console.log(`[${sessionId}] Phase: ${nextPhase}`);
+  session.phaseTimer = setTimeout(() => advancePhase(sessionId), delay);
 }
+
+// ── Leave Session Helper ───────────────────────────────────────────────────
+
+function leaveSession(socket, sessionId) {
+  const session = getSession(sessionId);
+  if (!session) return;
+
+  const player = session.players[socket.id];
+  if (player?.userId) clearPresence(player.userId);
+
+  delete session.players[socket.id];
+  delete socketToSession[socket.id];
+  socket.leave(sessionId);
+
+  const playerCount = Object.keys(session.players).length;
+  console.log(`[${sessionId}] ${socket.id} left (${playerCount} remaining)`);
+
+  io.to(sessionId).emit('player_left', { playerId: socket.id });
+
+  if (playerCount === 0) {
+    if (session.phase === 'focus') recordSession(sessionId, session, false);
+    if (session.phaseTimer) clearTimeout(session.phaseTimer);
+    delete sessions[sessionId];
+    console.log(`[${sessionId}] Session deleted`);
+    return;
+  }
+
+  // Solo session keeps running, multi-player pauses if only 1 left and not solo-allowed
+  if (playerCount < 1 && session.phase !== 'waiting') {
+    if (session.phase === 'focus') recordSession(sessionId, session, false);
+    if (session.phaseTimer) {
+      clearTimeout(session.phaseTimer);
+      session.phaseTimer = null;
+    }
+    session.phase = 'waiting';
+    session.phaseStartTime = null;
+    io.to(sessionId).emit('phase_change', {
+      phase: 'waiting',
+      phaseStartTime: null,
+      focusDuration: session.focusDuration,
+      breakDuration: session.breakDuration,
+    });
+  }
+}
+
+// ── Socket Handlers ────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  // join_room: { roomCode, avatar: AvatarConfig, world?: string, displayName?: string, userId?: string }
-  socket.on('join_room', ({ roomCode, avatar, world, displayName, userId }) => {
-    // Leave any previous room
-    const prevRoom = socketToRoom[socket.id];
-    if (prevRoom && prevRoom !== roomCode) {
-      leaveRoom(socket, prevRoom);
+  // create_session: { avatar, world, displayName, userId }
+  // Creates a new session with a UUID, user becomes host.
+  socket.on('create_session', ({ avatar, world, displayName, userId }) => {
+    const prevSession = socketToSession[socket.id];
+    if (prevSession) leaveSession(socket, prevSession);
+
+    const sessionId = randomUUID();
+
+    sessions[sessionId] = {
+      id: sessionId,
+      phase: 'waiting',
+      focusDuration: 25 * 60,
+      breakDuration: 5 * 60,
+      phaseStartTime: null,
+      phaseTimer: null,
+      world: world || 'forest',
+      hostId: socket.id,
+      players: {},
+    };
+
+    socket.join(sessionId);
+    socketToSession[socket.id] = sessionId;
+    sessions[sessionId].players[socket.id] = {
+      avatar,
+      displayName: displayName || 'Player',
+      userId: userId || null,
+    };
+
+    if (userId) setPresence(userId, sessionId, world || 'forest');
+
+    console.log(`[${sessionId}] ${displayName || socket.id} created session (world: ${world || 'forest'})`);
+
+    socket.emit('session_created', { sessionId });
+    socket.emit('sync_state', buildSyncPayload(sessions[sessionId]));
+  });
+
+  // join_session: { sessionId, avatar, displayName, userId }
+  // Joins an existing session by its UUID.
+  socket.on('join_session', ({ sessionId, avatar, displayName, userId }) => {
+    const prevSession = socketToSession[socket.id];
+    if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
+
+    const session = getSession(sessionId);
+    if (!session) {
+      socket.emit('session_error', { message: 'Session not found' });
+      return;
     }
 
-    socket.join(roomCode);
-    socketToRoom[socket.id] = roomCode;
+    socket.join(sessionId);
+    socketToSession[socket.id] = sessionId;
+    session.players[socket.id] = {
+      avatar,
+      displayName: displayName || 'Player',
+      userId: userId || null,
+    };
 
-    if (!rooms[roomCode]) {
-      rooms[roomCode] = {
-        phase: 'waiting',
-        focusDuration: 25 * 60,
-        breakDuration: 5 * 60,
-        phaseStartTime: null,
-        phaseTimer: null,
-        world: world || 'forest',
-        players: {},
-      };
-    }
+    if (userId) setPresence(userId, sessionId, session.world);
 
-    rooms[roomCode].players[socket.id] = { avatar, displayName: displayName || 'Player', userId: userId || null };
+    const playerCount = Object.keys(session.players).length;
+    console.log(`[${sessionId}] ${displayName || socket.id} joined (${playerCount} players)`);
 
-    const playerCount = Object.keys(rooms[roomCode].players).length;
-    console.log(`[${roomCode}] ${displayName || socket.id} joined (${playerCount} players)`);
-
-    // Notify everyone in the room of new player
-    socket.to(roomCode).emit('player_joined', {
+    socket.to(sessionId).emit('player_joined', {
       playerId: socket.id,
       avatar,
       displayName: displayName || 'Player',
     });
 
-    // Send full state to the joining player
-    socket.emit('sync_state', buildSyncPayload(rooms[roomCode]));
+    socket.emit('sync_state', buildSyncPayload(session));
   });
 
-  // start_session: { roomCode, focusDuration (seconds), breakDuration (seconds) }
-  socket.on('start_session', ({ roomCode, focusDuration, breakDuration }) => {
-    const room = getRoom(roomCode);
-    if (!room) return;
-    if (Object.keys(room.players).length < 2) return; // Need 2 players
+  // start_session: { sessionId, focusDuration, breakDuration }
+  // Solo start allowed (1 player is fine).
+  socket.on('start_session', ({ sessionId, focusDuration, breakDuration }) => {
+    const session = getSession(sessionId);
+    if (!session) return;
+    if (Object.keys(session.players).length < 1) return;
 
-    room.focusDuration = focusDuration || 25 * 60;
-    room.breakDuration = breakDuration || 5 * 60;
-    room.phase = 'focus';
-    room.phaseStartTime = Date.now();
+    session.focusDuration = focusDuration || 25 * 60;
+    session.breakDuration = breakDuration || 5 * 60;
+    session.phase = 'focus';
+    session.phaseStartTime = Date.now();
 
-    // Clear any existing timer
-    if (room.phaseTimer) {
-      clearTimeout(room.phaseTimer);
-    }
+    if (session.phaseTimer) clearTimeout(session.phaseTimer);
 
-    // Broadcast phase change to everyone
-    io.to(roomCode).emit('phase_change', {
+    io.to(sessionId).emit('phase_change', {
       phase: 'focus',
-      phaseStartTime: room.phaseStartTime,
-      focusDuration: room.focusDuration,
-      breakDuration: room.breakDuration,
+      phaseStartTime: session.phaseStartTime,
+      focusDuration: session.focusDuration,
+      breakDuration: session.breakDuration,
     });
 
-    // Schedule end of focus phase
-    room.phaseTimer = setTimeout(() => advancePhase(roomCode), room.focusDuration * 1000);
-    console.log(`[${roomCode}] Session started: ${Math.round(room.focusDuration / 60)}m focus, ${Math.round(room.breakDuration / 60)}m break`);
+    session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
+    console.log(`[${sessionId}] Session started: ${Math.round(session.focusDuration / 60)}m focus, ${Math.round(session.breakDuration / 60)}m break, ${Object.keys(session.players).length} players`);
   });
 
-  // stop_session: roomCode
-  socket.on('stop_session', (roomCode) => {
-    const room = getRoom(roomCode);
-    if (!room) return;
+  // stop_session: { sessionId }
+  socket.on('stop_session', ({ sessionId }) => {
+    const session = getSession(sessionId);
+    if (!session) return;
 
-    // Record incomplete session if stopped during focus
-    if (room.phase === 'focus') {
-      recordSession(roomCode, room, false);
+    if (session.phase === 'focus') recordSession(sessionId, session, false);
+
+    if (session.phaseTimer) {
+      clearTimeout(session.phaseTimer);
+      session.phaseTimer = null;
     }
 
-    if (room.phaseTimer) {
-      clearTimeout(room.phaseTimer);
-      room.phaseTimer = null;
-    }
+    session.phase = 'waiting';
+    session.phaseStartTime = null;
 
-    room.phase = 'waiting';
-    room.phaseStartTime = null;
-
-    io.to(roomCode).emit('phase_change', {
+    io.to(sessionId).emit('phase_change', {
       phase: 'waiting',
       phaseStartTime: null,
-      focusDuration: room.focusDuration,
-      breakDuration: room.breakDuration,
+      focusDuration: session.focusDuration,
+      breakDuration: session.breakDuration,
     });
+  });
+
+  // leave_session: { sessionId }
+  socket.on('leave_session', ({ sessionId }) => {
+    leaveSession(socket, sessionId);
   });
 
   socket.on('disconnect', () => {
     console.log(`Disconnected: ${socket.id}`);
-    const roomCode = socketToRoom[socket.id];
-    if (roomCode) {
-      leaveRoom(socket, roomCode);
-    }
+    const sessionId = socketToSession[socket.id];
+    if (sessionId) leaveSession(socket, sessionId);
   });
 });
-
-function leaveRoom(socket, roomCode) {
-  const room = getRoom(roomCode);
-  if (!room) return;
-
-  delete room.players[socket.id];
-  delete socketToRoom[socket.id];
-  socket.leave(roomCode);
-
-  const playerCount = Object.keys(room.players).length;
-  console.log(`[${roomCode}] ${socket.id} left (${playerCount} remaining)`);
-
-  // Notify remaining players
-  io.to(roomCode).emit('player_left', { playerId: socket.id });
-
-  // If fewer than 2 players, pause the session
-  if (playerCount < 2 && room.phase !== 'waiting') {
-    // Record incomplete session if someone left during focus
-    if (room.phase === 'focus') {
-      recordSession(roomCode, room, false);
-    }
-    if (room.phaseTimer) {
-      clearTimeout(room.phaseTimer);
-      room.phaseTimer = null;
-    }
-    room.phase = 'waiting';
-    room.phaseStartTime = null;
-
-    io.to(roomCode).emit('phase_change', {
-      phase: 'waiting',
-      phaseStartTime: null,
-      focusDuration: room.focusDuration,
-      breakDuration: room.breakDuration,
-    });
-  }
-
-  // Clean up empty rooms
-  if (playerCount === 0) {
-    if (room.phaseTimer) clearTimeout(room.phaseTimer);
-    delete rooms[roomCode];
-    console.log(`[${roomCode}] Room deleted`);
-  }
-}
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

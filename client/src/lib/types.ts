@@ -9,6 +9,8 @@ export type Profile = {
   avatar_config: AvatarConfig | null;
   is_premium: boolean;
   current_room: string | null;
+  current_session_id: string | null;
+  current_world_id: string | null;
   updated_at: string;
 };
 

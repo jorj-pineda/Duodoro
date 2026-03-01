@@ -2,65 +2,69 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSupabase } from "@/lib/supabase";
-import type { Profile, Friendship } from "@/lib/types";
+import { WORLDS } from "@/lib/avatarData";
+import type { Profile } from "@/lib/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   myProfile: Profile;
-  onJoinRoom: (roomCode: string) => void;
-  onInviteFriend: (friendId: string) => string; // returns generated room code
+  onJoinSession: (sessionId: string) => void;
+  onInviteFriend: (friendId: string) => void;
 }
 
 type Tab = "friends" | "requests" | "find";
 
-// ── Status dot ─────────────────────────────────────────────────────────────
-function StatusDot({ online, inSession }: { online: boolean; inSession: boolean }) {
-  const color = inSession
-    ? "bg-yellow-400"
-    : online
-    ? "bg-emerald-400"
-    : "bg-gray-600";
+const WORLD_LABEL: Record<string, { emoji: string; label: string }> = Object.fromEntries(
+  WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }])
+);
+
+function StatusDot({ inSession }: { inSession: boolean }) {
   return (
     <div
-      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${color}`}
-      title={inSession ? "In session" : online ? "Online" : "Offline"}
+      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${inSession ? "bg-emerald-400 animate-pulse" : "bg-gray-600"}`}
+      title={inSession ? "In session" : "Offline"}
     />
   );
 }
 
-// ── Friend row ─────────────────────────────────────────────────────────────
 function FriendRow({
   friend,
   onJoin,
   onInvite,
 }: {
   friend: Profile;
-  onJoin: (code: string) => void;
+  onJoin: (sessionId: string) => void;
   onInvite: () => void;
 }) {
-  const isOnline = !!friend.current_room || true; // treat all as online for demo; real presence via Supabase RT
-  const inSession = !!friend.current_room;
+  const inSession = !!friend.current_session_id;
+  const worldInfo = friend.current_world_id ? WORLD_LABEL[friend.current_world_id] : null;
   const name = friend.display_name ?? friend.username;
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-gray-700/50 transition-colors group">
-      <StatusDot online={isOnline} inSession={inSession} />
+      <StatusDot inSession={inSession} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-white truncate">{name}</p>
-        <p className="text-xs text-gray-500 font-mono truncate">@{friend.username}</p>
+        {inSession && worldInfo ? (
+          <p className="text-xs text-emerald-400 font-mono truncate">
+            {worldInfo.emoji} In {worldInfo.label}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500 font-mono truncate">@{friend.username}</p>
+        )}
       </div>
-      {inSession && friend.current_room ? (
+      {inSession && friend.current_session_id ? (
         <button
-          onClick={() => onJoin(friend.current_room!)}
-          className="text-xs bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors"
+          onClick={() => onJoin(friend.current_session_id!)}
+          className="text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors"
         >
           Join
         </button>
       ) : (
         <button
           onClick={onInvite}
-          className="text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+          className="text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-400 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
         >
           Invite
         </button>
@@ -108,7 +112,7 @@ function RequestRow({
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export default function FriendsPanel({ open, onClose, myProfile, onJoinRoom, onInviteFriend }: Props) {
+export default function FriendsPanel({ open, onClose, myProfile, onJoinSession, onInviteFriend }: Props) {
   const [tab, setTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<Profile[]>([]);
   const [requests, setRequests] = useState<{ id: string; requester: Profile }[]>([]);
@@ -124,8 +128,8 @@ export default function FriendsPanel({ open, onClose, myProfile, onJoinRoom, onI
       .from("friendships")
       .select(`
         id, status, requester_id, addressee_id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_room, is_premium),
-        addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_room, is_premium)
+        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium),
+        addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium)
       `)
       .eq("status", "accepted");
 
@@ -142,7 +146,7 @@ export default function FriendsPanel({ open, onClose, myProfile, onJoinRoom, onI
       .from("friendships")
       .select(`
         id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_room)
+        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_session_id, current_world_id)
       `)
       .eq("addressee_id", myProfile.id)
       .eq("status", "pending");
@@ -260,11 +264,8 @@ export default function FriendsPanel({ open, onClose, myProfile, onJoinRoom, onI
                       <FriendRow
                         key={f.id}
                         friend={f}
-                        onJoin={onJoinRoom}
-                        onInvite={() => {
-                          const code = onInviteFriend(f.id);
-                          onJoinRoom(code);
-                        }}
+                        onJoin={onJoinSession}
+                        onInvite={() => onInviteFriend(f.id)}
                       />
                     ))
                   )}
