@@ -302,7 +302,7 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
                           className="hover:opacity-100 opacity-60 transition-opacity"
                           style={{ color: color.accent }}
                         >
-                          Clear done
+                          Clean
                         </button>
                       )}
                     </div>

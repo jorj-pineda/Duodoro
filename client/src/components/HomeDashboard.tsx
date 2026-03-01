@@ -280,7 +280,7 @@ export default function HomeDashboard({
                       onClick={clearCompleted}
                       className="text-[10px] font-mono text-gray-600 hover:text-red-400 transition-colors"
                     >
-                      Clear done
+                      Clean
                     </button>
                   )}
                 </div>
