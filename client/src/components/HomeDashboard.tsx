@@ -15,6 +15,7 @@ interface Props {
   onEditAvatar: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
+  onOpenNotes: () => void;
   onOpenStats: () => void;
 }
 
@@ -59,6 +60,7 @@ export default function HomeDashboard({
   onEditAvatar,
   onSignOut,
   onOpenFriends,
+  onOpenNotes,
   onOpenStats,
 }: Props) {
   const [selectedWorld, setSelectedWorld] = useState<WorldId>("forest");
@@ -124,13 +126,10 @@ export default function HomeDashboard({
       className="min-h-screen bg-gray-900 flex flex-col"
       onClick={() => setProfileMenuOpen(false)}
     >
-      {/* Top bar */}
+      {/* Top bar — same grid as game screen, Duodoro always dead center */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-800/80 border-b border-gray-700">
-        {/* Left spacer */}
-        <div />
-
-        {/* Center: nav items + Duodoro + status dot */}
-        <div className="flex items-center gap-1.5">
+        {/* Left: Friends — right-aligned toward Duodoro */}
+        <div className="flex items-center justify-end pr-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -140,17 +139,30 @@ export default function HomeDashboard({
           >
             {"👥"} <span className="hidden sm:inline">Friends</span>
           </button>
+        </div>
 
-          <div className="flex flex-col items-center px-3 py-0.5">
-            <span className="text-white font-black font-mono tracking-widest text-sm">
-              Duodoro
-            </span>
-            <div
-              className={`w-2 h-2 rounded-full ${activeSessionId ? "bg-yellow-400" : "bg-red-400"}`}
-              style={{ boxShadow: activeSessionId ? "0 0 6px #facc15" : "0 0 6px #f87171" }}
-            />
-          </div>
+        {/* Center: Duodoro + status dot — always dead center */}
+        <div className="flex flex-col items-center px-3 py-0.5">
+          <span className="text-white font-black font-mono tracking-widest text-sm">
+            Duodoro
+          </span>
+          <div
+            className={`w-2 h-2 rounded-full ${activeSessionId ? "bg-yellow-400" : "bg-red-400"}`}
+            style={{ boxShadow: activeSessionId ? "0 0 6px #facc15" : "0 0 6px #f87171" }}
+          />
+        </div>
 
+        {/* Right: Notes, Stats, Account — left-aligned from Duodoro, Account pushed far right */}
+        <div className="flex items-center gap-1.5 pl-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenNotes();
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+          >
+            {"📝"} <span className="hidden sm:inline">Notes</span>
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -160,10 +172,7 @@ export default function HomeDashboard({
           >
             {"📊"} <span className="hidden sm:inline">Stats</span>
           </button>
-        </div>
-
-        {/* Right: profile avatar */}
-        <div className="flex justify-end">
+          <div className="flex-1" />
           <div className="relative">
             <button
               onClick={(e) => {
@@ -375,30 +384,28 @@ export default function HomeDashboard({
               ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Focus Button — fixed at bottom */}
-      <div className="px-4 pb-6 pt-3 bg-gradient-to-t from-gray-900 via-gray-900/95 to-transparent">
-        <div className="max-w-lg mx-auto space-y-2">
-          {activeSessionId && (
+          {/* Focus Button — directly below world picker */}
+          <div className="space-y-2 pt-2">
+            {activeSessionId && (
+              <button
+                onClick={onRejoinSession}
+                className="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-[0.98] text-gray-900 font-black px-8 py-4 rounded-2xl shadow-lg shadow-yellow-500/20 font-mono tracking-widest transition-all border-b-4 border-yellow-700 text-lg"
+              >
+                RETURN TO SESSION
+              </button>
+            )}
             <button
-              onClick={onRejoinSession}
-              className="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-[0.98] text-gray-900 font-black px-8 py-4 rounded-2xl shadow-lg shadow-yellow-500/20 font-mono tracking-widest transition-all border-b-4 border-yellow-700 text-lg"
+              onClick={() => onFocus(selectedWorld)}
+              className={`w-full active:scale-[0.98] text-white font-black px-8 rounded-2xl shadow-lg font-mono tracking-widest transition-all border-b-4 ${
+                activeSessionId
+                  ? "bg-gray-700 hover:bg-gray-600 shadow-gray-700/20 border-gray-800 py-3 text-sm"
+                  : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20 border-emerald-700 py-4 text-lg"
+              }`}
             >
-              RETURN TO SESSION
+              {activeSessionId ? "NEW SESSION" : "FOCUS"}
             </button>
-          )}
-          <button
-            onClick={() => onFocus(selectedWorld)}
-            className={`w-full active:scale-[0.98] text-white font-black px-8 rounded-2xl shadow-lg font-mono tracking-widest transition-all border-b-4 ${
-              activeSessionId
-                ? "bg-gray-700 hover:bg-gray-600 shadow-gray-700/20 border-gray-800 py-3 text-sm"
-                : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20 border-emerald-700 py-4 text-lg"
-            }`}
-          >
-            {activeSessionId ? "NEW SESSION" : "FOCUS"}
-          </button>
+          </div>
         </div>
       </div>
     </div>

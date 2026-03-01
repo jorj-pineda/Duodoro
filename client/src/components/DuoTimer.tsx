@@ -246,6 +246,33 @@ export default function DuoTimer() {
   const sb = getSupabase();
 
   // ─────────────────────────────────────────────────────────────────────────
+  // localStorage helpers — fast path for returning users
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const PROFILE_CACHE_KEY = "duodoro_profile";
+
+  const cacheProfile = (p: Profile) => {
+    try {
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(p));
+    } catch {}
+  };
+
+  const getCachedProfile = (): Profile | null => {
+    try {
+      const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+      return raw ? (JSON.parse(raw) as Profile) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const clearCachedProfile = () => {
+    try {
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+    } catch {}
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Auth init — returning users with avatar skip to home
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -286,12 +313,48 @@ export default function DuoTimer() {
       };
     };
 
+    const applyProfile = (prof: Profile) => {
+      if (!mounted) return;
+      if (window.location.search.includes("code=")) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      setProfile(prof);
+      cacheProfile(prof);
+      if (prof.avatar_config) {
+        setMyAvatar(prof.avatar_config);
+        setAppStep("home");
+      } else {
+        setAppStep("avatar");
+      }
+    };
+
     const handleSession = async (session: Session) => {
       if (sessionHandled) return;
       sessionHandled = true;
       clearTimeout(timeoutId);
       if (!mounted) return;
 
+      // Fast path: use localStorage cache immediately so user never sees avatar creator flash
+      const cached = getCachedProfile();
+      if (cached && cached.id === session.user.id && cached.avatar_config) {
+        applyProfile(cached);
+        // Still fetch from DB in background to keep cache fresh
+        sb.from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data && mounted) {
+              const fresh = data as Profile;
+              setProfile(fresh);
+              cacheProfile(fresh);
+              if (fresh.avatar_config) setMyAvatar(fresh.avatar_config);
+            }
+          });
+        return;
+      }
+
+      // Slow path: query DB with timeout
       try {
         const result = await Promise.race([
           sb.from("profiles").select("*").eq("id", session.user.id).single(),
@@ -302,24 +365,10 @@ export default function DuoTimer() {
         if (!mounted) return;
 
         if (result.data) {
-          const dbProf = result.data as Profile;
-          if (window.location.search.includes("code=")) {
-            window.history.replaceState({}, "", window.location.pathname);
-          }
-          setProfile(dbProf);
-          if (dbProf.avatar_config) {
-            setMyAvatar(dbProf.avatar_config);
-            setAppStep("home");
-          } else {
-            setAppStep("avatar");
-          }
+          applyProfile(result.data as Profile);
         } else {
           const provisional = profileFromSession(session);
-          if (window.location.search.includes("code=")) {
-            window.history.replaceState({}, "", window.location.pathname);
-          }
-          setProfile(provisional);
-          setAppStep("avatar");
+          applyProfile(provisional);
           sb.from("profiles")
             .upsert({
               id: provisional.id,
@@ -330,11 +379,7 @@ export default function DuoTimer() {
         }
       } catch {
         const provisional = profileFromSession(session);
-        if (window.location.search.includes("code=")) {
-          window.history.replaceState({}, "", window.location.pathname);
-        }
-        setProfile(provisional);
-        setAppStep("avatar");
+        applyProfile(provisional);
       }
     };
 
@@ -365,6 +410,7 @@ export default function DuoTimer() {
           await handleSession(session);
         } else if (event === "SIGNED_OUT") {
           setProfile(null);
+          clearCachedProfile();
           setAppStep("landing");
         }
       },
@@ -501,7 +547,9 @@ export default function DuoTimer() {
       .update({ avatar_config: config })
       .eq("id", profile.id);
     setMyAvatar(config);
-    setProfile((p) => (p ? { ...p, avatar_config: config } : p));
+    const updated = { ...profile, avatar_config: config };
+    setProfile(updated);
+    cacheProfile(updated);
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -634,7 +682,9 @@ export default function DuoTimer() {
                 .from("profiles")
                 .update({ display_name: name })
                 .eq("id", profile.id);
-              setProfile((p) => (p ? { ...p, display_name: name } : p));
+              const updated = { ...profile, display_name: name, avatar_config: config };
+              setProfile(updated);
+              cacheProfile(updated);
             }
             setAppStep("home");
           }}
@@ -667,11 +717,18 @@ export default function DuoTimer() {
           }}
           onOpenFriends={() => {
             setFriendsOpen(true);
+            setNotesOpen(false);
+            setStatsOpen(false);
+          }}
+          onOpenNotes={() => {
+            setNotesOpen(true);
+            setFriendsOpen(false);
             setStatsOpen(false);
           }}
           onOpenStats={() => {
             setStatsOpen((o) => !o);
             setFriendsOpen(false);
+            setNotesOpen(false);
           }}
         />
         {/* Panels available from home */}
@@ -683,6 +740,12 @@ export default function DuoTimer() {
               myProfile={profile}
               onJoinSession={joinSession}
               onInviteFriend={() => {}}
+            />
+            <StickyNote
+              open={notesOpen}
+              onClose={() => setNotesOpen(false)}
+              userId={profile.id}
+              roomCode={sessionId || null}
             />
             <StatsPanel
               open={statsOpen}
@@ -731,11 +794,8 @@ export default function DuoTimer() {
     >
       {/* ── Top bar ── */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-800/90 backdrop-blur border-b border-gray-700 z-10">
-        {/* Left spacer */}
-        <div />
-
-        {/* Center: nav items + Duodoro + status dot */}
-        <div className="flex items-center gap-1.5">
+        {/* Left: Friends — right-aligned toward Duodoro */}
+        <div className="flex items-center justify-end pr-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -751,20 +811,24 @@ export default function DuoTimer() {
           >
             {"👥"} <span className="hidden sm:inline">Friends</span>
           </button>
+        </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setAppStep("home");
-            }}
-            className="flex flex-col items-center px-3 py-0.5 rounded-lg hover:bg-gray-700/50 transition-colors"
-          >
-            <span className="text-white font-black font-mono tracking-widest text-sm">
-              Duodoro
-            </span>
-            <SessionStatusDot phase={phase} />
-          </button>
+        {/* Center: Duodoro + status dot — always dead center */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setAppStep("home");
+          }}
+          className="flex flex-col items-center px-3 py-0.5 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <span className="text-white font-black font-mono tracking-widest text-sm">
+            Duodoro
+          </span>
+          <SessionStatusDot phase={phase} />
+        </button>
 
+        {/* Right: Notes, Stats, Account — left-aligned from Duodoro, Account pushed far right */}
+        <div className="flex items-center gap-1.5 pl-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -795,10 +859,7 @@ export default function DuoTimer() {
           >
             {"📊"} <span className="hidden sm:inline">Stats</span>
           </button>
-        </div>
-
-        {/* Right: profile avatar */}
-        <div className="flex justify-end">
+          <div className="flex-1" />
           <div className="relative">
             <button
               onClick={(e) => {
