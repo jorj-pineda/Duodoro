@@ -717,18 +717,11 @@ export default function DuoTimer() {
           }}
           onOpenFriends={() => {
             setFriendsOpen(true);
-            setNotesOpen(false);
-            setStatsOpen(false);
-          }}
-          onOpenNotes={() => {
-            setNotesOpen(true);
-            setFriendsOpen(false);
             setStatsOpen(false);
           }}
           onOpenStats={() => {
             setStatsOpen((o) => !o);
             setFriendsOpen(false);
-            setNotesOpen(false);
           }}
         />
         {/* Panels available from home */}
@@ -740,12 +733,6 @@ export default function DuoTimer() {
               myProfile={profile}
               onJoinSession={joinSession}
               onInviteFriend={() => {}}
-            />
-            <StickyNote
-              open={notesOpen}
-              onClose={() => setNotesOpen(false)}
-              userId={profile.id}
-              roomCode={sessionId || null}
             />
             <StatsPanel
               open={statsOpen}

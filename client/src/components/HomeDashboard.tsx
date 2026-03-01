@@ -15,7 +15,6 @@ interface Props {
   onEditAvatar: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
-  onOpenNotes: () => void;
   onOpenStats: () => void;
 }
 
@@ -60,7 +59,6 @@ export default function HomeDashboard({
   onEditAvatar,
   onSignOut,
   onOpenFriends,
-  onOpenNotes,
   onOpenStats,
 }: Props) {
   const [selectedWorld, setSelectedWorld] = useState<WorldId>("forest");
@@ -117,6 +115,14 @@ export default function HomeDashboard({
   const pendingTasks = tasks.filter((t) => !t.is_done);
   const completedTasks = tasks.filter((t) => t.is_done);
 
+  const clearCompleted = async () => {
+    const done = completedTasks;
+    for (const t of done) {
+      await sb.from("tasks").delete().eq("id", t.id);
+    }
+    setTasks((p) => p.filter((t) => !t.is_done));
+  };
+
   const greetingHour = new Date().getHours();
   const greeting =
     greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
@@ -152,17 +158,8 @@ export default function HomeDashboard({
           />
         </div>
 
-        {/* Right: Notes, Stats, Account — left-aligned from Duodoro, Account pushed far right */}
+        {/* Right: Stats, Account — left-aligned from Duodoro, Account pushed far right */}
         <div className="flex items-center gap-1.5 pl-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenNotes();
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
-          >
-            {"📝"} <span className="hidden sm:inline">Notes</span>
-          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -274,9 +271,19 @@ export default function HomeDashboard({
                 Goals
               </h2>
               {tasks.length > 0 && (
-                <span className="text-[10px] font-mono text-gray-600">
-                  {completedTasks.length}/{tasks.length} done
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-gray-600">
+                    {completedTasks.length}/{tasks.length} done
+                  </span>
+                  {completedTasks.length > 0 && (
+                    <button
+                      onClick={clearCompleted}
+                      className="text-[10px] font-mono text-gray-600 hover:text-red-400 transition-colors"
+                    >
+                      Clear done
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -307,7 +314,7 @@ export default function HomeDashboard({
                     </button>
                   </motion.div>
                 ))}
-                {completedTasks.slice(0, 3).map((task) => (
+                {completedTasks.map((task) => (
                   <motion.div
                     key={task.id}
                     layout

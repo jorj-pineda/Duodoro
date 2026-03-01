@@ -294,7 +294,18 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
               {activeTasks.length > 0 && (
                 <div className="px-4 pt-3 pb-1">
                   <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: color.accent, opacity: 0.6 }}>
-                    <span>{completedCount}/{activeTasks.length} done</span>
+                    <div className="flex items-center gap-2">
+                      <span>{completedCount}/{activeTasks.length} done</span>
+                      {completedCount > 0 && (
+                        <button
+                          onClick={clearCompleted}
+                          className="hover:opacity-100 opacity-60 transition-opacity"
+                          style={{ color: color.accent }}
+                        >
+                          Clear done
+                        </button>
+                      )}
+                    </div>
                     <span>{Math.round((completedCount / activeTasks.length) * 100)}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full overflow-hidden bg-black/10">
