@@ -18,6 +18,7 @@ const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 
 app.use(cors({ origin: allowedOrigin }));
+app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
 app.get('/health', (_, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
