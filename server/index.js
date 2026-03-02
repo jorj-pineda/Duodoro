@@ -23,7 +23,36 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: allowedOrigin, methods: ['GET', 'POST'] }
+  cors: { origin: allowedOrigin, methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 1e5, // 100KB max payload
+});
+
+// ── Auth middleware — verify Supabase JWT on every connection ─────────────
+const VALID_WORLDS = ['forest', 'space', 'beach', 'city'];
+const MAX_DISPLAY_NAME = 50;
+const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
+const MAX_BREAK = 60 * 60;    // 1 hour in seconds
+
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication required'));
+  }
+  if (!supabase) {
+    // If Supabase isn't configured, skip JWT verification (dev mode)
+    console.warn('[auth] Supabase not configured, skipping JWT verification');
+    return next();
+  }
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return next(new Error('Invalid or expired token'));
+    }
+    socket.userId = user.id;
+    next();
+  } catch (err) {
+    return next(new Error('Authentication failed'));
+  }
 });
 
 // sessions[sessionId] = {
@@ -252,7 +281,9 @@ io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
   // ── Presence registration ───────────────────────────────────────────────
-  socket.on('register_user', ({ userId }) => {
+  // Use verified socket.userId from auth middleware instead of client-sent userId
+  socket.on('register_user', () => {
+    const userId = socket.userId;
     if (!userId) return;
     // If this user already has a socket, clean up the old one
     const oldSocketId = userSockets.get(userId);
@@ -272,28 +303,42 @@ io.on('connection', (socket) => {
 
   // ── Invite relay ────────────────────────────────────────────────────────
   socket.on('send_invite', ({ targetUserId, sessionId, worldId, fromName }) => {
+    if (typeof targetUserId !== 'string' || !targetUserId) return;
     const targetSocketId = userSockets.get(targetUserId);
     if (!targetSocketId) {
       socket.emit('invite_error', { message: 'Friend is offline' });
       return;
     }
-    const fromUserId = socketToUser.get(socket.id) || null;
+    // Use verified userId, not client-sent
+    const fromUserId = socket.userId || null;
+    const safeName = (typeof fromName === 'string' ? fromName : 'Someone').slice(0, MAX_DISPLAY_NAME);
+    const safeWorld = VALID_WORLDS.includes(worldId) ? worldId : null;
     io.to(targetSocketId).emit('session_invite', {
-      sessionId,
-      worldId,
-      fromName,
+      sessionId: typeof sessionId === 'string' ? sessionId : null,
+      worldId: safeWorld,
+      fromName: safeName,
       fromUserId,
     });
-    console.log(`[invite] ${fromName} invited ${targetUserId} to ${sessionId}`);
+    console.log(`[invite] ${safeName} invited ${targetUserId}`);
   });
 
-  // create_session: { avatar, world, displayName, userId }
+  // create_session: { avatar, world, displayName }
   // Creates a new session with a UUID, user becomes host.
-  socket.on('create_session', ({ avatar, world, displayName, userId }) => {
+  // userId comes from verified socket.userId (auth middleware).
+  socket.on('create_session', ({ avatar, world, displayName }) => {
+    // Input validation
+    const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
+    const safeWorld = VALID_WORLDS.includes(world) ? world : 'forest';
+    if (!avatar || typeof avatar !== 'object') {
+      socket.emit('session_error', { message: 'Invalid avatar' });
+      return;
+    }
+
     const prevSession = socketToSession[socket.id];
     if (prevSession) leaveSession(socket, prevSession);
 
     const sessionId = randomUUID();
+    const userId = socket.userId || null;
 
     sessions[sessionId] = {
       id: sessionId,
@@ -302,7 +347,7 @@ io.on('connection', (socket) => {
       breakDuration: 5 * 60,
       phaseStartTime: null,
       phaseTimer: null,
-      world: world || 'forest',
+      world: safeWorld,
       hostId: socket.id,
       players: {},
     };
@@ -311,21 +356,32 @@ io.on('connection', (socket) => {
     socketToSession[socket.id] = sessionId;
     sessions[sessionId].players[socket.id] = {
       avatar,
-      displayName: displayName || 'Player',
-      userId: userId || null,
+      displayName: safeName,
+      userId,
     };
 
-    if (userId) setPresence(userId, sessionId, world || 'forest');
+    if (userId) setPresence(userId, sessionId, safeWorld);
 
-    console.log(`[${sessionId}] ${displayName || socket.id} created session (world: ${world || 'forest'})`);
+    console.log(`[${sessionId}] ${safeName} created session (world: ${safeWorld})`);
 
     socket.emit('session_created', { sessionId });
     socket.emit('sync_state', buildSyncPayload(sessions[sessionId]));
   });
 
-  // join_session: { sessionId, avatar, displayName, userId }
+  // join_session: { sessionId, avatar, displayName }
   // Joins an existing session by its UUID.
-  socket.on('join_session', ({ sessionId, avatar, displayName, userId }) => {
+  // userId comes from verified socket.userId (auth middleware).
+  socket.on('join_session', ({ sessionId, avatar, displayName }) => {
+    const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
+    if (!avatar || typeof avatar !== 'object') {
+      socket.emit('session_error', { message: 'Invalid avatar' });
+      return;
+    }
+    if (typeof sessionId !== 'string') {
+      socket.emit('session_error', { message: 'Invalid session ID' });
+      return;
+    }
+
     const prevSession = socketToSession[socket.id];
     if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
 
@@ -335,23 +391,25 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const userId = socket.userId || null;
+
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     session.players[socket.id] = {
       avatar,
-      displayName: displayName || 'Player',
-      userId: userId || null,
+      displayName: safeName,
+      userId,
     };
 
     if (userId) setPresence(userId, sessionId, session.world);
 
     const playerCount = Object.keys(session.players).length;
-    console.log(`[${sessionId}] ${displayName || socket.id} joined (${playerCount} players)`);
+    console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
 
     socket.to(sessionId).emit('player_joined', {
       playerId: socket.id,
       avatar,
-      displayName: displayName || 'Player',
+      displayName: safeName,
     });
 
     socket.emit('sync_state', buildSyncPayload(session));
@@ -363,9 +421,14 @@ io.on('connection', (socket) => {
     const session = getSession(sessionId);
     if (!session) return;
     if (Object.keys(session.players).length < 1) return;
+    // Only a player in this session can start it
+    if (!session.players[socket.id]) return;
 
-    session.focusDuration = focusDuration || 25 * 60;
-    session.breakDuration = breakDuration || 5 * 60;
+    const safeFocus = Math.min(Math.max(Number(focusDuration) || 25 * 60, 60), MAX_FOCUS);
+    const safeBreak = Math.min(Math.max(Number(breakDuration) || 5 * 60, 30), MAX_BREAK);
+
+    session.focusDuration = safeFocus;
+    session.breakDuration = safeBreak;
     session.phase = 'focus';
     session.phaseStartTime = Date.now();
 
@@ -386,6 +449,7 @@ io.on('connection', (socket) => {
   socket.on('stop_session', ({ sessionId }) => {
     const session = getSession(sessionId);
     if (!session) return;
+    if (!session.players[socket.id]) return; // Only participants can stop
 
     if (session.phase === 'focus') recordSession(sessionId, session, false);
 

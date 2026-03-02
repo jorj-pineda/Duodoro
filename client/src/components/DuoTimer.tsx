@@ -468,20 +468,40 @@ export default function DuoTimer() {
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Socket setup
+  // Socket setup — connects after auth is ready so we can send the JWT
   // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-    });
-    socketRef.current = socket;
+    let cancelled = false;
 
-    socket.on("connect", () => {
-      setMyId(socket.id ?? "");
-    });
+    async function connectSocket() {
+      // Get current Supabase session for the access token
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      if (cancelled) return;
+
+      const socket = io(SOCKET_URL, {
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        auth: { token: session?.access_token ?? "" },
+      });
+      socketRef.current = socket;
+
+      // Refresh token on reconnect attempts
+      socket.on("connect_error", async (err) => {
+        if (err.message === "Invalid or expired token" || err.message === "Authentication required") {
+          const { data: { session: fresh } } = await sb.auth.getSession();
+          if (fresh?.access_token) {
+            socket.auth = { token: fresh.access_token };
+          }
+        }
+      });
+
+      socket.on("connect", () => {
+        setMyId(socket.id ?? "");
+      });
 
     socket.on("session_created", ({ sessionId: sid }: { sessionId: string }) => {
       setSessionId(sid);
@@ -539,9 +559,13 @@ export default function DuoTimer() {
     socket.on("session_invite", (data: InviteData) => {
       setPendingInvite(data);
     });
+    }
+
+    connectSocket();
 
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      socketRef.current?.disconnect();
     };
   }, []);
 
@@ -550,10 +574,10 @@ export default function DuoTimer() {
     const socket = socketRef.current;
     if (!socket || !profile?.id) return;
     if (socket.connected) {
-      socket.emit("register_user", { userId: profile.id });
+      socket.emit("register_user", {});
     }
     const onConnect = () => {
-      socket.emit("register_user", { userId: profile.id });
+      socket.emit("register_user", {});
     };
     socket.on("connect", onConnect);
     return () => {
@@ -637,7 +661,6 @@ export default function DuoTimer() {
         avatar: myAvatar,
         world,
         displayName: profile?.display_name ?? profile?.username ?? "Player",
-        userId: profile?.id,
       });
     },
     [myAvatar, profile, sessionId],
@@ -653,7 +676,6 @@ export default function DuoTimer() {
         sessionId: sid,
         avatar: myAvatar,
         displayName: profile?.display_name ?? profile?.username ?? "Player",
-        userId: profile?.id,
       });
     },
     [myAvatar, profile],
