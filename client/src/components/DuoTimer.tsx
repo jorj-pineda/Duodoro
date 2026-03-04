@@ -282,6 +282,10 @@ export default function DuoTimer() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [fullStatsOpen, setFullStatsOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
+  const [inviteSentName, setInviteSentName] = useState<string | null>(null);
+
+  // Pending outbound invite — when we need to create a session before inviting
+  const pendingOutboundInvite = useRef<string | null>(null);
 
   // ── Sound tracking ────────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
@@ -505,6 +509,17 @@ export default function DuoTimer() {
 
     socket.on("session_created", ({ sessionId: sid }: { sessionId: string }) => {
       setSessionId(sid);
+      // If we created this session to send an invite, send it now
+      const target = pendingOutboundInvite.current;
+      if (target) {
+        pendingOutboundInvite.current = null;
+        socket.emit("send_invite", {
+          targetUserId: target,
+          sessionId: sid,
+          worldId: myWorld,
+          fromName: profile?.display_name ?? profile?.username ?? "Someone",
+        });
+      }
     });
 
     socket.on("session_error", ({ message }: { message: string }) => {
@@ -711,14 +726,31 @@ export default function DuoTimer() {
     (targetUserId: string) => {
       const socket = socketRef.current;
       if (!socket) return;
-      socket.emit("send_invite", {
-        targetUserId,
-        sessionId: sessionId || null,
-        worldId: myWorld,
-        fromName: profile?.display_name ?? profile?.username ?? "Someone",
-      });
+
+      // Show brief "Invite sent" toast
+      setInviteSentName(targetUserId);
+      setTimeout(() => setInviteSentName(null), 2500);
+
+      if (sessionId) {
+        // Already in a session — send invite immediately
+        socket.emit("send_invite", {
+          targetUserId,
+          sessionId,
+          worldId: myWorld,
+          fromName: profile?.display_name ?? profile?.username ?? "Someone",
+        });
+      } else {
+        // Not in a session — create one first, then invite
+        pendingOutboundInvite.current = targetUserId;
+        setAppStep("game");
+        socket.emit("create_session", {
+          avatar: myAvatar,
+          world: myWorld,
+          displayName: profile?.display_name ?? profile?.username ?? "Player",
+        });
+      }
     },
-    [sessionId, myWorld, profile],
+    [sessionId, myWorld, myAvatar, profile],
   );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1157,6 +1189,19 @@ export default function DuoTimer() {
           onDismiss={() => setPendingInvite(null)}
         />
       )}
+      {/* Invite sent toast */}
+      <AnimatePresence>
+        {inviteSentName && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm font-mono font-bold px-4 py-2.5 rounded-xl shadow-lg"
+          >
+            Invite sent!
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* ── Slide-in panels & modals ── */}
       {profile && (
         <>
