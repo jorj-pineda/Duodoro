@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { motion, AnimatePresence } from "framer-motion";
 import AvatarCreator from "./AvatarCreator";
 import GameWorld, { type GamePhase } from "./GameWorld";
 import LandingPage from "./LandingPage";
@@ -574,6 +575,11 @@ export default function DuoTimer() {
     socket.on("session_invite", (data: InviteData) => {
       setPendingInvite(data);
     });
+
+    socket.on("invite_error", ({ message }: { message: string }) => {
+      setInviteSentName(null);
+      console.warn("Invite error:", message);
+    });
     }
 
     connectSocket();
@@ -867,6 +873,18 @@ export default function DuoTimer() {
             onDismiss={() => setPendingInvite(null)}
           />
         )}
+        <AnimatePresence>
+          {inviteSentName && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm font-mono font-bold px-4 py-2.5 rounded-xl shadow-lg"
+            >
+              Invite sent!
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Panels available from home */}
         {profile && (
           <>
