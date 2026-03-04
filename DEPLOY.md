@@ -1,123 +1,149 @@
-# Deployment Guide
+# Deployment Guide — Self-Hosted VPS
+
+## Architecture
+
+```
+Internet → [Nginx :80/:443]
+              ├── /              → Next.js (:3000)  ─┐
+              ├── /socket.io/*   → Express  (:3001)  ├── Docker containers
+              └── /.well-known/* → Certbot           │
+```
+
+Both app services run as Docker containers on a single VPS. Nginx handles SSL termination and reverse proxying. Supabase remains a managed cloud service.
+
+---
 
 ## Prerequisites
 
-- GitHub repo pushed: `https://github.com/jorj-pineda/Duodoro.git`
+- A VPS (Hetzner CX22 ~$4.50/mo or DigitalOcean $6/mo, Ubuntu 24.04 LTS)
+- A domain name pointed at the VPS IP (A record)
 - Supabase project (already set up)
-- Vercel account (free tier)
-- Render account (free tier)
+- GitHub repo: `https://github.com/jorj-pineda/Duodoro.git`
 
 ---
 
 ## Step 0: Run Supabase Migrations
 
-Before deploying, the database schema must be set up. Run these migrations **in order** in your Supabase dashboard:
+Run these in your Supabase dashboard **SQL Editor**, one at a time, in order:
 
-1. Go to your Supabase project > **SQL Editor**.
-2. Paste and run each migration file one at a time, in order:
+| # | File | Creates |
+|---|------|---------|
+| 1 | `supabase/migrations/001_initial.sql` | `profiles`, `friendships`, `tasks`, `waitlist` + RLS |
+| 2 | `supabase/migrations/002_sessions.sql` | `sessions`, `session_participants` + RLS |
+| 3 | `supabase/migrations/003_worlds_and_sessions.sql` | Adds `current_session_id`, `current_world_id` to profiles |
+| 4 | `supabase/migrations/004_tighten_session_rls.sql` | Drops permissive INSERT policies (server-only writes) |
 
-  | #   | File                                              | Creates                                                                          |
-  | --- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
-  | 1   | `supabase/migrations/001_initial.sql`             | `profiles`, `friendships`, `tasks`, `waitlist` tables + RLS policies             |
-  | 2   | `supabase/migrations/002_sessions.sql`            | `sessions`, `session_participants` tables + RLS policies                         |
-  | 3   | `supabase/migrations/003_worlds_and_sessions.sql` | Adds `current_session_id`, `current_world_id` to profiles; `session_id` to tasks |
-  | 4   | `supabase/migrations/004_tighten_session_rls.sql` | Removes permissive INSERT policies on sessions tables (server-only writes) |
-
-3. After running all migrations, verify in **Table Editor** that all tables exist and RLS is enabled (lock icon on each table).
-4. Under **Authentication > URL Configuration**, add your production URL to **Redirect URLs** (e.g. `https://duodoro.vercel.app/`**).
+After running all migrations, add your production URL (`https://yourdomain.com`) to **Authentication > URL Configuration > Redirect URLs** in Supabase.
 
 ---
 
-## Step 1: Deploy the Client (Vercel)
+## Step 1: Provision the VPS
 
-1. Go to [vercel.com](https://vercel.com) and sign in with GitHub.
-2. Click **"Add New Project"** and import the `jorj-pineda/Duodoro` repo.
-3. In the project configuration:
-  - **Root Directory**: Set to `client`
-  - **Framework Preset**: Next.js (auto-detected)
-4. Add these **Environment Variables**:
-
-  | Variable                        | Value                                                                                 |
-  | ------------------------------- | ------------------------------------------------------------------------------------- |
-  | `NEXT_PUBLIC_SUPABASE_URL`      | Your Supabase project URL (e.g. `https://xxx.supabase.co`)                            |
-  | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key                                                         |
-  |                                 | Your Render server URL (add after Step 2, e.g. `https://duodoro-server.onrender.com`) |
-
-5. Click **Deploy**. Vercel will build and host the Next.js app.
-6. Note your deployment URL (e.g. `https://duodoro.vercel.app`).
+1. Create an Ubuntu 24.04 VPS and note the IP address.
+2. Point your domain's A record to the VPS IP.
+3. SSH in as root:
+   ```bash
+   ssh root@your-vps-ip
+   ```
+4. Run the setup script:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/jorj-pineda/Duodoro/main/scripts/setup-vps.sh -o setup.sh
+   sudo bash setup.sh yourdomain.com your-email@example.com
+   ```
+   This installs Docker, Nginx, Certbot, obtains SSL, creates a `deploy` user, and clones the repo to `/opt/duodoro`.
 
 ---
 
-## Step 2: Deploy the Server (Render)
+## Step 2: Configure Environment
 
-1. Go to [render.com](https://render.com) and sign in.
-2. Click **"New" > "Web Service"** and connect the `jorj-pineda/Duodoro` repo.
-3. In the service configuration:
-  - **Name**: `duodoro-server`
-  - **Root Directory**: `server`
-  - **Runtime**: Node
-  - **Build Command**: `npm install`
-  - **Start Command**: `node index.js`
-4. Add these **Environment Variables**:
+Create the production `.env` file on the VPS:
 
-  | Variable               | Value                                               |
-  | ---------------------- | --------------------------------------------------- |
-  | `PORT`                 | `10000` (Render's default)                          |
-  | `ALLOWED_ORIGIN`       | Your Vercel URL (e.g. `https://duodoro.vercel.app`) |
-  | `SUPABASE_URL`         | Your Supabase project URL                           |
-  | `SUPABASE_SERVICE_KEY` | Your Supabase **service role** key                  |
+```bash
+nano /opt/duodoro/.env
+```
 
-5. Click **Create Web Service**. Render will build and start the server.
-6. Note your server URL (e.g. `https://duodoro-server.onrender.com`).
+Use `.env.production.example` as a template:
+
+```env
+ALLOWED_ORIGIN=https://yourdomain.com
+NEXT_PUBLIC_SOCKET_URL=https://yourdomain.com
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+```
 
 ---
 
-## Step 3: Connect Client to Server
+## Step 3: Build and Start
 
-1. Go back to your Vercel project dashboard.
-2. Go to **Settings > Environment Variables**.
-3. Set `NEXT_PUBLIC_SOCKET_URL` to your Render server URL (e.g. `https://duodoro-server.onrender.com`).
-4. Trigger a **redeploy** from the Vercel dashboard (Deployments > Redeploy).
+```bash
+cd /opt/duodoro
+docker compose up -d --build
+```
 
----
-
-## Step 4: Verify
-
-1. Open your Vercel URL in a browser.
-2. Sign in with your auth provider.
-3. Check that the home dashboard loads.
-4. Open a second browser/incognito window, sign in as a different user.
-5. Test:
-  - Friend request and acceptance
-  - "Friends Online" showing up on the dashboard
-  - Creating a session and inviting a friend
-  - The invite popup appearing on the friend's screen
-  - Focus timer running and completing
+First build takes a few minutes. After that, visit `https://yourdomain.com`.
 
 ---
 
-## Pre-Deploy Checklist
+## Step 4: Set Up CI/CD (GitHub Actions)
 
-- All 4 Supabase migrations run in order (Step 0)
-- Supabase redirect URL added for production domain
-- `NEXT_PUBLIC_SOCKET_URL` set to Render server URL on Vercel
-- `ALLOWED_ORIGIN` set to Vercel URL on Render (no trailing slash)
-- `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` set on Render
-- `npm run build` passes locally in `client/`
-- Sound files (`.mp3`) added to `client/public/sounds/` (optional — app works without them)
+The repo includes `.github/workflows/deploy.yml` which auto-deploys on push to `main`.
 
-## Supabase Notes
+Add these secrets in your GitHub repo (Settings > Secrets and variables > Actions):
 
-- Your Supabase project is already cloud-hosted, no changes needed.
-- Make sure RLS policies are in place (they were set up in migrations).
-- The Supabase URL and keys are the same ones you use locally.
-- The server uses the **service role key** (not the anon key) to bypass RLS for session recording.
+| Secret | Value |
+|--------|-------|
+| `VPS_HOST` | Your VPS IP or domain |
+| `VPS_USER` | `deploy` |
+| `VPS_SSH_KEY` | SSH private key (generate with `ssh-keygen -t ed25519`) |
+
+To set up the SSH key:
+```bash
+# On your local machine:
+ssh-keygen -t ed25519 -f ~/.ssh/duodoro-deploy -N ""
+
+# Copy the public key to the VPS:
+ssh-copy-id -i ~/.ssh/duodoro-deploy.pub deploy@your-vps-ip
+
+# Copy the private key contents — paste this into the VPS_SSH_KEY GitHub secret:
+cat ~/.ssh/duodoro-deploy
+```
+
+Now every push to `main` will automatically deploy.
+
+---
+
+## Common Commands
+
+```bash
+# View logs
+docker compose logs -f client    # Next.js logs
+docker compose logs -f server    # Express logs
+docker compose logs --since 1h   # Last hour, all services
+
+# Restart services
+docker compose restart server    # Restart just the server
+docker compose up -d --build     # Rebuild and restart everything
+
+# Check health
+curl https://yourdomain.com/api/health
+
+# Manual SSL renewal (auto-renews via systemd, this is a fallback)
+sudo bash /opt/duodoro/scripts/renew-certs.sh
+
+# Check container status
+docker compose ps
+```
+
+---
 
 ## Troubleshooting
 
-- **CORS errors**: Make sure `ALLOWED_ORIGIN` on Render matches your Vercel URL exactly (no trailing slash).
-- **Socket not connecting**: Check that `NEXT_PUBLIC_SOCKET_URL` is set correctly and the Render service is running.
-- **Render free tier cold starts**: The first request after inactivity may take ~30s. This is normal on the free tier.
-- **Auth redirect issues**: Add your Vercel URL to the allowed redirect URLs in your Supabase project dashboard under Authentication > URL Configuration.
-- **Sessions not recording**: Check that `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set on Render. Server logs will show "Supabase not configured — session recording disabled" if missing.
-
+- **CORS errors**: Verify `ALLOWED_ORIGIN` in `.env` matches your domain exactly (no trailing slash).
+- **WebSocket falling back to polling**: Check Nginx config has `Upgrade` and `Connection` headers in the `/socket.io/` block. Check browser DevTools Network tab for `ws://` vs `http://` connections.
+- **SSL certificate issues**: Run `sudo certbot renew --dry-run` to test renewal. Check `/etc/letsencrypt/live/yourdomain.com/` exists.
+- **Container won't start**: Check `docker compose logs <service>` for errors. Common causes: missing env vars, port conflicts.
+- **Sessions not recording**: Check server logs for "Supabase not configured". Verify `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set in `.env`.
+- **Auth redirect issues**: Add `https://yourdomain.com` to Supabase Auth redirect URLs.
+- **Out of memory during build**: Ensure VPS has at least 4GB RAM, or add swap: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`.

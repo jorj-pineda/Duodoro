@@ -1,9 +1,10 @@
 /server/node_modules
 node_modules
 .env
+.env.local
+.env.production
 .DS_Store
 dist
 build
 .next
-Deploy.md
 .claude
