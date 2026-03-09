@@ -221,6 +221,7 @@ function advancePhase(sessionId) {
   session.phaseStartTime = Date.now();
 
   io.to(sessionId).emit('phase_change', {
+    mode: session.mode,
     phase: nextPhase,
     phaseStartTime: session.phaseStartTime,
     focusDuration: session.focusDuration,
@@ -267,6 +268,7 @@ function leaveSession(socket, sessionId) {
     session.phase = 'waiting';
     session.phaseStartTime = null;
     io.to(sessionId).emit('phase_change', {
+      mode: session.mode,
       phase: 'waiting',
       phaseStartTime: null,
       focusDuration: session.focusDuration,
@@ -415,9 +417,9 @@ io.on('connection', (socket) => {
     socket.emit('sync_state', buildSyncPayload(session));
   });
 
-  // start_session: { sessionId, focusDuration, breakDuration }
+  // start_session: { sessionId, focusDuration, breakDuration, mode }
   // Solo start allowed (1 player is fine).
-  socket.on('start_session', ({ sessionId, focusDuration, breakDuration }) => {
+  socket.on('start_session', ({ sessionId, focusDuration, breakDuration, mode }) => {
     const session = getSession(sessionId);
     if (!session) return;
     if (Object.keys(session.players).length < 1) return;
@@ -427,22 +429,55 @@ io.on('connection', (socket) => {
     const safeFocus = Math.min(Math.max(Number(focusDuration) || 25 * 60, 60), MAX_FOCUS);
     const safeBreak = Math.min(Math.max(Number(breakDuration) || 5 * 60, 30), MAX_BREAK);
 
-    session.focusDuration = safeFocus;
-    session.breakDuration = safeBreak;
+    const safeMode = mode === 'flow' ? 'flow' : 'pomodoro';
+    session.mode = safeMode;
+
+    if (safeMode === 'flow') {
+      session.focusDuration = MAX_FOCUS; // safety cap for server
+      session.breakDuration = MAX_BREAK;
+    } else {
+      session.focusDuration = safeFocus;
+      session.breakDuration = safeBreak;
+    }
+
     session.phase = 'focus';
     session.phaseStartTime = Date.now();
 
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
 
     io.to(sessionId).emit('phase_change', {
+      mode: session.mode,
       phase: 'focus',
       phaseStartTime: session.phaseStartTime,
       focusDuration: session.focusDuration,
       breakDuration: session.breakDuration,
     });
 
-    session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
-    console.log(`[${sessionId}] Session started: ${Math.round(session.focusDuration / 60)}m focus, ${Math.round(session.breakDuration / 60)}m break, ${Object.keys(session.players).length} players`);
+    if (safeMode === 'pomodoro') {
+      session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
+    }
+    console.log(`[${sessionId}] Session started: mode ${safeMode}, ${Math.round(session.focusDuration / 60)}m focus, ${Math.round(session.breakDuration / 60)}m break, ${Object.keys(session.players).length} players`);
+  });
+
+  // finish_flow_focus: { sessionId }
+  socket.on('finish_flow_focus', ({ sessionId }) => {
+    const session = getSession(sessionId);
+    if (!session) return;
+    if (session.mode !== 'flow' || session.phase !== 'focus') return;
+    if (!session.players[socket.id]) return; // Only participants can trigger
+
+    // Calculate actual elapsed focus time in seconds
+    const elapsedSeconds = Math.round((Date.now() - session.phaseStartTime) / 1000);
+    // Limit elapsed time to MAX_FOCUS
+    const effectiveFocus = Math.min(elapsedSeconds, session.focusDuration);
+
+    // Save accurate duration for records before advancing
+    session.focusDuration = effectiveFocus;
+    // Calculate break: ~1/5 of focus time, min 60s, max MAX_BREAK
+    session.breakDuration = Math.min(Math.max(60, Math.round(effectiveFocus / 5)), MAX_BREAK);
+
+    // This logs the 'true' completion, since manual triggers are the proper way to end flow mode
+    advancePhase(sessionId);
   });
 
   // stop_session: { sessionId }
@@ -462,6 +497,7 @@ io.on('connection', (socket) => {
     session.phaseStartTime = null;
 
     io.to(sessionId).emit('phase_change', {
+      mode: session.mode,
       phase: 'waiting',
       phaseStartTime: null,
       focusDuration: session.focusDuration,
