@@ -35,6 +35,7 @@ interface PlayerData {
 }
 
 interface SyncPayload {
+  mode: "pomodoro" | "flow";
   phase: GamePhase;
   focusDuration: number;
   breakDuration: number;
@@ -46,6 +47,7 @@ interface SyncPayload {
 }
 
 interface PhaseChangePayload {
+  mode: "pomodoro" | "flow";
   phase: GamePhase;
   phaseStartTime: number | null;
   focusDuration: number;
@@ -253,10 +255,12 @@ export default function DuoTimer() {
   const [sessionId, setSessionId] = useState<string>("");
 
   // ── Session config ────────────────────────────────────────────────────────
+  const [timerMode, setTimerMode] = useState<"pomodoro" | "flow">("pomodoro");
   const [focusDuration, setFocusDuration] = useState(25);
   const [breakDuration, setBreakDuration] = useState(5);
 
   // ── Game state ────────────────────────────────────────────────────────────
+  const [serverMode, setServerMode] = useState<"pomodoro" | "flow">("pomodoro");
   const [phase, setPhase] = useState<GamePhase>("waiting");
   const [phaseStartTime, setPhaseStartTime] = useState<number | null>(null);
   const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60);
@@ -528,6 +532,7 @@ export default function DuoTimer() {
     });
 
     socket.on("sync_state", (data: SyncPayload) => {
+      if (data.mode) setServerMode(data.mode);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -539,6 +544,7 @@ export default function DuoTimer() {
     });
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
+      if (data.mode) setServerMode(data.mode);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -626,9 +632,15 @@ export default function DuoTimer() {
     ? Math.max(0, currentPhaseDuration - (now - phaseStartTime) / 1000)
     : currentPhaseDuration;
 
+  const flowElapsed = phaseStartTime
+    ? Math.max(0, (now - phaseStartTime) / 1000)
+    : 0;
+
   const focusProgress =
     phase === "focus" && phaseStartTime
-      ? Math.min(1, (now - phaseStartTime) / (serverFocusDuration * 1000))
+      ? serverMode === "flow" 
+        ? Math.min(1, flowElapsed / (120 * 60)) // Treat 2h max as 100% for progress bar
+        : Math.min(1, (now - phaseStartTime) / (serverFocusDuration * 1000))
       : 0;
 
   const returningProgress =
@@ -718,9 +730,15 @@ export default function DuoTimer() {
       sessionId,
       focusDuration: focusDuration * 60,
       breakDuration: breakDuration * 60,
+      mode: timerMode,
     });
     playSound("click");
-  }, [sessionId, focusDuration, breakDuration]);
+  }, [sessionId, focusDuration, breakDuration, timerMode]);
+
+  const finishFlowFocus = useCallback(() => {
+    socketRef.current?.emit("finish_flow_focus", { sessionId });
+    playSound("click");
+  }, [sessionId]);
 
   const stopSession = useCallback(() => {
     socketRef.current?.emit("stop_session", { sessionId });
@@ -1094,37 +1112,72 @@ export default function DuoTimer() {
         )}
 
         {showTimer && (
-          <div className="text-6xl font-mono font-bold tracking-widest tabular-nums drop-shadow-lg">
+          <div className="text-6xl font-mono font-bold tracking-widest tabular-nums drop-shadow-lg flex flex-col items-center">
+            {phase === "focus" && serverMode === "flow" && (
+                <span className="text-xs text-emerald-500 mb-1 tracking-widest font-bold">FLOW ELAPSED</span>
+            )}
             <span
               className={
                 phase === "break" ? "text-blue-400" : "text-emerald-400"
               }
             >
-              {formatTime(timeLeft)}
+              {phase === "focus" && serverMode === "flow" 
+                ? formatTime(Math.round(flowElapsed)) 
+                : formatTime(timeLeft)}
             </span>
           </div>
         )}
 
         {!sessionStarted && phase === "waiting" && (
-          <div className="w-full max-w-xs space-y-2 mt-1">
-            <DurationSlider
-              label="FOCUS"
-              value={focusDuration}
-              onChange={setFocusDuration}
-              min={5}
-              max={120}
-              step={5}
-              unit="m"
-            />
-            <DurationSlider
-              label="BREAK"
-              value={breakDuration}
-              onChange={setBreakDuration}
-              min={1}
-              max={30}
-              step={1}
-              unit="m"
-            />
+          <div className="w-full max-w-xs space-y-4 mt-1">
+            <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
+              <button
+                onClick={() => setTimerMode("pomodoro")}
+                className={`flex-1 py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                  timerMode === "pomodoro"
+                    ? "bg-emerald-500 text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Pomodoro
+              </button>
+              <button
+                onClick={() => setTimerMode("flow")}
+                className={`flex-1 py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                  timerMode === "flow"
+                    ? "bg-blue-500 text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Flow (Stopwatch)
+              </button>
+            </div>
+            {timerMode === "pomodoro" ? (
+                <>
+                  <DurationSlider
+                    label="FOCUS"
+                    value={focusDuration}
+                    onChange={setFocusDuration}
+                    min={5}
+                    max={120}
+                    step={5}
+                    unit="m"
+                  />
+                  <DurationSlider
+                    label="BREAK"
+                    value={breakDuration}
+                    onChange={setBreakDuration}
+                    min={1}
+                    max={30}
+                    step={1}
+                    unit="m"
+                  />
+                </>
+            ) : (
+                <div className="text-center text-xs text-gray-400 font-mono px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                  Focus as long as you want. When you&apos;re done, you&apos;ll earn a break tailored to how long you worked.
+                </div>
+            )}
           </div>
         )}
 
@@ -1166,7 +1219,7 @@ export default function DuoTimer() {
           {canStart && (
             <button
               onClick={startSession}
-              className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-emerald-700 text-sm"
+              className={`${timerMode === "flow" ? "bg-blue-500 hover:bg-blue-400 border-blue-700" : "bg-emerald-500 hover:bg-emerald-400 border-emerald-700"} active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 text-sm`}
             >
               {"▶"} START{playerCount < 2 ? " SOLO" : " SESSION"}
             </button>
@@ -1176,10 +1229,18 @@ export default function DuoTimer() {
               Friends can join from their dashboard
             </p>
           )}
+          {phase === "focus" && serverMode === "flow" && (
+              <button
+                onClick={finishFlowFocus}
+                className="bg-blue-500 hover:bg-blue-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-blue-700 text-sm mt-2"
+              >
+                {"⏸"} TAKE BREAK
+              </button>
+          )}
           {canStop && (
             <button
               onClick={stopSession}
-              className="text-gray-600 hover:text-red-400 text-xs font-mono transition-colors"
+              className="text-gray-600 hover:text-red-400 text-xs font-mono transition-colors mt-2"
             >
               end session
             </button>
