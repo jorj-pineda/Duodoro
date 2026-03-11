@@ -3,6 +3,7 @@ const { randomUUID } = require("crypto");
 function createSessionState(world, hostSocketId) {
   return {
     id: randomUUID(),
+    mode: "pomodoro",
     phase: "waiting",
     focusDuration: 25 * 60,
     breakDuration: 5 * 60,
@@ -30,6 +31,7 @@ function removePlayer(session, socketId) {
 
 function buildSyncPayload(session) {
   return {
+    mode: session.mode,
     phase: session.phase,
     focusDuration: session.focusDuration,
     breakDuration: session.breakDuration,
