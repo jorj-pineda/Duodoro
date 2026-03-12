@@ -60,9 +60,14 @@ export function ForestDecor() {
       {/* Clouds */}
       {[
         [8, 14],
-        [35, 8],
-        [62, 18],
-        [80, 10],
+        [22, 6],
+        [35, 18],
+        [50, 10],
+        [62, 22],
+        [72, 5],
+        [80, 15],
+        [92, 8],
+        [15, 25],
       ].map(([left, top], i) => (
         <div
           key={i}
@@ -78,10 +83,10 @@ export function ForestDecor() {
       ))}
       {/* Trees */}
       {[
-        [5, 58],
-        [12, 52],
-        [82, 58],
-        [90, 52],
+        [5, 19],
+        [12, 19],
+        [82, 19],
+        [90, 19],
       ].map(([left, bottom], i) => (
         <div
           key={i}
@@ -152,7 +157,7 @@ export function BeachDecor() {
           key={i}
           className="absolute"
           style={{
-            bottom: `${42 + i * 3}%`,
+            bottom: `${23 + i * 3}%`,
             left: 0,
             right: 0,
             height: 8,
@@ -162,7 +167,7 @@ export function BeachDecor() {
           }}
         />
       ))}
-      <div className="absolute right-8 bottom-[40%]">
+      <div className="absolute right-8 bottom-[19%]">
         <PalmTree />
       </div>
     </>
@@ -185,7 +190,7 @@ export function CityDecor() {
           className="absolute"
           style={{
             left: `${left}%`,
-            bottom: "38%",
+            bottom: "19%",
             width: 22,
             height: h,
             background: `linear-gradient(180deg, #2a2a3e, #1a1a2e)`,
@@ -248,7 +253,7 @@ export function MountainDecor() {
           className="absolute"
           style={{
             left: `${m.left}%`,
-            bottom: "38%",
+            bottom: "19%",
             width: 0,
             height: 0,
             borderLeft: `${m.w / 2}px solid transparent`,
@@ -266,7 +271,7 @@ export function MountainDecor() {
           className="absolute"
           style={{
             left: `${s.left}%`,
-            bottom: `${38 + 12}%`,
+            bottom: `${19 + 12}%`,
             width: 0,
             height: 0,
             borderLeft: `${s.w / 2}px solid transparent`,
@@ -289,7 +294,7 @@ export function LibraryDecor() {
           className="absolute"
           style={{
             left: `${left}%`,
-            bottom: "38%",
+            bottom: "19%",
             width: 28,
             height: 80,
             background: "#4e342e",
@@ -346,7 +351,7 @@ export function CafeDecor() {
         <div
           key={i}
           className="absolute"
-          style={{ left: `${left}%`, bottom: "38%" }}
+          style={{ left: `${left}%`, bottom: "19%" }}
         >
           <div className="w-5 h-16 bg-amber-900 rounded-t-sm" />
           <div className="w-12 h-2 bg-amber-800 rounded-full -ml-3.5 -mt-0.5" />
