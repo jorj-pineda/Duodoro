@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getSupabase } from "@/lib/supabase";
 import { WORLDS } from "@/lib/avatarData";
 import type { Profile } from "@/lib/types";
+import { useFriendsList } from "@/hooks/useFriendsList";
+import { useFriendSearch } from "@/hooks/useFriendSearch";
 
 interface Props {
   open: boolean;
@@ -78,7 +79,6 @@ function FriendRow({
   );
 }
 
-// ── Request row ────────────────────────────────────────────────────────────
 function RequestRow({
   requester,
   friendshipId,
@@ -116,7 +116,6 @@ function RequestRow({
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
 export default function FriendsPanel({
   open,
   onClose,
@@ -125,113 +124,8 @@ export default function FriendsPanel({
   onInviteFriend,
 }: Props) {
   const [tab, setTab] = useState<Tab>("friends");
-  const [friends, setFriends] = useState<Profile[]>([]);
-  const [requests, setRequests] = useState<
-    { id: string; requester: Profile }[]
-  >([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
-  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
-  const sb = getSupabase();
-
-  // ── Fetch friends & requests ──────────────────────────────────────────
-  const fetchFriends = useCallback(async () => {
-    const { data } = await sb
-      .from("friendships")
-      .select(
-        `
-        id, status, requester_id, addressee_id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium),
-        addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium)
-      `,
-      )
-      .eq("status", "accepted");
-
-    if (data) {
-      const myId = myProfile.id;
-      setFriends(
-        data.map((f: any) =>
-          f.requester_id === myId ? f.addressee : f.requester,
-        ) as Profile[],
-      );
-    }
-
-    const { data: reqs } = await sb
-      .from("friendships")
-      .select(
-        `
-        id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_session_id, current_world_id)
-      `,
-      )
-      .eq("addressee_id", myProfile.id)
-      .eq("status", "pending");
-
-    if (reqs) {
-      setRequests(
-        reqs.map((r: any) => ({ id: r.id, requester: r.requester as Profile })),
-      );
-    }
-  }, [sb, myProfile.id]);
-
-  useEffect(() => {
-    if (open) fetchFriends();
-  }, [open, fetchFriends]);
-
-  // ── Real-time: refresh when profiles or friendships change ─────────────
-  useEffect(() => {
-    const channel = sb
-      .channel("friends-rt")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friendships" },
-        fetchFriends,
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles" },
-        fetchFriends,
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(channel);
-    };
-  }, [sb, fetchFriends]);
-
-  // ── Search ─────────────────────────────────────────────────────────────
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
-    const { data } = await sb
-      .from("profiles")
-      .select("id, username, display_name, is_premium, current_room")
-      .ilike("username", `%${searchQuery.trim()}%`)
-      .neq("id", myProfile.id)
-      .limit(10);
-    setSearchResults((data as Profile[]) ?? []);
-    setLoading(false);
-  };
-
-  const sendRequest = async (targetId: string) => {
-    await sb
-      .from("friendships")
-      .insert({ requester_id: myProfile.id, addressee_id: targetId });
-    setSentRequests((prev) => new Set([...prev, targetId]));
-  };
-
-  const acceptRequest = async (friendshipId: string) => {
-    await sb
-      .from("friendships")
-      .update({ status: "accepted" })
-      .eq("id", friendshipId);
-    fetchFriends();
-  };
-
-  const declineRequest = async (friendshipId: string) => {
-    await sb.from("friendships").delete().eq("id", friendshipId);
-    fetchFriends();
-  };
+  const { friends, requests, acceptRequest, declineRequest } = useFriendsList(myProfile.id, open);
+  const { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest } = useFriendSearch(myProfile.id);
 
   const friendIds = new Set(friends.map((f) => f.id));
 
