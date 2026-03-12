@@ -104,7 +104,7 @@ export default function GameWorld({
   const GROUND_HEIGHT = "38%";
 
   return (
-    <div className="relative w-full" style={{ height: 280 }}>
+    <div className="relative w-full h-[40vh] min-h-[200px] max-h-[400px]">
       {/* Sky */}
       <div
         className="absolute inset-0 overflow-hidden"

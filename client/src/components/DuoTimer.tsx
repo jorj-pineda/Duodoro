@@ -268,9 +268,9 @@ export default function DuoTimer() {
         onFinishFlow={game.finishFlowFocus}
       />
 
-      {/* ── Game World (contained card) ── */}
-      <div className="w-full max-w-3xl mx-auto px-3 pb-3 mt-auto">
-        <div className="rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl">
+      {/* ── Game World (full-width) ── */}
+      <div className="w-full mt-auto">
+        <div className="overflow-hidden border-t border-gray-700/60">
           <GameWorld
             worldId={game.myWorld}
             phase={game.phase}
