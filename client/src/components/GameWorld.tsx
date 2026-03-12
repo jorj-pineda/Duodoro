@@ -22,6 +22,7 @@ interface Props {
   worldId: WorldId;
   phase: GamePhase;
   /** 0–1: how far toward center the characters have walked */
+  //random placement for test
   focusProgress: number;
   /** 0–1: how far through the returning animation (1 = back at start) */
   returningProgress: number;
@@ -39,7 +40,12 @@ function ForestDecor() {
   return (
     <>
       {/* Clouds */}
-      {[[8, 14], [35, 8], [62, 18], [80, 10]].map(([left, top], i) => (
+      {[
+        [8, 14],
+        [35, 8],
+        [62, 18],
+        [80, 10],
+      ].map(([left, top], i) => (
         <div
           key={i}
           className="absolute"
@@ -53,8 +59,17 @@ function ForestDecor() {
         </div>
       ))}
       {/* Trees */}
-      {[[5, 58], [12, 52], [82, 58], [90, 52]].map(([left, bottom], i) => (
-        <div key={i} className="absolute" style={{ left: `${left}%`, bottom: `${bottom}%` }}>
+      {[
+        [5, 58],
+        [12, 52],
+        [82, 58],
+        [90, 52],
+      ].map(([left, bottom], i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: `${left}%`, bottom: `${bottom}%` }}
+        >
           <PixelTree />
         </div>
       ))}
@@ -70,7 +85,7 @@ function SpaceDecor() {
         y: (i * 53 + 7) % 65,
         size: i % 3 === 0 ? 2 : 1,
       })),
-    []
+    [],
   );
   return (
     <>
@@ -139,39 +154,47 @@ function BeachDecor() {
 function CityDecor() {
   return (
     <>
-      {[[6, 55], [14, 45], [22, 60], [72, 50], [80, 42], [88, 55]].map(
-        ([left, h], i) => (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              left: `${left}%`,
-              bottom: "38%",
-              width: 22,
-              height: h,
-              background: `linear-gradient(180deg, #2a2a3e, #1a1a2e)`,
-              borderRadius: "2px 2px 0 0",
-            }}
-          >
-            {[0.2, 0.4, 0.6, 0.8].map((t, j) => (
-              <div
-                key={j}
-                className="absolute"
-                style={{
-                  left: "30%",
-                  top: `${t * 100}%`,
-                  width: 4,
-                  height: 3,
-                  backgroundColor: (i + j) % 3 === 0 ? "#ffd166" : "#334155",
-                }}
-              />
-            ))}
-          </div>
-        )
-      )}
+      {[
+        [6, 55],
+        [14, 45],
+        [22, 60],
+        [72, 50],
+        [80, 42],
+        [88, 55],
+      ].map(([left, h], i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{
+            left: `${left}%`,
+            bottom: "38%",
+            width: 22,
+            height: h,
+            background: `linear-gradient(180deg, #2a2a3e, #1a1a2e)`,
+            borderRadius: "2px 2px 0 0",
+          }}
+        >
+          {[0.2, 0.4, 0.6, 0.8].map((t, j) => (
+            <div
+              key={j}
+              className="absolute"
+              style={{
+                left: "30%",
+                top: `${t * 100}%`,
+                width: 4,
+                height: 3,
+                backgroundColor: (i + j) % 3 === 0 ? "#ffd166" : "#334155",
+              }}
+            />
+          ))}
+        </div>
+      ))}
       <div
         className="absolute top-6 left-12 w-10 h-10 rounded-full"
-        style={{ background: "radial-gradient(circle, #fde68a, #fbbf24)", boxShadow: "0 0 20px #fbbf2466" }}
+        style={{
+          background: "radial-gradient(circle, #fde68a, #fbbf24)",
+          boxShadow: "0 0 20px #fbbf2466",
+        }}
       />
     </>
   );
@@ -180,8 +203,16 @@ function CityDecor() {
 function MountainDecor() {
   return (
     <>
-      {[[8, 14], [55, 8], [82, 12]].map(([left, top], i) => (
-        <div key={i} className="absolute" style={{ left: `${left}%`, top: `${top}%` }}>
+      {[
+        [8, 14],
+        [55, 8],
+        [82, 12],
+      ].map(([left, top], i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: `${left}%`, top: `${top}%` }}
+        >
           <div className="flex gap-1 opacity-90">
             <div className="w-6 h-4 bg-white rounded-full" />
             <div className="w-8 h-5 bg-white rounded-full -ml-3 -mt-1" />
@@ -197,7 +228,15 @@ function MountainDecor() {
         <div
           key={i}
           className="absolute"
-          style={{ left: `${m.left}%`, bottom: "38%", width: 0, height: 0, borderLeft: `${m.w / 2}px solid transparent`, borderRight: `${m.w / 2}px solid transparent`, borderBottom: `${m.h}px solid ${m.color}` }}
+          style={{
+            left: `${m.left}%`,
+            bottom: "38%",
+            width: 0,
+            height: 0,
+            borderLeft: `${m.w / 2}px solid transparent`,
+            borderRight: `${m.w / 2}px solid transparent`,
+            borderBottom: `${m.h}px solid ${m.color}`,
+          }}
         />
       ))}
       {[
@@ -207,7 +246,16 @@ function MountainDecor() {
         <div
           key={i}
           className="absolute"
-          style={{ left: `${s.left}%`, bottom: `${38 + 12}%`, width: 0, height: 0, borderLeft: `${s.w / 2}px solid transparent`, borderRight: `${s.w / 2}px solid transparent`, borderBottom: `${s.h}px solid white`, opacity: 0.9 }}
+          style={{
+            left: `${s.left}%`,
+            bottom: `${38 + 12}%`,
+            width: 0,
+            height: 0,
+            borderLeft: `${s.w / 2}px solid transparent`,
+            borderRight: `${s.w / 2}px solid transparent`,
+            borderBottom: `${s.h}px solid white`,
+            opacity: 0.9,
+          }}
         />
       ))}
     </>
@@ -221,7 +269,14 @@ function LibraryDecor() {
         <div
           key={i}
           className="absolute"
-          style={{ left: `${left}%`, bottom: "38%", width: 28, height: 80, background: "#4e342e", borderRadius: "2px 2px 0 0" }}
+          style={{
+            left: `${left}%`,
+            bottom: "38%",
+            width: 28,
+            height: 80,
+            background: "#4e342e",
+            borderRadius: "2px 2px 0 0",
+          }}
         >
           {[0, 1, 2, 3, 4, 5].map((r) => (
             <div
@@ -232,7 +287,14 @@ function LibraryDecor() {
                 right: 2,
                 top: 4 + r * 12,
                 height: 10,
-                background: ["#c62828", "#1565c0", "#2e7d32", "#f9a825", "#6a1b9a", "#e65100"][r],
+                background: [
+                  "#c62828",
+                  "#1565c0",
+                  "#2e7d32",
+                  "#f9a825",
+                  "#6a1b9a",
+                  "#e65100",
+                ][r],
                 borderRadius: 1,
                 opacity: 0.8,
               }}
@@ -240,7 +302,14 @@ function LibraryDecor() {
           ))}
         </div>
       ))}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full" style={{ background: "radial-gradient(circle, #ffcc80, #ff8f00)", opacity: 0.6, boxShadow: "0 0 40px #ff8f0055" }} />
+      <div
+        className="absolute top-8 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full"
+        style={{
+          background: "radial-gradient(circle, #ffcc80, #ff8f00)",
+          opacity: 0.6,
+          boxShadow: "0 0 40px #ff8f0055",
+        }}
+      />
     </>
   );
 }
@@ -248,16 +317,24 @@ function LibraryDecor() {
 function CafeDecor() {
   return (
     <>
-      <div className="absolute right-10 top-6 w-10 h-10 rounded-full" style={{ background: "radial-gradient(circle, #FFF9C4, #FFD166)", boxShadow: "0 0 20px #FFD16644" }} />
+      <div
+        className="absolute right-10 top-6 w-10 h-10 rounded-full"
+        style={{
+          background: "radial-gradient(circle, #FFF9C4, #FFD166)",
+          boxShadow: "0 0 20px #FFD16644",
+        }}
+      />
       {[8, 85].map((left, i) => (
-        <div key={i} className="absolute" style={{ left: `${left}%`, bottom: "38%" }}>
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: `${left}%`, bottom: "38%" }}
+        >
           <div className="w-5 h-16 bg-amber-900 rounded-t-sm" />
           <div className="w-12 h-2 bg-amber-800 rounded-full -ml-3.5 -mt-0.5" />
         </div>
       ))}
-      <div className="absolute top-4 left-12 text-2xl opacity-40">
-        {"☁️"}
-      </div>
+      <div className="absolute top-4 left-12 text-2xl opacity-40">{"☁️"}</div>
     </>
   );
 }
@@ -270,7 +347,7 @@ function LofiDecor() {
         y: (i * 29 + 13) % 55,
         size: i % 4 === 0 ? 2 : 1,
       })),
-    []
+    [],
   );
   return (
     <>
@@ -288,18 +365,56 @@ function LofiDecor() {
           }}
         />
       ))}
-      <div className="absolute right-8 top-6 w-14 h-14 rounded-full" style={{ background: "radial-gradient(circle at 40% 40%, #e0c3fc, #8b5cf6)", boxShadow: "0 0 30px #8b5cf655", opacity: 0.8 }} />
-      <div className="absolute left-6 top-10 w-8 h-8 rounded-full" style={{ background: "radial-gradient(circle, #f0abfc, #a855f7)", opacity: 0.3, boxShadow: "0 0 16px #a855f755" }} />
+      <div
+        className="absolute right-8 top-6 w-14 h-14 rounded-full"
+        style={{
+          background: "radial-gradient(circle at 40% 40%, #e0c3fc, #8b5cf6)",
+          boxShadow: "0 0 30px #8b5cf655",
+          opacity: 0.8,
+        }}
+      />
+      <div
+        className="absolute left-6 top-10 w-8 h-8 rounded-full"
+        style={{
+          background: "radial-gradient(circle, #f0abfc, #a855f7)",
+          opacity: 0.3,
+          boxShadow: "0 0 16px #a855f755",
+        }}
+      />
     </>
   );
 }
 
 function PixelTree() {
   return (
-    <div className="flex flex-col items-center" style={{ imageRendering: "pixelated" }}>
-      <div className="w-0 h-0" style={{ borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderBottom: "14px solid #2d6a4f" }} />
-      <div className="w-0 h-0 -mt-2" style={{ borderLeft: "13px solid transparent", borderRight: "13px solid transparent", borderBottom: "16px solid #40916c" }} />
-      <div className="w-0 h-0 -mt-2" style={{ borderLeft: "16px solid transparent", borderRight: "16px solid transparent", borderBottom: "18px solid #52b788" }} />
+    <div
+      className="flex flex-col items-center"
+      style={{ imageRendering: "pixelated" }}
+    >
+      <div
+        className="w-0 h-0"
+        style={{
+          borderLeft: "10px solid transparent",
+          borderRight: "10px solid transparent",
+          borderBottom: "14px solid #2d6a4f",
+        }}
+      />
+      <div
+        className="w-0 h-0 -mt-2"
+        style={{
+          borderLeft: "13px solid transparent",
+          borderRight: "13px solid transparent",
+          borderBottom: "16px solid #40916c",
+        }}
+      />
+      <div
+        className="w-0 h-0 -mt-2"
+        style={{
+          borderLeft: "16px solid transparent",
+          borderRight: "16px solid transparent",
+          borderBottom: "18px solid #52b788",
+        }}
+      />
       <div className="w-3 h-8" style={{ backgroundColor: "#6b4f2a" }} />
     </div>
   );
@@ -312,7 +427,13 @@ function PalmTree() {
         <div className="w-6 h-2 rounded-full bg-green-600 -rotate-45 origin-right" />
         <div className="w-6 h-2 rounded-full bg-green-500 rotate-45 origin-left" />
       </div>
-      <div className="w-2 h-14 rounded-b-sm" style={{ background: "linear-gradient(180deg, #a16207, #78350f)", transform: "rotate(5deg)" }} />
+      <div
+        className="w-2 h-14 rounded-b-sm"
+        style={{
+          background: "linear-gradient(180deg, #a16207, #78350f)",
+          transform: "rotate(5deg)",
+        }}
+      />
     </div>
   );
 }
@@ -321,12 +442,18 @@ function PalmTree() {
 
 function getCharacterAnim(phase: GamePhase): AnimState {
   switch (phase) {
-    case "waiting": return "idle";
-    case "focus": return "walk";
-    case "celebration": return "jump";
-    case "break": return "sit";
-    case "returning": return "float";
-    default: return "idle";
+    case "waiting":
+      return "idle";
+    case "focus":
+      return "walk";
+    case "celebration":
+      return "jump";
+    case "break":
+      return "sit";
+    case "returning":
+      return "float";
+    default:
+      return "idle";
   }
 }
 
@@ -342,7 +469,12 @@ function CelebrationOverlay() {
           className="absolute text-2xl"
           initial={{ y: 60, x: `${15 + i * 14}%`, opacity: 0 }}
           animate={{ y: -40, opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 1.8, delay: i * 0.25, repeat: Infinity, repeatDelay: 1 }}
+          transition={{
+            duration: 1.8,
+            delay: i * 0.25,
+            repeat: Infinity,
+            repeatDelay: 1,
+          }}
         >
           {emoji}
         </motion.div>
@@ -385,7 +517,8 @@ export default function GameWorld({
 
   // Calculate left offset for "me" (0 = far left, 0.45 = center-ish)
   const myLeft = useMemo(() => {
-    if (phase === "celebration" || phase === "break") return "calc(50% - 100px)";
+    if (phase === "celebration" || phase === "break")
+      return "calc(50% - 100px)";
     if (phase === "returning") return `${(1 - returningProgress) * 40}%`;
     // focus or waiting
     return `calc(${focusProgress * 42}% + 8px)`;
@@ -393,7 +526,8 @@ export default function GameWorld({
 
   // Calculate right offset for partner (0 = far right, 0.45 = center-ish)
   const partnerRight = useMemo(() => {
-    if (phase === "celebration" || phase === "break") return "calc(50% - 100px)";
+    if (phase === "celebration" || phase === "break")
+      return "calc(50% - 100px)";
     if (phase === "returning") return `${(1 - returningProgress) * 40}%`;
     return `calc(${focusProgress * 42}% + 8px)`;
   }, [phase, focusProgress, returningProgress]);
@@ -436,7 +570,8 @@ export default function GameWorld({
         />
         {/* Ground dots / texture */}
         {worldId === "forest" && (
-          <div className="absolute inset-0 opacity-20"
+          <div
+            className="absolute inset-0 opacity-20"
             style={{
               backgroundImage: `radial-gradient(circle, ${world.groundPatternColor} 1px, transparent 1px)`,
               backgroundSize: "18px 14px",
@@ -444,7 +579,8 @@ export default function GameWorld({
           />
         )}
         {worldId === "space" && (
-          <div className="absolute inset-0 opacity-30"
+          <div
+            className="absolute inset-0 opacity-30"
             style={{
               backgroundImage: `linear-gradient(${world.groundPatternColor} 1px, transparent 1px)`,
               backgroundSize: "100% 8px",
@@ -452,14 +588,16 @@ export default function GameWorld({
           />
         )}
         {worldId === "city" && (
-          <div className="absolute inset-0 opacity-15"
+          <div
+            className="absolute inset-0 opacity-15"
             style={{
               backgroundImage: `repeating-linear-gradient(90deg, ${world.groundPatternColor} 0px, ${world.groundPatternColor} 2px, transparent 2px, transparent 20px)`,
             }}
           />
         )}
         {worldId === "mountain" && (
-          <div className="absolute inset-0 opacity-20"
+          <div
+            className="absolute inset-0 opacity-20"
             style={{
               backgroundImage: `radial-gradient(circle, ${world.groundPatternColor} 1px, transparent 1px)`,
               backgroundSize: "16px 12px",
@@ -467,14 +605,16 @@ export default function GameWorld({
           />
         )}
         {worldId === "library" && (
-          <div className="absolute inset-0 opacity-20"
+          <div
+            className="absolute inset-0 opacity-20"
             style={{
               backgroundImage: `repeating-linear-gradient(90deg, ${world.groundPatternColor} 0px, ${world.groundPatternColor} 3px, transparent 3px, transparent 18px)`,
             }}
           />
         )}
         {worldId === "lofi" && (
-          <div className="absolute inset-0 opacity-25"
+          <div
+            className="absolute inset-0 opacity-25"
             style={{
               backgroundImage: `radial-gradient(circle, #7c3aed33 1px, transparent 1px)`,
               backgroundSize: "12px 12px",
@@ -487,8 +627,14 @@ export default function GameWorld({
       <div className="absolute bottom-[36%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
         <motion.div
           className="text-2xl"
-          animate={{ scale: phase === "celebration" ? [1, 1.4, 1] : 1, opacity: phase === "focus" ? 0.4 : 0.9 }}
-          transition={{ duration: 0.8, repeat: phase === "celebration" ? Infinity : 0 }}
+          animate={{
+            scale: phase === "celebration" ? [1, 1.4, 1] : 1,
+            opacity: phase === "focus" ? 0.4 : 0.9,
+          }}
+          transition={{
+            duration: 0.8,
+            repeat: phase === "celebration" ? Infinity : 0,
+          }}
         >
           ❤️
         </motion.div>
@@ -506,10 +652,20 @@ export default function GameWorld({
         <div className="flex items-end gap-1">
           {myPet && (
             <div className="mb-1">
-              <PetCharacter type={myPet} anim={myAnim} facing="right" size={2} />
+              <PetCharacter
+                type={myPet}
+                anim={myAnim}
+                facing="right"
+                size={2}
+              />
             </div>
           )}
-          <PixelCharacter {...me.avatar} anim={myAnim} facing="right" size={3} />
+          <PixelCharacter
+            {...me.avatar}
+            anim={myAnim}
+            facing="right"
+            size={3}
+          />
         </div>
         <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
           {myName ?? "YOU"}
@@ -527,10 +683,20 @@ export default function GameWorld({
           transition={{ type: "tween", ease: "linear", duration: 0.8 }}
         >
           <div className="flex items-end gap-1">
-            <PixelCharacter {...partner.avatar} anim={partnerAnim} facing="left" size={3} />
+            <PixelCharacter
+              {...partner.avatar}
+              anim={partnerAnim}
+              facing="left"
+              size={3}
+            />
             {partnerPet && (
               <div className="mb-1">
-                <PetCharacter type={partnerPet} anim={partnerAnim} facing="left" size={2} />
+                <PetCharacter
+                  type={partnerPet}
+                  anim={partnerAnim}
+                  facing="left"
+                  size={2}
+                />
               </div>
             )}
           </div>
