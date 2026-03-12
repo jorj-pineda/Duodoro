@@ -270,7 +270,7 @@ export default function DuoTimer() {
       />
 
       {/* ── Game World (full-width) ── */}
-      <div className="w-full mt-auto">
+      <div className="w-full mt-auto pb-4">
         <div className="overflow-hidden border-t border-gray-700/60">
           <GameWorld
             worldId={game.myWorld}
