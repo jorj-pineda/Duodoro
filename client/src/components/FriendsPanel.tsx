@@ -141,10 +141,9 @@ export default function FriendsPanel({
             onClick={onClose}
           />
           {/* Vertically-centered panel on the left */}
-          <div className="fixed left-4 top-0 bottom-0 z-40 flex items-center pointer-events-none">
+          <div className="fixed left-4 top-0 bottom-0 z-40 flex items-stretch py-3 pointer-events-none">
             <motion.div
               className="pointer-events-auto w-80 bg-gray-900 border border-gray-700 flex flex-col shadow-2xl rounded-2xl overflow-hidden"
-              style={{ maxHeight: "min(600px, 85vh)" }}
               initial={{ x: -60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -60, opacity: 0 }}
