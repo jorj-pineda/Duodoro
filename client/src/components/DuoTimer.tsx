@@ -266,6 +266,7 @@ export default function DuoTimer() {
         onStart={game.startSession}
         onStop={game.stopSession}
         onFinishFlow={game.finishFlowFocus}
+        onLeave={handleLeaveSession}
       />
 
       {/* ── Game World (full-width) ── */}
@@ -284,16 +285,6 @@ export default function DuoTimer() {
             partnerName={game.partnerName}
           />
         </div>
-      </div>
-
-      {/* ── Leave session ── */}
-      <div className="text-center pb-4">
-        <button
-          onClick={handleLeaveSession}
-          className="text-gray-700 hover:text-gray-400 text-xs font-mono transition-colors"
-        >
-          {"←"} leave session
-        </button>
       </div>
 
       {game.pendingInvite && (

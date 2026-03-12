@@ -88,6 +88,7 @@ interface SessionHUDProps {
   onStart: () => void;
   onStop: () => void;
   onFinishFlow: () => void;
+  onLeave: () => void;
 }
 
 const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
@@ -118,6 +119,7 @@ export default function SessionHUD({
   onStart,
   onStop,
   onFinishFlow,
+  onLeave,
 }: SessionHUDProps) {
   const showTimer = phase === "focus" || phase === "break";
   const canStart = playerCount >= 1 && !sessionStarted && phase === "waiting";
@@ -270,6 +272,12 @@ export default function SessionHUD({
             end session
           </button>
         )}
+        <button
+          onClick={onLeave}
+          className="text-gray-700 hover:text-gray-400 text-xs font-mono transition-colors mt-2"
+        >
+          {"←"} leave session
+        </button>
       </div>
     </div>
   );
