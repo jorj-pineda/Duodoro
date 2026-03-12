@@ -1095,24 +1095,6 @@ export default function DuoTimer() {
         </div>
       </div>
 
-      {/* ── Game World (contained card) ── */}
-      <div className="w-full max-w-3xl mx-auto px-3 pt-3">
-        <div className="rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl">
-          <GameWorld
-            worldId={myWorld}
-            phase={phase}
-            focusProgress={focusProgress}
-            returningProgress={returningProgress}
-            me={{ id: myId, avatar: myAvatar }}
-            partner={partner}
-            myPet={myPet}
-            partnerPet={null}
-            myName={profile?.display_name ?? profile?.username}
-            partnerName={partnerName}
-          />
-        </div>
-      </div>
-
       {/* ── HUD ── */}
       <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-4">
         <div className="text-sm font-mono font-bold tracking-widest text-gray-400 uppercase">
@@ -1260,6 +1242,24 @@ export default function DuoTimer() {
               end session
             </button>
           )}
+        </div>
+      </div>
+
+      {/* ── Game World (contained card) ── */}
+      <div className="w-full max-w-3xl mx-auto px-3 pb-3 mt-auto">
+        <div className="rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl">
+          <GameWorld
+            worldId={myWorld}
+            phase={phase}
+            focusProgress={focusProgress}
+            returningProgress={returningProgress}
+            me={{ id: myId, avatar: myAvatar }}
+            partner={partner}
+            myPet={myPet}
+            partnerPet={null}
+            myName={profile?.display_name ?? profile?.username}
+            partnerName={partnerName}
+          />
         </div>
       </div>
 
