@@ -39,7 +39,13 @@ function WorldCard({
         {world.id === "space" && (
           <div className="absolute inset-0">
             {[
-              [2, 2], [5, 5], [8, 1], [11, 4], [14, 2], [3, 8], [9, 7],
+              [2, 2],
+              [5, 5],
+              [8, 1],
+              [11, 4],
+              [14, 2],
+              [3, 8],
+              [9, 7],
             ].map(([cx, cy], i) => (
               <div
                 key={i}
@@ -49,14 +55,18 @@ function WorldCard({
             ))}
             <div
               className="absolute right-3 top-2 w-8 h-8 rounded-full opacity-60"
-              style={{ background: "radial-gradient(circle, #a78bfa, #4c1d95)" }}
+              style={{
+                background: "radial-gradient(circle, #a78bfa, #4c1d95)",
+              }}
             />
           </div>
         )}
         {world.id === "beach" && (
-          <div className="absolute bottom-4 left-0 right-0 h-3 opacity-60"
+          <div
+            className="absolute bottom-4 left-0 right-0 h-3 opacity-60"
             style={{
-              background: "repeating-linear-gradient(90deg, #60a5fa 0px, #60a5fa 8px, #3b82f6 8px, #3b82f6 16px)",
+              background:
+                "repeating-linear-gradient(90deg, #60a5fa 0px, #60a5fa 8px, #3b82f6 8px, #3b82f6 16px)",
             }}
           />
         )}
@@ -75,8 +85,14 @@ function WorldCard({
 function Tree({ color }: { color: string }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="w-5 h-5 rounded-sm" style={{ backgroundColor: "#2d6a4f" }} />
-      <div className="w-4 h-4 rounded-sm -mt-1" style={{ backgroundColor: "#40916c" }} />
+      <div
+        className="w-5 h-5 rounded-sm"
+        style={{ backgroundColor: "#2d6a4f" }}
+      />
+      <div
+        className="w-4 h-4 rounded-sm -mt-1"
+        style={{ backgroundColor: "#40916c" }}
+      />
       <div className="w-1 h-3" style={{ backgroundColor: "#6b4f2a" }} />
     </div>
   );
@@ -101,7 +117,11 @@ export default function WorldPicker({ onSelect, onBack }: Props) {
 
         <div className="grid grid-cols-3 gap-3 relative">
           {WORLDS.map((world) => (
-            <WorldCard key={world.id} world={world} onClick={() => onSelect(world.id)} />
+            <WorldCard
+              key={world.id}
+              world={world}
+              onClick={() => onSelect(world.id)}
+            />
           ))}
         </div>
 

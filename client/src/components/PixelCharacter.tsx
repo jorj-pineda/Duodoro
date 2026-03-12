@@ -147,11 +147,16 @@ function Eyes({ style }: { style: EyeStyle }) {
 // Returns { leftLegY, rightLegY, leftFootY, rightFootY }
 function getWalkLegPos(frame: number) {
   switch (frame % 4) {
-    case 0: return { leftLegY: 17, rightLegY: 19, leftFootY: 22, rightFootY: 23 };
-    case 1: return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
-    case 2: return { leftLegY: 19, rightLegY: 17, leftFootY: 23, rightFootY: 22 };
-    case 3: return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
-    default: return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
+    case 0:
+      return { leftLegY: 17, rightLegY: 19, leftFootY: 22, rightFootY: 23 };
+    case 1:
+      return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
+    case 2:
+      return { leftLegY: 19, rightLegY: 17, leftFootY: 23, rightFootY: 22 };
+    case 3:
+      return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
+    default:
+      return { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
   }
 }
 
@@ -193,7 +198,10 @@ export default function PixelCharacter({
   if (anim === "float") animClass = "pixel-float";
   if (anim === "sit") animClass = "pixel-idle"; // gentle idle while sitting
 
-  const legPos = anim === "walk" ? getWalkLegPos(walkFrame) : { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
+  const legPos =
+    anim === "walk"
+      ? getWalkLegPos(walkFrame)
+      : { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
 
   // Sit pose offsets — legs come forward, arms go down
   const isSitting = anim === "sit";
@@ -230,12 +238,20 @@ export default function PixelCharacter({
       ) : (
         <>
           {/* Left arm */}
-          <g transform={anim === "walk" && walkFrame % 4 < 2 ? "translate(0,1)" : ""}>
+          <g
+            transform={
+              anim === "walk" && walkFrame % 4 < 2 ? "translate(0,1)" : ""
+            }
+          >
             <rect x={1} y={12} width={3} height={2} fill={outfitColor} />
             <rect x={1} y={14} width={3} height={3} fill={skinColor} />
           </g>
           {/* Right arm */}
-          <g transform={anim === "walk" && walkFrame % 4 >= 2 ? "translate(0,1)" : ""}>
+          <g
+            transform={
+              anim === "walk" && walkFrame % 4 >= 2 ? "translate(0,1)" : ""
+            }
+          >
             <rect x={12} y={12} width={3} height={2} fill={outfitColor} />
             <rect x={12} y={14} width={3} height={3} fill={skinColor} />
           </g>
@@ -245,7 +261,13 @@ export default function PixelCharacter({
       {/* ── BODY/OUTFIT ── */}
       <rect x={4} y={12} width={8} height={6} fill={outfitColor} />
       {/* Collar detail */}
-      <rect x={6} y={12} width={4} height={1} fill={darken(outfitColor, 0.15)} />
+      <rect
+        x={6}
+        y={12}
+        width={4}
+        height={1}
+        fill={darken(outfitColor, 0.15)}
+      />
 
       {/* ── LEGS ── */}
       {isSitting ? (
@@ -259,11 +281,35 @@ export default function PixelCharacter({
         </>
       ) : (
         <>
-          <rect x={4} y={legPos.leftLegY} width={3} height={5} fill={pantsColor} />
-          <rect x={9} y={legPos.rightLegY} width={3} height={5} fill={pantsColor} />
+          <rect
+            x={4}
+            y={legPos.leftLegY}
+            width={3}
+            height={5}
+            fill={pantsColor}
+          />
+          <rect
+            x={9}
+            y={legPos.rightLegY}
+            width={3}
+            height={5}
+            fill={pantsColor}
+          />
           {/* Feet */}
-          <rect x={3} y={legPos.leftFootY} width={4} height={1} fill={shoeColor} />
-          <rect x={9} y={legPos.rightFootY} width={4} height={1} fill={shoeColor} />
+          <rect
+            x={3}
+            y={legPos.leftFootY}
+            width={4}
+            height={1}
+            fill={shoeColor}
+          />
+          <rect
+            x={9}
+            y={legPos.rightFootY}
+            width={4}
+            height={1}
+            fill={shoeColor}
+          />
         </>
       )}
 

@@ -80,15 +80,14 @@ function PartnerRow({ duo, rank }: { duo: DuoStats; rank: number }) {
 function SessionRow({ session }: { session: SessionWithPartner }) {
   return (
     <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-800/40">
-      <span className="text-sm">
-        {WORLD_EMOJI[session.world] ?? "🌍"}
-      </span>
+      <span className="text-sm">{WORLD_EMOJI[session.world] ?? "🌍"}</span>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-white truncate">
           {formatDuration(session.actual_focus)} focus
           {session.partner_name && (
             <span className="text-gray-500 font-normal">
-              {" "}with {session.partner_name}
+              {" "}
+              with {session.partner_name}
             </span>
           )}
         </p>

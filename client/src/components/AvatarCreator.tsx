@@ -64,7 +64,8 @@ function CycleRow<T extends string>({
   onChange: (v: T) => void;
 }) {
   const idx = options.indexOf(value);
-  const prev = () => onChange(options[(idx - 1 + options.length) % options.length]);
+  const prev = () =>
+    onChange(options[(idx - 1 + options.length) % options.length]);
   const next = () => onChange(options[(idx + 1) % options.length]);
 
   return (
@@ -77,7 +78,9 @@ function CycleRow<T extends string>({
         >
           ‹
         </button>
-        <span className="w-20 text-center text-xs text-white">{labels[value]}</span>
+        <span className="w-20 text-center text-xs text-white">
+          {labels[value]}
+        </span>
         <button
           onClick={next}
           className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold"
@@ -89,8 +92,15 @@ function CycleRow<T extends string>({
   );
 }
 
-export default function AvatarCreator({ onSave, initialConfig, initialDisplayName, onBack }: Props) {
-  const [config, setConfig] = useState<AvatarConfig>(initialConfig ?? DEFAULT_AVATAR);
+export default function AvatarCreator({
+  onSave,
+  initialConfig,
+  initialDisplayName,
+  onBack,
+}: Props) {
+  const [config, setConfig] = useState<AvatarConfig>(
+    initialConfig ?? DEFAULT_AVATAR,
+  );
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
 
   const set = <K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) =>
@@ -105,7 +115,9 @@ export default function AvatarCreator({ onSave, initialConfig, initialDisplayNam
           Duodoro
         </h1>
         <p className="text-gray-400 text-center text-sm mt-1">
-          {isEditing ? "Update your character" : "Focus together, no matter the distance"}
+          {isEditing
+            ? "Update your character"
+            : "Focus together, no matter the distance"}
         </p>
       </div>
 
@@ -132,7 +144,9 @@ export default function AvatarCreator({ onSave, initialConfig, initialDisplayNam
         {/* ── Display Name ── */}
         {!isEditing && (
           <div className="mb-4">
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">YOUR NAME</p>
+            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+              YOUR NAME
+            </p>
             <input
               className="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
               placeholder="e.g. Jorge"
@@ -164,16 +178,34 @@ export default function AvatarCreator({ onSave, initialConfig, initialDisplayNam
         {/* ── Color Pickers ── */}
         <div className="space-y-3 mb-6">
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">SKIN</p>
-            <ColorSwatch colors={SKIN_COLORS} selected={config.skinColor} onSelect={(hex) => set("skinColor", hex)} />
+            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+              SKIN
+            </p>
+            <ColorSwatch
+              colors={SKIN_COLORS}
+              selected={config.skinColor}
+              onSelect={(hex) => set("skinColor", hex)}
+            />
           </div>
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">HAIR COLOR</p>
-            <ColorSwatch colors={HAIR_COLORS} selected={config.hairColor} onSelect={(hex) => set("hairColor", hex)} />
+            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+              HAIR COLOR
+            </p>
+            <ColorSwatch
+              colors={HAIR_COLORS}
+              selected={config.hairColor}
+              onSelect={(hex) => set("hairColor", hex)}
+            />
           </div>
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">OUTFIT</p>
-            <ColorSwatch colors={OUTFIT_COLORS} selected={config.outfitColor} onSelect={(hex) => set("outfitColor", hex)} />
+            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+              OUTFIT
+            </p>
+            <ColorSwatch
+              colors={OUTFIT_COLORS}
+              selected={config.outfitColor}
+              onSelect={(hex) => set("outfitColor", hex)}
+            />
           </div>
         </div>
 

@@ -18,15 +18,15 @@ const FEATURES = [
 
 export default function PremiumModal({ open, onClose }: Props) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(
+    "idle",
+  );
 
   const handleWaitlist = async () => {
     if (!email.includes("@")) return;
     setStatus("loading");
     try {
-      const { error } = await getSupabase()
-        .from("waitlist")
-        .insert({ email });
+      const { error } = await getSupabase().from("waitlist").insert({ email });
       if (error && error.code !== "23505") throw error; // 23505 = duplicate
       setStatus("done");
     } catch {
@@ -81,7 +81,10 @@ export default function PremiumModal({ open, onClose }: Props) {
               {/* Feature list */}
               <ul className="space-y-2.5 mb-7">
                 {FEATURES.map((f) => (
-                  <li key={f.label} className="flex items-center gap-3 text-sm text-gray-300">
+                  <li
+                    key={f.label}
+                    className="flex items-center gap-3 text-sm text-gray-300"
+                  >
                     <span className="text-xl flex-shrink-0">{f.icon}</span>
                     <span>{f.label}</span>
                   </li>
@@ -91,7 +94,8 @@ export default function PremiumModal({ open, onClose }: Props) {
               {/* Waitlist signup */}
               {status === "done" ? (
                 <div className="text-center text-emerald-400 font-mono text-sm py-3">
-                  ✓ You&apos;re on the list! We&apos;ll let you know when Premium launches.
+                  ✓ You&apos;re on the list! We&apos;ll let you know when
+                  Premium launches.
                 </div>
               ) : (
                 <>

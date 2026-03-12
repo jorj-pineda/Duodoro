@@ -68,7 +68,9 @@ export default function HomeDashboard({
   const { personalStats, loading, fetchStats } = useStats(profile.id);
 
   const [friends, setFriends] = useState<Profile[]>([]);
-  const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(new Set());
+  const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const displayName = profile.display_name ?? profile.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();
@@ -82,11 +84,13 @@ export default function HomeDashboard({
   const fetchFriends = useCallback(async () => {
     const { data } = await sb
       .from("friendships")
-      .select(`
+      .select(
+        `
         id, requester_id, addressee_id,
         requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_session_id, current_world_id),
         addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_session_id, current_world_id)
-      `)
+      `,
+      )
       .eq("status", "accepted");
     if (data) {
       const myId = profile.id;
@@ -108,15 +112,17 @@ export default function HomeDashboard({
     if (!socket || friends.length === 0) return;
 
     const friendIds = friends.map((f) => f.id);
-    socket.emit(
-      "get_online_friends",
-      { friendIds },
-      (online: string[]) => {
-        setOnlineFriendIds(new Set(online));
-      },
-    );
+    socket.emit("get_online_friends", { friendIds }, (online: string[]) => {
+      setOnlineFriendIds(new Set(online));
+    });
 
-    const handlePresence = ({ userId, online }: { userId: string; online: boolean }) => {
+    const handlePresence = ({
+      userId,
+      online,
+    }: {
+      userId: string;
+      online: boolean;
+    }) => {
       setOnlineFriendIds((prev) => {
         const next = new Set(prev);
         if (online) next.add(userId);
@@ -132,9 +138,13 @@ export default function HomeDashboard({
   }, [socketRef, friends]);
 
   const WORLD_LABEL: Record<string, { emoji: string; label: string }> =
-    Object.fromEntries(WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }]));
+    Object.fromEntries(
+      WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }]),
+    );
 
-  const onlineFriends = friends.filter((f) => onlineFriendIds.has(f.id) || !!f.current_session_id);
+  const onlineFriends = friends.filter(
+    (f) => onlineFriendIds.has(f.id) || !!f.current_session_id,
+  );
 
   const fetchTasks = useCallback(async () => {
     const { data } = await sb
@@ -185,7 +195,11 @@ export default function HomeDashboard({
 
   const greetingHour = new Date().getHours();
   const greeting =
-    greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
+    greetingHour < 12
+      ? "Good morning"
+      : greetingHour < 17
+        ? "Good afternoon"
+        : "Good evening";
 
   return (
     <div
@@ -214,7 +228,11 @@ export default function HomeDashboard({
           </span>
           <div
             className={`w-2 h-2 rounded-full ${activeSessionId ? "bg-yellow-400" : "bg-red-400"}`}
-            style={{ boxShadow: activeSessionId ? "0 0 6px #facc15" : "0 0 6px #f87171" }}
+            style={{
+              boxShadow: activeSessionId
+                ? "0 0 6px #facc15"
+                : "0 0 6px #f87171",
+            }}
           />
         </div>
 
@@ -446,7 +464,9 @@ export default function HomeDashboard({
               <div className="space-y-1">
                 {onlineFriends.slice(0, 5).map((f) => {
                   const inSession = !!f.current_session_id;
-                  const worldInfo = f.current_world_id ? WORLD_LABEL[f.current_world_id] : null;
+                  const worldInfo = f.current_world_id
+                    ? WORLD_LABEL[f.current_world_id]
+                    : null;
                   const name = f.display_name ?? f.username;
                   return (
                     <div
@@ -457,13 +477,17 @@ export default function HomeDashboard({
                         className={`w-2 h-2 rounded-full flex-shrink-0 ${inSession ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"}`}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{name}</p>
+                        <p className="text-sm font-bold text-white truncate">
+                          {name}
+                        </p>
                         {inSession && worldInfo ? (
                           <p className="text-[10px] text-emerald-400 font-mono truncate">
                             {worldInfo.emoji} In {worldInfo.label}
                           </p>
                         ) : (
-                          <p className="text-[10px] text-gray-500 font-mono">Online</p>
+                          <p className="text-[10px] text-gray-500 font-mono">
+                            Online
+                          </p>
                         )}
                       </div>
                       {inSession && f.current_session_id ? (

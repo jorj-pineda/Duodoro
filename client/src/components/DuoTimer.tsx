@@ -500,8 +500,13 @@ export default function DuoTimer() {
 
       // Refresh token on reconnect attempts
       socket.on("connect_error", async (err) => {
-        if (err.message === "Invalid or expired token" || err.message === "Authentication required") {
-          const { data: { session: fresh } } = await sb.auth.getSession();
+        if (
+          err.message === "Invalid or expired token" ||
+          err.message === "Authentication required"
+        ) {
+          const {
+            data: { session: fresh },
+          } = await sb.auth.getSession();
           if (fresh?.access_token) {
             socket.auth = { token: fresh.access_token };
           }
@@ -512,80 +517,83 @@ export default function DuoTimer() {
         setMyId(socket.id ?? "");
       });
 
-    socket.on("session_created", ({ sessionId: sid }: { sessionId: string }) => {
-      setSessionId(sid);
-      // If we created this session to send an invite, send it now
-      const target = pendingOutboundInvite.current;
-      if (target) {
-        pendingOutboundInvite.current = null;
-        socket.emit("send_invite", {
-          targetUserId: target,
-          sessionId: sid,
-          worldId: myWorld,
-          fromName: profile?.display_name ?? profile?.username ?? "Someone",
-        });
-      }
-    });
+      socket.on(
+        "session_created",
+        ({ sessionId: sid }: { sessionId: string }) => {
+          setSessionId(sid);
+          // If we created this session to send an invite, send it now
+          const target = pendingOutboundInvite.current;
+          if (target) {
+            pendingOutboundInvite.current = null;
+            socket.emit("send_invite", {
+              targetUserId: target,
+              sessionId: sid,
+              worldId: myWorld,
+              fromName: profile?.display_name ?? profile?.username ?? "Someone",
+            });
+          }
+        },
+      );
 
-    socket.on("session_error", ({ message }: { message: string }) => {
-      console.error("Session error:", message);
-    });
-
-    socket.on("sync_state", (data: SyncPayload) => {
-      if (data.mode) setServerMode(data.mode);
-      setPhase(data.phase);
-      setPhaseStartTime(data.phaseStartTime);
-      setServerFocusDuration(data.focusDuration);
-      setServerBreakDuration(data.breakDuration);
-      setPlayers(data.players || {});
-      if (data.world) setMyWorld(data.world as WorldId);
-      if (data.sessionId) setSessionId(data.sessionId);
-      if (data.phase !== "waiting") setSessionStarted(true);
-    });
-
-    socket.on("phase_change", (data: PhaseChangePayload) => {
-      if (data.mode) setServerMode(data.mode);
-      setPhase(data.phase);
-      setPhaseStartTime(data.phaseStartTime);
-      setServerFocusDuration(data.focusDuration);
-      setServerBreakDuration(data.breakDuration);
-      if (data.phase !== "waiting") setSessionStarted(true);
-    });
-
-    socket.on(
-      "player_joined",
-      ({
-        playerId,
-        avatar,
-        displayName,
-      }: {
-        playerId: string;
-        avatar: AvatarConfig;
-        displayName?: string;
-      }) => {
-        setPlayers((prev) => ({
-          ...prev,
-          [playerId]: { avatar, displayName },
-        }));
-      },
-    );
-
-    socket.on("player_left", ({ playerId }: { playerId: string }) => {
-      setPlayers((prev) => {
-        const next = { ...prev };
-        delete next[playerId];
-        return next;
+      socket.on("session_error", ({ message }: { message: string }) => {
+        console.error("Session error:", message);
       });
-    });
 
-    socket.on("session_invite", (data: InviteData) => {
-      setPendingInvite(data);
-    });
+      socket.on("sync_state", (data: SyncPayload) => {
+        if (data.mode) setServerMode(data.mode);
+        setPhase(data.phase);
+        setPhaseStartTime(data.phaseStartTime);
+        setServerFocusDuration(data.focusDuration);
+        setServerBreakDuration(data.breakDuration);
+        setPlayers(data.players || {});
+        if (data.world) setMyWorld(data.world as WorldId);
+        if (data.sessionId) setSessionId(data.sessionId);
+        if (data.phase !== "waiting") setSessionStarted(true);
+      });
 
-    socket.on("invite_error", ({ message }: { message: string }) => {
-      setInviteSentName(null);
-      console.warn("Invite error:", message);
-    });
+      socket.on("phase_change", (data: PhaseChangePayload) => {
+        if (data.mode) setServerMode(data.mode);
+        setPhase(data.phase);
+        setPhaseStartTime(data.phaseStartTime);
+        setServerFocusDuration(data.focusDuration);
+        setServerBreakDuration(data.breakDuration);
+        if (data.phase !== "waiting") setSessionStarted(true);
+      });
+
+      socket.on(
+        "player_joined",
+        ({
+          playerId,
+          avatar,
+          displayName,
+        }: {
+          playerId: string;
+          avatar: AvatarConfig;
+          displayName?: string;
+        }) => {
+          setPlayers((prev) => ({
+            ...prev,
+            [playerId]: { avatar, displayName },
+          }));
+        },
+      );
+
+      socket.on("player_left", ({ playerId }: { playerId: string }) => {
+        setPlayers((prev) => {
+          const next = { ...prev };
+          delete next[playerId];
+          return next;
+        });
+      });
+
+      socket.on("session_invite", (data: InviteData) => {
+        setPendingInvite(data);
+      });
+
+      socket.on("invite_error", ({ message }: { message: string }) => {
+        setInviteSentName(null);
+        console.warn("Invite error:", message);
+      });
     }
 
     connectSocket();
@@ -638,7 +646,7 @@ export default function DuoTimer() {
 
   const focusProgress =
     phase === "focus" && phaseStartTime
-      ? serverMode === "flow" 
+      ? serverMode === "flow"
         ? Math.min(1, flowElapsed / (120 * 60)) // Treat 2h max as 100% for progress bar
         : Math.min(1, (now - phaseStartTime) / (serverFocusDuration * 1000))
       : 0;
@@ -837,7 +845,11 @@ export default function DuoTimer() {
                 .from("profiles")
                 .update({ display_name: name })
                 .eq("id", profile.id);
-              const updated = { ...profile, display_name: name, avatar_config: config };
+              const updated = {
+                ...profile,
+                display_name: name,
+                avatar_config: config,
+              };
               setProfile(updated);
               cacheProfile(updated);
             }
@@ -1114,15 +1126,17 @@ export default function DuoTimer() {
         {showTimer && (
           <div className="text-6xl font-mono font-bold tracking-widest tabular-nums drop-shadow-lg flex flex-col items-center">
             {phase === "focus" && serverMode === "flow" && (
-                <span className="text-xs text-emerald-500 mb-1 tracking-widest font-bold">FLOW ELAPSED</span>
+              <span className="text-xs text-emerald-500 mb-1 tracking-widest font-bold">
+                FLOW ELAPSED
+              </span>
             )}
             <span
               className={
                 phase === "break" ? "text-blue-400" : "text-emerald-400"
               }
             >
-              {phase === "focus" && serverMode === "flow" 
-                ? formatTime(Math.round(flowElapsed)) 
+              {phase === "focus" && serverMode === "flow"
+                ? formatTime(Math.round(flowElapsed))
                 : formatTime(timeLeft)}
             </span>
           </div>
@@ -1153,30 +1167,31 @@ export default function DuoTimer() {
               </button>
             </div>
             {timerMode === "pomodoro" ? (
-                <>
-                  <DurationSlider
-                    label="FOCUS"
-                    value={focusDuration}
-                    onChange={setFocusDuration}
-                    min={5}
-                    max={120}
-                    step={5}
-                    unit="m"
-                  />
-                  <DurationSlider
-                    label="BREAK"
-                    value={breakDuration}
-                    onChange={setBreakDuration}
-                    min={1}
-                    max={30}
-                    step={1}
-                    unit="m"
-                  />
-                </>
+              <>
+                <DurationSlider
+                  label="FOCUS"
+                  value={focusDuration}
+                  onChange={setFocusDuration}
+                  min={5}
+                  max={120}
+                  step={5}
+                  unit="m"
+                />
+                <DurationSlider
+                  label="BREAK"
+                  value={breakDuration}
+                  onChange={setBreakDuration}
+                  min={1}
+                  max={30}
+                  step={1}
+                  unit="m"
+                />
+              </>
             ) : (
-                <div className="text-center text-xs text-gray-400 font-mono px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                  Focus as long as you want. When you&apos;re done, you&apos;ll earn a break tailored to how long you worked.
-                </div>
+              <div className="text-center text-xs text-gray-400 font-mono px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                Focus as long as you want. When you&apos;re done, you&apos;ll
+                earn a break tailored to how long you worked.
+              </div>
             )}
           </div>
         )}
@@ -1230,12 +1245,12 @@ export default function DuoTimer() {
             </p>
           )}
           {phase === "focus" && serverMode === "flow" && (
-              <button
-                onClick={finishFlowFocus}
-                className="bg-blue-500 hover:bg-blue-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-blue-700 text-sm mt-2"
-              >
-                {"⏸"} TAKE BREAK
-              </button>
+            <button
+              onClick={finishFlowFocus}
+              className="bg-blue-500 hover:bg-blue-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-blue-700 text-sm mt-2"
+            >
+              {"⏸"} TAKE BREAK
+            </button>
           )}
           {canStop && (
             <button

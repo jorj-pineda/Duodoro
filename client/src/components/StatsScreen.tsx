@@ -47,10 +47,7 @@ function WeeklyChart({ sessions }: { sessions: any[] }) {
       const label = d.toLocaleDateString("en-US", { weekday: "short" });
 
       const mins = sessions
-        .filter(
-          (s: any) =>
-            s.completed && s.ended_at.startsWith(dateStr)
-        )
+        .filter((s: any) => s.completed && s.ended_at.startsWith(dateStr))
         .reduce((sum: number, s: any) => sum + s.actual_focus / 60, 0);
 
       days.push({ label, date: dateStr, minutes: Math.round(mins) });
@@ -67,7 +64,10 @@ function WeeklyChart({ sessions }: { sessions: any[] }) {
       </p>
       <div className="flex items-end gap-2 h-24">
         {dailyData.map((day) => (
-          <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+          <div
+            key={day.date}
+            className="flex-1 flex flex-col items-center gap-1"
+          >
             <span className="text-[9px] text-gray-500 font-mono">
               {day.minutes > 0 ? `${day.minutes}m` : ""}
             </span>
@@ -121,13 +121,8 @@ function BigStatCard({
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function StatsScreen({ open, onClose, userId }: Props) {
-  const {
-    personalStats,
-    duoStats,
-    recentSessions,
-    loading,
-    fetchStats,
-  } = useStats(userId);
+  const { personalStats, duoStats, recentSessions, loading, fetchStats } =
+    useStats(userId);
 
   useEffect(() => {
     if (open) fetchStats();
@@ -219,9 +214,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
                         >
                           <span
                             className={`text-sm font-bold font-mono ${
-                              i === 0
-                                ? "text-yellow-400"
-                                : "text-gray-600"
+                              i === 0 ? "text-yellow-400" : "text-gray-600"
                             }`}
                           >
                             {i === 0 ? "★" : `#${i + 1}`}
