@@ -126,7 +126,8 @@ export default function SessionHUD({
   const canStop = sessionStarted && phase !== "waiting";
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-4">
+    <div className="flex-1 flex items-start justify-center px-6 pt-4">
+      <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/60 rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-2xl">
       <div className="text-sm font-mono font-bold tracking-widest text-gray-400 uppercase">
         {phaseLabel[phase](playerCount)}
       </div>
@@ -278,6 +279,7 @@ export default function SessionHUD({
         >
           {"←"} leave session
         </button>
+      </div>
       </div>
     </div>
   );

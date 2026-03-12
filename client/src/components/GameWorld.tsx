@@ -101,10 +101,10 @@ export default function GameWorld({
     returningProgress,
   );
 
-  const GROUND_HEIGHT = "38%";
+  const GROUND_HEIGHT = "19%";
 
   return (
-    <div className="relative w-full h-[50vh] min-h-[275px] max-h-[475px]">
+    <div className="relative w-full h-full">
       {/* Sky */}
       <div
         className="absolute inset-0 overflow-hidden"
@@ -189,7 +189,7 @@ export default function GameWorld({
       </div>
 
       {/* Meeting heart marker */}
-      <div className="absolute bottom-[36%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+      <div className="absolute bottom-[17%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
         <motion.div
           className="text-2xl"
           animate={{
@@ -209,7 +209,7 @@ export default function GameWorld({
       {/* Me (left side, walks right) */}
       <motion.div
         className="absolute z-20"
-        style={{ bottom: "calc(38% - 4px)" }}
+        style={{ bottom: "calc(19% - 4px)" }}
         initial={{ left: myLeft }}
         animate={{ left: myLeft }}
         transition={{ type: "tween", ease: "linear", duration: 0.8 }}
@@ -242,7 +242,7 @@ export default function GameWorld({
         <motion.div
           key={partner.id}
           className="absolute z-20"
-          style={{ bottom: "calc(38% - 4px)" }}
+          style={{ bottom: "calc(19% - 4px)" }}
           initial={{ right: partnerRight }}
           animate={{ right: partnerRight }}
           transition={{ type: "tween", ease: "linear", duration: 0.8 }}
@@ -299,7 +299,7 @@ export default function GameWorld({
 
       {/* Waiting state — partner slot empty */}
       {!partner && phase === "waiting" && (
-        <div className="absolute right-4 bottom-[38%] flex flex-col items-center opacity-40">
+        <div className="absolute right-4 bottom-[19%] flex flex-col items-center opacity-40">
           <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center text-white text-lg">
             ?
           </div>

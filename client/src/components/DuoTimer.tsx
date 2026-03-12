@@ -201,90 +201,91 @@ export default function DuoTimer() {
   // ── Game Screen ─────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen bg-gray-900 text-white flex flex-col"
+      className="h-screen bg-gray-900 text-white relative overflow-hidden"
       onClick={() => setProfileMenuOpen(false)}
     >
-      <SessionTopBar
-        phase={game.phase}
-        displayName={displayName}
-        username={profile?.username}
-        initial={initial}
-        isPremium={isPremium}
-        friendsOpen={friendsOpen}
-        notesOpen={notesOpen}
-        statsOpen={statsOpen}
-        profileMenuOpen={profileMenuOpen}
-        onToggleFriends={() => {
-          setFriendsOpen((o) => !o);
-          setNotesOpen(false);
-          setStatsOpen(false);
-        }}
-        onToggleNotes={() => {
-          setNotesOpen((o) => !o);
-          setFriendsOpen(false);
-          setStatsOpen(false);
-        }}
-        onToggleStats={() => {
-          setStatsOpen((o) => !o);
-          setNotesOpen(false);
-          setFriendsOpen(false);
-        }}
-        onToggleProfileMenu={() => setProfileMenuOpen((o) => !o)}
-        onGoHome={() => setAppStep("home")}
-        onEditAvatar={() => {
-          setAppStep("avatar");
-          setProfileMenuOpen(false);
-        }}
-        onOpenPremium={() => {
-          setPremiumOpen(true);
-          setProfileMenuOpen(false);
-        }}
-        onSignOut={async () => {
-          const { signOut } = await import("@/lib/supabase");
-          await signOut();
-          setProfileMenuOpen(false);
-        }}
-      />
+      {/* ── Game World (full-screen background) ── */}
+      <div className="absolute inset-0">
+        <GameWorld
+          worldId={game.myWorld}
+          phase={game.phase}
+          focusProgress={game.focusProgress}
+          returningProgress={game.returningProgress}
+          me={{ id: game.myId, avatar: myAvatar }}
+          partner={game.partner}
+          myPet={game.myPet}
+          partnerPet={null}
+          myName={profile?.display_name ?? profile?.username}
+          partnerName={game.partnerName}
+        />
+      </div>
 
-      <SessionHUD
-        phase={game.phase}
-        serverMode={game.serverMode}
-        sessionStarted={game.sessionStarted}
-        playerCount={game.playerCount}
-        timeLeft={game.timeLeft}
-        flowElapsed={game.flowElapsed}
-        timerMode={game.timerMode}
-        focusDuration={game.focusDuration}
-        breakDuration={game.breakDuration}
-        onTimerModeChange={game.setTimerMode}
-        onFocusDurationChange={game.setFocusDuration}
-        onBreakDurationChange={game.setBreakDuration}
-        myPet={game.myPet}
-        onPetSelect={game.setMyPet}
-        isPremium={isPremium}
-        onPremiumClick={() => setPremiumOpen(true)}
-        onStart={game.startSession}
-        onStop={game.stopSession}
-        onFinishFlow={game.finishFlowFocus}
-        onLeave={handleLeaveSession}
-      />
+      {/* ── Overlay UI ── */}
+      <div className="relative z-10 flex flex-col h-full">
+        <SessionTopBar
+          phase={game.phase}
+          displayName={displayName}
+          username={profile?.username}
+          initial={initial}
+          isPremium={isPremium}
+          friendsOpen={friendsOpen}
+          notesOpen={notesOpen}
+          statsOpen={statsOpen}
+          profileMenuOpen={profileMenuOpen}
+          onToggleFriends={() => {
+            setFriendsOpen((o) => !o);
+            setNotesOpen(false);
+            setStatsOpen(false);
+          }}
+          onToggleNotes={() => {
+            setNotesOpen((o) => !o);
+            setFriendsOpen(false);
+            setStatsOpen(false);
+          }}
+          onToggleStats={() => {
+            setStatsOpen((o) => !o);
+            setNotesOpen(false);
+            setFriendsOpen(false);
+          }}
+          onToggleProfileMenu={() => setProfileMenuOpen((o) => !o)}
+          onGoHome={() => setAppStep("home")}
+          onEditAvatar={() => {
+            setAppStep("avatar");
+            setProfileMenuOpen(false);
+          }}
+          onOpenPremium={() => {
+            setPremiumOpen(true);
+            setProfileMenuOpen(false);
+          }}
+          onSignOut={async () => {
+            const { signOut } = await import("@/lib/supabase");
+            await signOut();
+            setProfileMenuOpen(false);
+          }}
+        />
 
-      {/* ── Game World (full-width) ── */}
-      <div className="w-full mt-auto pb-4">
-        <div className="overflow-hidden border-t border-gray-700/60">
-          <GameWorld
-            worldId={game.myWorld}
-            phase={game.phase}
-            focusProgress={game.focusProgress}
-            returningProgress={game.returningProgress}
-            me={{ id: game.myId, avatar: myAvatar }}
-            partner={game.partner}
-            myPet={game.myPet}
-            partnerPet={null}
-            myName={profile?.display_name ?? profile?.username}
-            partnerName={game.partnerName}
-          />
-        </div>
+        <SessionHUD
+          phase={game.phase}
+          serverMode={game.serverMode}
+          sessionStarted={game.sessionStarted}
+          playerCount={game.playerCount}
+          timeLeft={game.timeLeft}
+          flowElapsed={game.flowElapsed}
+          timerMode={game.timerMode}
+          focusDuration={game.focusDuration}
+          breakDuration={game.breakDuration}
+          onTimerModeChange={game.setTimerMode}
+          onFocusDurationChange={game.setFocusDuration}
+          onBreakDurationChange={game.setBreakDuration}
+          myPet={game.myPet}
+          onPetSelect={game.setMyPet}
+          isPremium={isPremium}
+          onPremiumClick={() => setPremiumOpen(true)}
+          onStart={game.startSession}
+          onStop={game.stopSession}
+          onFinishFlow={game.finishFlowFocus}
+          onLeave={handleLeaveSession}
+        />
       </div>
 
       {game.pendingInvite && (
