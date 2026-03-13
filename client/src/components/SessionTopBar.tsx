@@ -25,6 +25,7 @@ interface SessionTopBarProps {
   phase: GamePhase;
   displayName: string;
   username?: string;
+  discriminator?: string;
   initial: string;
   isPremium: boolean;
   friendsOpen: boolean;
@@ -45,6 +46,7 @@ export default function SessionTopBar({
   phase,
   displayName,
   username,
+  discriminator,
   initial,
   isPremium,
   friendsOpen,
@@ -141,7 +143,7 @@ export default function SessionTopBar({
                 {displayName}
               </p>
               <p className="text-gray-500 text-xs font-mono mb-3">
-                @{username}
+                @{username}{discriminator ? `#${discriminator}` : ""}
               </p>
               <button
                 onClick={onEditAvatar}

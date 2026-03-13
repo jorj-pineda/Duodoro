@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WORLDS } from "@/lib/avatarData";
 import type { Profile } from "@/lib/types";
+import { formatTag } from "@/lib/format";
 import { useFriendsList } from "@/hooks/useFriendsList";
 import { useFriendSearch } from "@/hooks/useFriendSearch";
 
@@ -56,7 +57,7 @@ function FriendRow({
           </p>
         ) : (
           <p className="text-xs text-gray-500 font-mono truncate">
-            @{friend.username}
+            @{friend.discriminator ? formatTag(friend.username, friend.discriminator) : friend.username}
           </p>
         )}
       </div>
@@ -235,7 +236,7 @@ export default function FriendsPanel({
                     <div className="flex gap-2 mb-3">
                       <input
                         className="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500"
-                        placeholder="Search by username..."
+                        placeholder="Search name or tag#0000"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -262,7 +263,7 @@ export default function FriendsPanel({
                                 {user.display_name ?? user.username}
                               </p>
                               <p className="text-xs text-gray-500 font-mono">
-                                @{user.username}
+                                @{user.discriminator ? formatTag(user.username, user.discriminator) : user.username}
                               </p>
                             </div>
                             {alreadyFriend ? (
@@ -300,9 +301,18 @@ export default function FriendsPanel({
                   <p className="text-sm font-bold text-white truncate">
                     {myProfile.display_name ?? myProfile.username}
                   </p>
-                  <p className="text-xs text-gray-500 font-mono">
-                    @{myProfile.username}
-                  </p>
+                  <button
+                    onClick={() => {
+                      const tag = myProfile.discriminator
+                        ? formatTag(myProfile.username, myProfile.discriminator)
+                        : myProfile.username;
+                      navigator.clipboard.writeText(tag);
+                    }}
+                    className="text-xs text-gray-500 font-mono hover:text-emerald-400 transition-colors"
+                    title="Copy tag to clipboard"
+                  >
+                    @{myProfile.discriminator ? formatTag(myProfile.username, myProfile.discriminator) : myProfile.username}
+                  </button>
                 </div>
                 {myProfile.is_premium && (
                   <span className="text-xs font-mono text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">

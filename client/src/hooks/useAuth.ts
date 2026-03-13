@@ -66,6 +66,8 @@ export function useAuth() {
       return {
         id,
         username: raw,
+        discriminator: "",
+        username_changed: false,
         display_name: user_metadata?.full_name ?? user_metadata?.name ?? raw,
         avatar_config: null,
         is_premium: false,

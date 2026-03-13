@@ -13,6 +13,7 @@ import HomeDashboard from "./HomeDashboard";
 import InvitePopup from "./InvitePopup";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
+import UsernameChangeModal from "./UsernameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
 
@@ -27,6 +28,7 @@ export default function DuoTimer() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [fullStatsOpen, setFullStatsOpen] = useState(false);
+  const [usernameModalOpen, setUsernameModalOpen] = useState(false);
 
   const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb } =
     auth;
@@ -97,7 +99,24 @@ export default function DuoTimer() {
           initialConfig={myAvatar}
           initialDisplayName={profile?.display_name ?? ""}
           onBack={isEditing ? () => setAppStep("home") : undefined}
-          onSave={async (config, name) => {
+          onSave={async (config, name, username) => {
+            // Claim username (first setup only)
+            if (username && profile) {
+              try {
+                const { data, error } = await sb.rpc("claim_username", {
+                  desired_username: username,
+                });
+                if (error) throw error;
+                const tag = data as { username: string; discriminator: string };
+                auth.updateProfile({
+                  username: tag.username,
+                  discriminator: tag.discriminator,
+                });
+              } catch (err: any) {
+                alert(err?.message ?? "Failed to claim username");
+                return;
+              }
+            }
             await auth.saveAvatar(config);
             if (name && profile) {
               await sb
@@ -129,6 +148,7 @@ export default function DuoTimer() {
           onJoinSession={handleJoinSession}
           onInvite={handleSendInvite}
           onEditAvatar={() => setAppStep("avatar")}
+          onChangeUsername={() => setUsernameModalOpen(true)}
           onSignOut={async () => {
             const { signOut } = await import("@/lib/supabase");
             await signOut();
@@ -194,6 +214,24 @@ export default function DuoTimer() {
             />
           </>
         )}
+        <UsernameChangeModal
+          open={usernameModalOpen}
+          currentUsername={profile?.username ?? ""}
+          onClose={() => setUsernameModalOpen(false)}
+          onSubmit={async (newUsername) => {
+            const { data, error } = await sb.rpc("claim_username", {
+              desired_username: newUsername,
+            });
+            if (error) throw error;
+            const tag = data as { username: string; discriminator: string };
+            auth.updateProfile({
+              username: tag.username,
+              discriminator: tag.discriminator,
+              username_changed: true,
+            });
+            setUsernameModalOpen(false);
+          }}
+        />
       </>
     );
   }
@@ -226,6 +264,7 @@ export default function DuoTimer() {
           phase={game.phase}
           displayName={displayName}
           username={profile?.username}
+          discriminator={profile?.discriminator}
           initial={initial}
           isPremium={isPremium}
           friendsOpen={friendsOpen}

@@ -15,7 +15,7 @@ import {
 } from "@/lib/avatarData";
 
 interface Props {
-  onSave: (config: AvatarConfig, displayName: string) => void;
+  onSave: (config: AvatarConfig, displayName: string, username?: string) => void;
   initialConfig?: AvatarConfig;
   initialDisplayName?: string;
   /** When provided, shows a back button (edit mode, not first setup) */
@@ -102,6 +102,8 @@ export default function AvatarCreator({
     initialConfig ?? DEFAULT_AVATAR,
   );
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
 
   const set = <K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -141,20 +143,50 @@ export default function AvatarCreator({
           </div>
         </div>
 
-        {/* ── Display Name ── */}
+        {/* ── Display Name & Username ── */}
         {!isEditing && (
-          <div className="mb-4">
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-              YOUR NAME
-            </p>
-            <input
-              className="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
-              placeholder="e.g. Jorge"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={24}
-            />
-          </div>
+          <>
+            <div className="mb-4">
+              <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+                YOUR NAME
+              </p>
+              <input
+                className="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                placeholder="e.g. Jorge"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={24}
+              />
+            </div>
+            <div className="mb-4">
+              <p className="text-gray-400 text-xs font-bold font-mono mb-2">
+                USERNAME
+              </p>
+              <input
+                className={`w-full px-3 py-2 bg-gray-900/60 border rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none transition-colors ${
+                  usernameError ? "border-red-500 focus:border-red-400" : "border-gray-600 focus:border-emerald-500"
+                }`}
+                placeholder="e.g. jorji"
+                value={username}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                  setUsername(val);
+                  if (val && (val.length < 3 || val.length > 20)) {
+                    setUsernameError("Must be 3-20 characters");
+                  } else {
+                    setUsernameError("");
+                  }
+                }}
+                maxLength={20}
+              />
+              <p className="text-gray-600 text-[10px] font-mono mt-1">
+                Lowercase letters, numbers, underscores. A #tag will be added automatically.
+              </p>
+              {usernameError && (
+                <p className="text-red-400 text-xs font-mono mt-1">{usernameError}</p>
+              )}
+            </div>
+          </>
         )}
 
         {/* ── Controls ── */}
@@ -210,7 +242,7 @@ export default function AvatarCreator({
         </div>
 
         <button
-          onClick={() => onSave(config, displayName.trim())}
+          onClick={() => onSave(config, displayName.trim(), !isEditing && username ? username : undefined)}
           className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold py-3 px-4 rounded-xl border-b-4 border-emerald-700 transition-all font-mono tracking-widest"
         >
           {isEditing ? "SAVE CHANGES →" : "READY TO FOCUS →"}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useStats } from "@/lib/useStats";
 import { WORLDS, type WorldId } from "@/lib/avatarData";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
 import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import TaskSection from "./TaskSection";
@@ -19,6 +19,7 @@ interface Props {
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
   onEditAvatar: () => void;
+  onChangeUsername: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
   onOpenStats: () => void;
@@ -58,6 +59,7 @@ export default function HomeDashboard({
   onJoinSession,
   onInvite,
   onEditAvatar,
+  onChangeUsername,
   onSignOut,
   onOpenFriends,
   onOpenStats,
@@ -163,7 +165,7 @@ export default function HomeDashboard({
                   {displayName}
                 </p>
                 <p className="text-gray-500 text-xs font-mono mb-3">
-                  @{profile.username}
+                  @{profile.discriminator ? formatTag(profile.username, profile.discriminator) : profile.username}
                 </p>
                 <button
                   onClick={() => {
@@ -174,6 +176,17 @@ export default function HomeDashboard({
                 >
                   {"✏️"} Edit character
                 </button>
+                {!profile.username_changed && (
+                  <button
+                    onClick={() => {
+                      onChangeUsername();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="w-full text-left text-xs font-mono text-emerald-400 hover:text-emerald-300 py-1.5 transition-colors"
+                  >
+                    {"✏️"} Change username (1x)
+                  </button>
+                )}
                 {!isPremium && (
                   <button
                     onClick={() => setProfileMenuOpen(false)}
