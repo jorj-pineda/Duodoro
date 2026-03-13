@@ -97,7 +97,24 @@ export default function DuoTimer() {
           initialConfig={myAvatar}
           initialDisplayName={profile?.display_name ?? ""}
           onBack={isEditing ? () => setAppStep("home") : undefined}
-          onSave={async (config, name) => {
+          onSave={async (config, name, username) => {
+            // Claim username (first setup only)
+            if (username && profile) {
+              try {
+                const { data, error } = await sb.rpc("claim_username", {
+                  desired_username: username,
+                });
+                if (error) throw error;
+                const tag = data as { username: string; discriminator: string };
+                auth.updateProfile({
+                  username: tag.username,
+                  discriminator: tag.discriminator,
+                });
+              } catch (err: any) {
+                alert(err?.message ?? "Failed to claim username");
+                return;
+              }
+            }
             await auth.saveAvatar(config);
             if (name && profile) {
               await sb
@@ -226,6 +243,7 @@ export default function DuoTimer() {
           phase={game.phase}
           displayName={displayName}
           username={profile?.username}
+          discriminator={profile?.discriminator}
           initial={initial}
           isPremium={isPremium}
           friendsOpen={friendsOpen}
