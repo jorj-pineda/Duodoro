@@ -15,8 +15,8 @@ export function useFriendsList(myProfileId: string, active: boolean) {
       .select(
         `
         id, status, requester_id, addressee_id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium),
-        addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, current_room, current_session_id, current_world_id, is_premium)
+        requester:profiles!friendships_requester_id_fkey(id, username, discriminator, display_name, current_room, current_session_id, current_world_id, is_premium),
+        addressee:profiles!friendships_addressee_id_fkey(id, username, discriminator, display_name, current_room, current_session_id, current_world_id, is_premium)
       `,
       )
       .eq("status", "accepted");
@@ -34,7 +34,7 @@ export function useFriendsList(myProfileId: string, active: boolean) {
       .select(
         `
         id,
-        requester:profiles!friendships_requester_id_fkey(id, username, display_name, current_session_id, current_world_id)
+        requester:profiles!friendships_requester_id_fkey(id, username, discriminator, display_name, current_session_id, current_world_id)
       `,
       )
       .eq("addressee_id", myProfileId)
