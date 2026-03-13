@@ -3,8 +3,9 @@
 -- Run after 004_tighten_session_rls.sql
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. Add discriminator column (nullable first for backfill)
+-- 1. Add discriminator column (nullable first for backfill) + username_changed flag
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS discriminator TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS username_changed BOOLEAN DEFAULT FALSE;
 
 -- 2. Helper: generate a random 4-digit discriminator that doesn't collide
 CREATE OR REPLACE FUNCTION generate_discriminator(base_username TEXT)
@@ -40,6 +41,11 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
+  -- Enforce one-time change
+  IF EXISTS (SELECT 1 FROM profiles WHERE id = caller_id AND username_changed = TRUE) THEN
+    RAISE EXCEPTION 'Username can only be changed once';
+  END IF;
+
   clean_name := lower(trim(desired_username));
 
   IF clean_name !~ '^[a-z0-9_]{3,20}$' THEN
@@ -49,7 +55,7 @@ BEGIN
   new_disc := generate_discriminator(clean_name);
 
   UPDATE profiles
-  SET username = clean_name, discriminator = new_disc
+  SET username = clean_name, discriminator = new_disc, username_changed = TRUE
   WHERE id = caller_id;
 
   RETURN jsonb_build_object('username', clean_name, 'discriminator', new_disc);

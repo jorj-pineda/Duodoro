@@ -19,6 +19,7 @@ interface Props {
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
   onEditAvatar: () => void;
+  onChangeUsername: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
   onOpenStats: () => void;
@@ -58,6 +59,7 @@ export default function HomeDashboard({
   onJoinSession,
   onInvite,
   onEditAvatar,
+  onChangeUsername,
   onSignOut,
   onOpenFriends,
   onOpenStats,
@@ -174,6 +176,17 @@ export default function HomeDashboard({
                 >
                   {"✏️"} Edit character
                 </button>
+                {!profile.username_changed && (
+                  <button
+                    onClick={() => {
+                      onChangeUsername();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="w-full text-left text-xs font-mono text-emerald-400 hover:text-emerald-300 py-1.5 transition-colors"
+                  >
+                    {"✏️"} Change username (1x)
+                  </button>
+                )}
                 {!isPremium && (
                   <button
                     onClick={() => setProfileMenuOpen(false)}

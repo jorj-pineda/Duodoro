@@ -6,6 +6,7 @@ export type Profile = {
   id: string;
   username: string;
   discriminator: string;
+  username_changed: boolean;
   display_name: string | null;
   avatar_config: AvatarConfig | null;
   is_premium: boolean;
