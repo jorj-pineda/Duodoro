@@ -64,12 +64,14 @@ DECLARE
   disc TEXT;
 BEGIN
   -- Fix usernames that violate the new pattern
+  -- lowercase FIRST so uppercase chars become valid instead of being stripped
   FOR r IN SELECT id, username FROM profiles WHERE username !~ '^[a-z0-9_]{3,20}$' LOOP
-    clean := lower(regexp_replace(r.username, '[^a-z0-9_]', '', 'g'));
+    clean := regexp_replace(lower(r.username), '[^a-z0-9_]', '', 'g');
     clean := left(clean, 20);
     IF length(clean) < 3 THEN
       clean := clean || repeat('_', 3 - length(clean));
     END IF;
+    RAISE NOTICE 'Sanitizing user %: "%" -> "%"', r.id, r.username, clean;
     UPDATE profiles SET username = clean WHERE id = r.id;
   END LOOP;
 
@@ -80,9 +82,11 @@ BEGIN
   END LOOP;
 END $$;
 
--- 5. Now enforce NOT NULL + check constraints
+-- 5. Now enforce NOT NULL + check constraints (drop first for re-runnability)
 ALTER TABLE profiles ALTER COLUMN discriminator SET NOT NULL;
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS discriminator_format;
 ALTER TABLE profiles ADD CONSTRAINT discriminator_format CHECK (discriminator ~ '^\d{4}$');
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS username_format;
 ALTER TABLE profiles ADD CONSTRAINT username_format CHECK (username ~ '^[a-z0-9_]{3,20}$');
 
 -- 6. Drop old unique constraint on username alone, add composite unique
