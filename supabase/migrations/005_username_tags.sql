@@ -56,12 +56,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Backfill existing users with random discriminators
+-- 4. Sanitize existing usernames that don't match the new format, then backfill discriminators
 DO $$
 DECLARE
   r RECORD;
+  clean TEXT;
   disc TEXT;
 BEGIN
+  -- Fix usernames that violate the new pattern
+  FOR r IN SELECT id, username FROM profiles WHERE username !~ '^[a-z0-9_]{3,20}$' LOOP
+    clean := lower(regexp_replace(r.username, '[^a-z0-9_]', '', 'g'));
+    clean := left(clean, 20);
+    IF length(clean) < 3 THEN
+      clean := clean || repeat('_', 3 - length(clean));
+    END IF;
+    UPDATE profiles SET username = clean WHERE id = r.id;
+  END LOOP;
+
+  -- Backfill discriminators
   FOR r IN SELECT id, username FROM profiles WHERE discriminator IS NULL LOOP
     disc := generate_discriminator(r.username);
     UPDATE profiles SET discriminator = disc WHERE id = r.id;
