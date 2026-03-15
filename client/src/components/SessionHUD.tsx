@@ -126,8 +126,8 @@ export default function SessionHUD({
   const canStop = sessionStarted && phase !== "waiting";
 
   return (
-    <div className="flex-1 flex items-start justify-center px-6 pt-4">
-      <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/60 rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-2xl">
+    <div className="flex-1 flex items-start justify-center px-6 pt-4 overflow-y-auto">
+      <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/60 rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-2xl mb-4">
         <div className="text-sm font-mono font-bold tracking-widest text-gray-400 uppercase">
           {phaseLabel[phase](playerCount)}
         </div>
@@ -223,19 +223,19 @@ export default function SessionHUD({
           <div
             className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-emerald-400" : "bg-gray-600"}`}
           />
-          <span className="text-gray-600 text-xs font-mono">YOU</span>
+          <span className="text-gray-500 text-xs font-mono">YOU</span>
           {playerCount >= 2 && (
             <>
               <div className="w-8 h-px bg-gray-700" />
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-gray-600 text-xs font-mono">PARTNER</span>
+              <span className="text-gray-500 text-xs font-mono">PARTNER</span>
             </>
           )}
           {playerCount < 2 && phase === "waiting" && (
             <>
               <div className="w-8 h-px bg-gray-700" />
               <div className="w-2 h-2 rounded-full bg-gray-600" />
-              <span className="text-gray-600 text-xs font-mono">
+              <span className="text-gray-500 text-xs font-mono">
                 WAITING...
               </span>
             </>
@@ -253,7 +253,7 @@ export default function SessionHUD({
             </button>
           )}
           {playerCount < 2 && phase === "waiting" && (
-            <p className="text-gray-600 text-xs font-mono text-center">
+            <p className="text-gray-500 text-xs font-mono text-center">
               Friends can join from their dashboard
             </p>
           )}
@@ -268,14 +268,15 @@ export default function SessionHUD({
           {canStop && (
             <button
               onClick={onStop}
-              className="text-gray-600 hover:text-red-400 text-xs font-mono transition-colors mt-2"
+              className="text-gray-400 hover:text-red-420 text-xs font-mono transition-colors mt-2"
             >
               end session
             </button>
           )}
           <button
             onClick={onLeave}
-            className="text-gray-700 hover:text-gray-400 text-xs font-mono transition-colors mt-2"
+            className="text-xs font-mono transition-colors mt-2 hover:opacity-80"
+            style={{ color: "#f89c9c89" }}
           >
             {"←"} leave session
           </button>

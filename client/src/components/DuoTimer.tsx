@@ -14,6 +14,7 @@ import InvitePopup from "./InvitePopup";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
 import UsernameChangeModal from "./UsernameChangeModal";
+import DisplayNameChangeModal from "./DisplayNameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
 
@@ -29,6 +30,7 @@ export default function DuoTimer() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [fullStatsOpen, setFullStatsOpen] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
+  const [displayNameModalOpen, setDisplayNameModalOpen] = useState(false);
 
   const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb } =
     auth;
@@ -149,6 +151,7 @@ export default function DuoTimer() {
           onInvite={handleSendInvite}
           onEditAvatar={() => setAppStep("avatar")}
           onChangeUsername={() => setUsernameModalOpen(true)}
+          onChangeDisplayName={() => setDisplayNameModalOpen(true)}
           onSignOut={async () => {
             const { signOut } = await import("@/lib/supabase");
             await signOut();
@@ -230,6 +233,27 @@ export default function DuoTimer() {
               username_changed: true,
             });
             setUsernameModalOpen(false);
+          }}
+        />
+        <DisplayNameChangeModal
+          open={displayNameModalOpen}
+          currentName={profile?.display_name ?? profile?.username ?? ""}
+          changedAt={profile?.display_name_changed_at ?? null}
+          onClose={() => setDisplayNameModalOpen(false)}
+          onSubmit={async (newName) => {
+            const { data, error } = await sb.rpc("change_display_name", {
+              new_name: newName,
+            });
+            if (error) throw error;
+            const result = data as {
+              display_name: string;
+              display_name_changed_at: string;
+            };
+            auth.updateProfile({
+              display_name: result.display_name,
+              display_name_changed_at: result.display_name_changed_at,
+            });
+            setDisplayNameModalOpen(false);
           }}
         />
       </>

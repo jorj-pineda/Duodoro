@@ -20,6 +20,7 @@ interface Props {
   onInvite: (friendId: string) => void;
   onEditAvatar: () => void;
   onChangeUsername: () => void;
+  onChangeDisplayName: () => void;
   onSignOut: () => void;
   onOpenFriends: () => void;
   onOpenStats: () => void;
@@ -60,6 +61,7 @@ export default function HomeDashboard({
   onInvite,
   onEditAvatar,
   onChangeUsername,
+  onChangeDisplayName,
   onSignOut,
   onOpenFriends,
   onOpenStats,
@@ -187,6 +189,15 @@ export default function HomeDashboard({
                     {"✏️"} Change username (1x)
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    onChangeDisplayName();
+                    setProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left text-xs font-mono text-gray-400 hover:text-white py-1.5 transition-colors"
+                >
+                  {"✏️"} Change display name
+                </button>
                 {!isPremium && (
                   <button
                     onClick={() => setProfileMenuOpen(false)}
