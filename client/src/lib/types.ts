@@ -8,6 +8,7 @@ export type Profile = {
   discriminator: string;
   username_changed: boolean;
   display_name: string | null;
+  display_name_changed_at: string | null;
   avatar_config: AvatarConfig | null;
   is_premium: boolean;
   current_room: string | null;

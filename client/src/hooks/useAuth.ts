@@ -69,6 +69,7 @@ export function useAuth() {
         discriminator: "",
         username_changed: false,
         display_name: user_metadata?.full_name ?? user_metadata?.name ?? raw,
+        display_name_changed_at: null,
         avatar_config: null,
         is_premium: false,
         current_room: null,
