@@ -11,7 +11,11 @@ const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
   : null;
 
 if (!supabase) {
-  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — session recording disabled');
+  if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: SUPABASE_URL and SUPABASE_SERVICE_KEY are required in production');
+    process.exit(1);
+  }
+  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — running in dev mode (no auth, no persistence)');
 }
 
 const app = express();
@@ -32,6 +36,18 @@ const VALID_WORLDS = ['forest', 'space', 'beach', 'city'];
 const MAX_DISPLAY_NAME = 50;
 const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
 const MAX_BREAK = 60 * 60;    // 1 hour in seconds
+
+const VALID_HAIR_STYLES = ['bob', 'mohawk', 'long', 'spiky', 'bald'];
+const VALID_EYE_STYLES = ['normal', 'anime', 'sleepy'];
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function sanitizeAvatar(avatar) {
+  if (!avatar || typeof avatar !== 'object') return null;
+  const { skinColor, hairStyle, hairColor, eyeStyle, outfitColor } = avatar;
+  if (!HEX_COLOR.test(skinColor) || !HEX_COLOR.test(hairColor) || !HEX_COLOR.test(outfitColor)) return null;
+  if (!VALID_HAIR_STYLES.includes(hairStyle) || !VALID_EYE_STYLES.includes(eyeStyle)) return null;
+  return { skinColor, hairStyle, hairColor, eyeStyle, outfitColor };
+}
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
@@ -66,6 +82,27 @@ const socketToSession = {};
 // Presence: track which users have the app open (userId <-> socketId)
 const userSockets = new Map();   // userId  -> socket.id
 const socketToUser = new Map();  // socket.id -> userId
+
+// ── Simple per-socket rate limiter ───────────────────────────────────────────
+function createRateLimiter(maxPerWindow, windowMs) {
+  const counters = new Map(); // socketId -> { count, resetAt }
+  return (socketId) => {
+    const now = Date.now();
+    const entry = counters.get(socketId);
+    if (!entry || now > entry.resetAt) {
+      counters.set(socketId, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    entry.count++;
+    return entry.count <= maxPerWindow;
+  };
+}
+
+const rateLimits = {
+  createSession: createRateLimiter(5, 60_000),   // 5 per minute
+  joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
+  sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
+};
 
 function getSession(sessionId) {
   return sessions[sessionId];
@@ -298,14 +335,31 @@ io.on('connection', (socket) => {
     console.log(`[presence] ${userId} registered (${socket.id})`);
   });
 
-  socket.on('get_online_friends', ({ friendIds }, callback) => {
-    const online = (friendIds || []).filter(id => userSockets.has(id));
-    if (typeof callback === 'function') callback(online);
+  socket.on('get_online_friends', async ({ friendIds }, callback) => {
+    if (typeof callback !== 'function') return;
+    const userId = socket.userId;
+    if (!userId) { callback([]); return; }
+
+    // Validate that queried IDs are actual accepted friends
+    const actualFriendIds = await getFriendIds(userId);
+    const friendSet = new Set(actualFriendIds);
+    const validIds = (friendIds || []).filter(id => friendSet.has(id));
+    const online = validIds.filter(id => userSockets.has(id));
+    callback(online);
   });
 
   // ── Invite relay ────────────────────────────────────────────────────────
   socket.on('send_invite', ({ targetUserId, sessionId, worldId, fromName }) => {
+    if (!rateLimits.sendInvite(socket.id)) {
+      socket.emit('invite_error', { message: 'Too many invites, slow down' });
+      return;
+    }
     if (typeof targetUserId !== 'string' || !targetUserId) return;
+    // Verify sender is actually in the session they're inviting to
+    if (sessionId && sessions[sessionId] && !sessions[sessionId].players[socket.id]) {
+      socket.emit('invite_error', { message: 'You are not in this session' });
+      return;
+    }
     const targetSocketId = userSockets.get(targetUserId);
     if (!targetSocketId) {
       socket.emit('invite_error', { message: 'Friend is offline' });
@@ -328,10 +382,15 @@ io.on('connection', (socket) => {
   // Creates a new session with a UUID, user becomes host.
   // userId comes from verified socket.userId (auth middleware).
   socket.on('create_session', ({ avatar, world, displayName }) => {
+    if (!rateLimits.createSession(socket.id)) {
+      socket.emit('session_error', { message: 'Too many requests, slow down' });
+      return;
+    }
     // Input validation
     const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
     const safeWorld = VALID_WORLDS.includes(world) ? world : 'forest';
-    if (!avatar || typeof avatar !== 'object') {
+    const safeAvatar = sanitizeAvatar(avatar);
+    if (!safeAvatar) {
       socket.emit('session_error', { message: 'Invalid avatar' });
       return;
     }
@@ -357,7 +416,7 @@ io.on('connection', (socket) => {
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     sessions[sessionId].players[socket.id] = {
-      avatar,
+      avatar: safeAvatar,
       displayName: safeName,
       userId,
     };
@@ -374,8 +433,13 @@ io.on('connection', (socket) => {
   // Joins an existing session by its UUID.
   // userId comes from verified socket.userId (auth middleware).
   socket.on('join_session', ({ sessionId, avatar, displayName }) => {
+    if (!rateLimits.joinSession(socket.id)) {
+      socket.emit('session_error', { message: 'Too many requests, slow down' });
+      return;
+    }
     const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
-    if (!avatar || typeof avatar !== 'object') {
+    const safeAvatar = sanitizeAvatar(avatar);
+    if (!safeAvatar) {
       socket.emit('session_error', { message: 'Invalid avatar' });
       return;
     }
@@ -398,7 +462,7 @@ io.on('connection', (socket) => {
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     session.players[socket.id] = {
-      avatar,
+      avatar: safeAvatar,
       displayName: safeName,
       userId,
     };
@@ -410,7 +474,7 @@ io.on('connection', (socket) => {
 
     socket.to(sessionId).emit('player_joined', {
       playerId: socket.id,
-      avatar,
+      avatar: safeAvatar,
       displayName: safeName,
     });
 
