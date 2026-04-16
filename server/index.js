@@ -34,7 +34,7 @@ const io = new Server(server, {
 });
 
 // ── Auth middleware — verify Supabase JWT on every connection ─────────────
-const VALID_WORLDS = ['forest', 'space', 'beach', 'city'];
+const VALID_WORLDS = ['forest', 'space', 'beach', 'city', 'mountain', 'library', 'cafe', 'lofi'];
 const MAX_DISPLAY_NAME = 50;
 const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
 const MAX_BREAK = 60 * 60;    // 1 hour in seconds
