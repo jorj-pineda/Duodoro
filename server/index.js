@@ -3,6 +3,7 @@ const http = require('http');
 const { randomUUID } = require('crypto');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -22,6 +23,7 @@ const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 
 app.use(cors({ origin: allowedOrigin }));
+app.use(helmet());
 app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
 app.get('/health', (_, res) => res.json({ ok: true }));
 
