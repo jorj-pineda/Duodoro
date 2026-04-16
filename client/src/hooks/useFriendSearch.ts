@@ -10,9 +10,9 @@ export function useFriendSearch(myProfileId: string) {
   const sb = getSupabase();
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
     const query = searchQuery.trim();
+    if (!query || query.length < 3) return;
+    setLoading(true);
     const hashIdx = query.indexOf("#");
 
     let result;
@@ -28,11 +28,12 @@ export function useFriendSearch(myProfileId: string) {
         .neq("id", myProfileId)
         .limit(10);
     } else {
-      // Partial search: ilike on username
+      // Partial search: ilike on username — escape SQL wildcards
+      const escaped = query.replace(/%/g, "\\%").replace(/_/g, "\\_");
       result = await sb
         .from("profiles")
         .select("id, username, discriminator, display_name, is_premium, current_room")
-        .ilike("username", `%${query}%`)
+        .ilike("username", `%${escaped}%`)
         .neq("id", myProfileId)
         .limit(10);
     }
