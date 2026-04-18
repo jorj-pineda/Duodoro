@@ -576,6 +576,18 @@ io.on('connection', (socket) => {
     leaveSession(socket, sessionId);
   });
 
+  // request_sync: no payload
+  // Client-initiated resync after tab wake / network hiccup. Emits current
+  // session state if this socket is still tracked in a session; silent no-op
+  // otherwise (client treats absence of sync_state as "no session").
+  socket.on('request_sync', () => {
+    const sessionId = socketToSession[socket.id];
+    if (!sessionId) return;
+    const session = getSession(sessionId);
+    if (!session) return;
+    socket.emit('sync_state', buildSyncPayload(session));
+  });
+
   socket.on('disconnect', () => {
     console.log(`Disconnected: ${socket.id}`);
     const sessionId = socketToSession[socket.id];

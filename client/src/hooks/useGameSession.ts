@@ -58,6 +58,17 @@ export function useGameSession(profile: Profile | null) {
   // Pending outbound invite
   const pendingOutboundInvite = useRef<string | null>(null);
 
+  // ── Resume-sync snapshot ────────────────────────────────────────────────
+  // Mirrors the current session membership so we can re-join after a mobile
+  // tab resume closes the WebSocket. The server removes the player on
+  // disconnect, so without these we can't re-enter silently.
+  const sessionIdRef = useRef<string>("");
+  const lastAvatarRef = useRef<AvatarConfig | null>(null);
+  const lastDisplayNameRef = useRef<string>("Player");
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
   // ── Sound tracking ─────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
 
@@ -256,11 +267,10 @@ export function useGameSession(profile: Profile | null) {
         setSessionId("");
       }
       setMyWorld(world);
-      socket.emit("create_session", {
-        avatar,
-        world,
-        displayName: profile?.display_name ?? profile?.username ?? "Player",
-      });
+      const displayName = profile?.display_name ?? profile?.username ?? "Player";
+      lastAvatarRef.current = avatar;
+      lastDisplayNameRef.current = displayName;
+      socket.emit("create_session", { avatar, world, displayName });
     },
     [profile, sessionId],
   );
@@ -270,11 +280,10 @@ export function useGameSession(profile: Profile | null) {
       const socket = socketRef.current;
       if (!socket) return;
       setSessionId(sid);
-      socket.emit("join_session", {
-        sessionId: sid,
-        avatar,
-        displayName: profile?.display_name ?? profile?.username ?? "Player",
-      });
+      const displayName = profile?.display_name ?? profile?.username ?? "Player";
+      lastAvatarRef.current = avatar;
+      lastDisplayNameRef.current = displayName;
+      socket.emit("join_session", { sessionId: sid, avatar, displayName });
     },
     [profile],
   );
@@ -287,6 +296,7 @@ export function useGameSession(profile: Profile | null) {
     setPhase("waiting");
     setPlayers({});
     setSessionId("");
+    lastAvatarRef.current = null;
   }, [sessionId]);
 
   const startSession = useCallback(() => {
