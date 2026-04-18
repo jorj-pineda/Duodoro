@@ -1,0 +1,24 @@
+{
+  "name": "Duodoro — Focus together, anywhere.",
+  "short_name": "Duodoro",
+  "description": "A real-time focus timer for long-distance couples and friends. Walk toward each other, meet in the middle, and celebrate your session together.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml"
+    }
+  ]
+}
