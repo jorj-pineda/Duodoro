@@ -137,9 +137,9 @@ export default function StatsPanel({
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          <div className="fixed right-4 top-0 bottom-0 z-40 flex items-stretch py-3 pointer-events-none">
+          <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-stretch justify-end py-3 pointer-events-none">
             <motion.div
-              className="pointer-events-auto w-80 bg-gray-900 border border-gray-700 flex flex-col shadow-2xl rounded-2xl overflow-hidden"
+              className="pointer-events-auto w-full sm:w-80 bg-gray-900 border border-gray-700 flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: 60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 60, opacity: 0 }}

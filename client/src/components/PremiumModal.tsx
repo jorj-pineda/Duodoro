@@ -62,7 +62,7 @@ export default function PremiumModal({ open, onClose }: Props) {
               {/* Close */}
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors text-xl"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center text-gray-500 hover:text-white transition-colors text-xl"
               >
                 ✕
               </button>

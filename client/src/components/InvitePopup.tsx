@@ -22,13 +22,13 @@ export default function InvitePopup({
         <div className="flex gap-3">
           <button
             onClick={onDismiss}
-            className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-mono font-bold text-sm transition-colors"
+            className="flex-1 py-3 sm:py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-mono font-bold text-sm transition-colors"
           >
             Dismiss
           </button>
           <button
             onClick={onAccept}
-            className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-mono font-bold text-sm transition-colors"
+            className="flex-1 py-3 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-mono font-bold text-sm transition-colors"
           >
             Accept
           </button>

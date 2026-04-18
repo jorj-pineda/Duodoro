@@ -59,7 +59,7 @@ export default function DisplayNameChangeModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl w-80"
+        className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl w-[calc(100vw-1rem)] sm:w-80"
       >
         <h3 className="text-white font-bold font-mono tracking-widest text-sm mb-1">
           CHANGE DISPLAY NAME
@@ -72,7 +72,7 @@ export default function DisplayNameChangeModal({
             <p className="text-yellow-400 text-xs font-mono mb-4">{cooldown}</p>
             <button
               onClick={onClose}
-              className="w-full text-gray-400 hover:text-white text-sm font-mono py-2 rounded-xl transition-colors"
+              className="w-full text-gray-400 hover:text-white text-sm font-mono py-3 sm:py-2 rounded-xl transition-colors"
             >
               Close
             </button>
@@ -80,7 +80,7 @@ export default function DisplayNameChangeModal({
         ) : (
           <>
             <input
-              className={`w-full px-3 py-2 bg-gray-900/60 border rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none transition-colors mb-1 ${
+              className={`w-full px-3 py-3 sm:py-2 bg-gray-900/60 border rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none transition-colors mb-1 ${
                 error
                   ? "border-red-500 focus:border-red-400"
                   : "border-gray-600 focus:border-emerald-500"
@@ -104,14 +104,14 @@ export default function DisplayNameChangeModal({
             <div className="flex gap-2">
               <button
                 onClick={onClose}
-                className="flex-1 text-gray-400 hover:text-white text-sm font-mono py-2 rounded-xl transition-colors"
+                className="flex-1 text-gray-400 hover:text-white text-sm font-mono py-3 sm:py-2 rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting || value.trim().length < 1}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm font-mono py-2 rounded-xl transition-colors disabled:opacity-40"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm font-mono py-3 sm:py-2 rounded-xl transition-colors disabled:opacity-40"
               >
                 {submitting ? "..." : "Confirm"}
               </button>

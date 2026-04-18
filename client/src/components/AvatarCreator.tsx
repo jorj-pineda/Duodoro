@@ -38,7 +38,7 @@ function ColorSwatch({
           key={hex}
           title={label}
           onClick={() => onSelect(hex)}
-          className="w-7 h-7 rounded border-2 transition-all"
+          className="w-11 h-11 sm:w-7 sm:h-7 rounded border-2 transition-all"
           style={{
             backgroundColor: hex,
             borderColor: selected === hex ? "white" : "transparent",
@@ -74,7 +74,7 @@ function CycleRow<T extends string>({
       <div className="flex items-center gap-2">
         <button
           onClick={prev}
-          className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold"
+          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold text-lg sm:text-sm"
         >
           ‹
         </button>
@@ -83,7 +83,7 @@ function CycleRow<T extends string>({
         </span>
         <button
           onClick={next}
-          className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold"
+          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold text-lg sm:text-sm"
         >
           ›
         </button>
