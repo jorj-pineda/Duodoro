@@ -213,6 +213,48 @@ export function useGameSession(profile: Profile | null) {
     };
   }, [profile?.id]);
 
+  // ── Resume sync: rejoin on reconnect, request sync on tab wake ──────────
+  // Mobile browsers (esp. iOS Safari) close backgrounded WebSockets after
+  // ~30s. The server removes the player on disconnect, so on reconnect we
+  // re-emit join_session with the cached avatar so the new socket lands
+  // back inside the same session. When the tab just loses focus without
+  // disconnecting, request_sync refreshes phase/state in case we drifted.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const rejoinIfNeeded = () => {
+      const sid = sessionIdRef.current;
+      const avatar = lastAvatarRef.current;
+      if (!sid || !avatar) return;
+      socket.emit("join_session", {
+        sessionId: sid,
+        avatar,
+        displayName: lastDisplayNameRef.current,
+      });
+    };
+
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState !== "visible") return;
+      if (!sessionIdRef.current) return;
+      if (socket.connected) {
+        socket.emit("request_sync");
+      }
+    };
+
+    socket.io.on("reconnect", rejoinIfNeeded);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
+    return () => {
+      socket.io.off("reconnect", rejoinIfNeeded);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
+    };
+  }, []);
+
   // ── Sound effects on phase transitions ──────────────────────────────────
   useEffect(() => {
     if (prevPhaseRef.current === phase) return;
