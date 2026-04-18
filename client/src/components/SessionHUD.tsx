@@ -160,7 +160,7 @@ export default function SessionHUD({
             <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
               <button
                 onClick={() => onTimerModeChange("pomodoro")}
-                className={`flex-1 py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-mono font-bold rounded-md transition-colors ${
                   timerMode === "pomodoro"
                     ? "bg-emerald-500 text-white"
                     : "text-gray-400 hover:text-white"
@@ -170,7 +170,7 @@ export default function SessionHUD({
               </button>
               <button
                 onClick={() => onTimerModeChange("flow")}
-                className={`flex-1 py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-mono font-bold rounded-md transition-colors ${
                   timerMode === "flow"
                     ? "bg-blue-500 text-white"
                     : "text-gray-400 hover:text-white"
