@@ -58,8 +58,8 @@ function WeeklyChart({ sessions }: { sessions: any[] }) {
   const maxMinutes = Math.max(...dailyData.map((d) => d.minutes), 1);
 
   return (
-    <div className="bg-gray-800/60 rounded-xl p-4">
-      <p className="text-gray-500 text-[10px] font-mono font-bold uppercase tracking-wider mb-3">
+    <div className="bg-surface border border-line rounded-xl p-4">
+      <p className="text-faint text-[10px] font-semibold uppercase tracking-wider mb-3">
         Last 7 Days
       </p>
       <div className="flex items-end gap-2 h-24">
@@ -68,7 +68,7 @@ function WeeklyChart({ sessions }: { sessions: any[] }) {
             key={day.date}
             className="flex-1 flex flex-col items-center gap-1"
           >
-            <span className="text-[9px] text-gray-500 font-mono">
+            <span className="text-[9px] text-faint font-mono">
               {day.minutes > 0 ? `${day.minutes}m` : ""}
             </span>
             <div className="w-full flex items-end" style={{ height: "60px" }}>
@@ -77,11 +77,11 @@ function WeeklyChart({ sessions }: { sessions: any[] }) {
                 style={{
                   height: `${Math.max((day.minutes / maxMinutes) * 100, day.minutes > 0 ? 8 : 2)}%`,
                   backgroundColor:
-                    day.minutes > 0 ? "#34d399" : "rgba(75, 85, 99, 0.4)",
+                    day.minutes > 0 ? "var(--accent)" : "var(--line)",
                 }}
               />
             </div>
-            <span className="text-[9px] text-gray-600 font-mono">
+            <span className="text-[9px] text-faint">
               {day.label}
             </span>
           </div>
@@ -103,13 +103,13 @@ function BigStatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="bg-gray-800/60 rounded-xl px-4 py-3 text-center">
-      <p className="text-gray-500 text-[10px] font-mono font-bold uppercase tracking-wider">
+    <div className="bg-surface border border-line rounded-xl px-4 py-3 text-center">
+      <p className="text-faint text-[10px] font-semibold uppercase tracking-wider">
         {label}
       </p>
       <p
-        className={`text-2xl font-bold font-mono mt-1 ${
-          accent ? "text-emerald-400" : "text-white"
+        className={`text-2xl font-bold font-mono tabular-nums mt-1 ${
+          accent ? "text-accent" : "text-ink"
         }`}
       >
         {value}
@@ -135,19 +135,19 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 bg-gray-900/95 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-bg overflow-y-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 bg-gray-900/90 backdrop-blur border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-            <h1 className="text-white font-black font-mono tracking-widest text-lg">
-              YOUR STATS
+          <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-line px-6 py-4 flex items-center justify-between">
+            <h1 className="font-display text-ink tracking-wide text-xl">
+              Your stats
             </h1>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-white transition-colors text-lg"
+              className="text-faint hover:text-ink transition-colors text-lg"
             >
               ✕
             </button>
@@ -155,7 +155,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
 
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
             {loading && (
-              <p className="text-gray-500 text-sm font-mono text-center py-12">
+              <p className="text-faint text-sm text-center py-12">
                 Loading stats...
               </p>
             )}
@@ -164,7 +164,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
               <>
                 {/* Personal Stats Grid */}
                 <div>
-                  <p className="text-gray-400 text-xs font-mono font-bold uppercase tracking-wider mb-3">
+                  <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-3">
                     Personal
                   </p>
                   <div className="grid grid-cols-3 gap-2">
@@ -203,32 +203,32 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
                 {/* Duo Stats */}
                 {duoStats.length > 0 && (
                   <div>
-                    <p className="text-gray-400 text-xs font-mono font-bold uppercase tracking-wider mb-3">
+                    <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-3">
                       Focus Partners
                     </p>
                     <div className="space-y-2">
                       {duoStats.map((duo, i) => (
                         <div
                           key={duo.partnerId}
-                          className="flex items-center gap-3 bg-gray-800/60 rounded-xl px-4 py-3"
+                          className="flex items-center gap-3 bg-surface border border-line rounded-xl px-4 py-3"
                         >
                           <span
-                            className={`text-sm font-bold font-mono ${
-                              i === 0 ? "text-yellow-400" : "text-gray-600"
+                            className={`text-sm font-bold ${
+                              i === 0 ? "text-gold" : "text-faint"
                             }`}
                           >
                             {i === 0 ? "★" : `#${i + 1}`}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate">
+                            <p className="text-sm font-bold text-ink truncate">
                               {duo.partnerName}
                             </p>
-                            <p className="text-xs text-gray-500 font-mono">
+                            <p className="text-xs text-faint">
                               {duo.sessionsTogether} sessions together
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-emerald-400 text-sm font-mono font-bold">
+                            <p className="text-accent text-sm font-mono font-bold">
                               {formatDuration(duo.totalCoFocusTime)}
                             </p>
                           </div>
@@ -240,11 +240,11 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
 
                 {/* Session History */}
                 <div>
-                  <p className="text-gray-400 text-xs font-mono font-bold uppercase tracking-wider mb-3">
+                  <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-3">
                     Recent Sessions
                   </p>
                   {recentSessions.length === 0 ? (
-                    <p className="text-gray-600 text-sm font-mono text-center py-6">
+                    <p className="text-faint text-sm text-center py-6">
                       No sessions recorded yet
                     </p>
                   ) : (
@@ -252,30 +252,30 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
                       {recentSessions.map((s) => (
                         <div
                           key={s.id}
-                          className="flex items-center gap-3 bg-gray-800/40 rounded-xl px-4 py-2.5"
+                          className="flex items-center gap-3 bg-surface border border-line rounded-xl px-4 py-2.5"
                         >
                           <span className="text-base">
                             {WORLD_EMOJI[s.world] ?? "🌍"}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white">
+                            <p className="text-sm font-bold text-ink">
                               {formatDuration(s.actual_focus)}
                               {s.partner_name && (
-                                <span className="text-gray-500 font-normal text-xs">
+                                <span className="text-muted font-normal text-xs">
                                   {" "}
                                   with {s.partner_name}
                                 </span>
                               )}
                             </p>
-                            <p className="text-[10px] text-gray-600 font-mono">
+                            <p className="text-[10px] text-faint font-mono">
                               {formatDate(s.ended_at)}
                             </p>
                           </div>
                           <span
-                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                               s.completed
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "bg-red-500/20 text-red-400"
+                                ? "bg-go/15 text-go"
+                                : "bg-danger/15 text-danger"
                             }`}
                           >
                             {s.completed ? "Completed" : "Stopped"}
@@ -290,10 +290,10 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
 
             {!loading && !personalStats && (
               <div className="text-center py-16">
-                <p className="text-gray-500 text-lg font-mono mb-2">
+                <p className="text-muted text-lg font-display mb-2">
                   No stats yet
                 </p>
-                <p className="text-gray-600 text-sm font-mono">
+                <p className="text-faint text-sm">
                   Complete your first focus session to start tracking!
                 </p>
               </div>
