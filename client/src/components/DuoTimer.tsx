@@ -60,28 +60,26 @@ export default function DuoTimer() {
   // ── Loading ─────────────────────────────────────────────────────────────
   if (appStep === "loading") {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
-          <div className="text-4xl font-black font-mono text-white tracking-widest">
+          <div className="font-display text-4xl text-ink tracking-wide">
             Duodoro
           </div>
           <div className="flex items-center gap-2">
             <div
-              className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"
+              className="w-2 h-2 rounded-full bg-accent animate-bounce"
               style={{ animationDelay: "0ms" }}
             />
             <div
-              className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"
+              className="w-2 h-2 rounded-full bg-accent animate-bounce"
               style={{ animationDelay: "150ms" }}
             />
             <div
-              className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"
+              className="w-2 h-2 rounded-full bg-accent animate-bounce"
               style={{ animationDelay: "300ms" }}
             />
           </div>
-          <span className="text-gray-600 text-xs font-mono">
-            signing you in...
-          </span>
+          <span className="text-faint text-xs">signing you in...</span>
         </div>
       </div>
     );
@@ -96,7 +94,7 @@ export default function DuoTimer() {
   if (appStep === "avatar") {
     const isEditing = !!profile?.avatar_config;
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-bg texture-dots flex items-center justify-center p-6">
         <AvatarCreator
           initialConfig={myAvatar}
           initialDisplayName={profile?.display_name ?? ""}
@@ -182,7 +180,7 @@ export default function DuoTimer() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm font-mono font-bold px-4 py-2.5 rounded-xl shadow-lg"
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
             >
               Invite sent!
             </motion.div>
@@ -263,7 +261,7 @@ export default function DuoTimer() {
   // ── Game Screen ─────────────────────────────────────────────────────────
   return (
     <div
-      className="h-screen bg-gray-900 text-white relative overflow-hidden"
+      className="h-screen bg-bg text-white relative overflow-hidden"
       onClick={() => setProfileMenuOpen(false)}
     >
       {/* ── Game World (full-screen background) ── */}
@@ -368,7 +366,7 @@ export default function DuoTimer() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm font-mono font-bold px-4 py-2.5 rounded-xl shadow-lg"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
           >
             Invite sent!
           </motion.div>
