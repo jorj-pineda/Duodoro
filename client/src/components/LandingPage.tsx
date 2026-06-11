@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
+import ThemeToggle from "./ThemeToggle";
 import { signInWithProvider } from "@/lib/supabase";
 import { DEFAULT_AVATAR } from "@/lib/avatarData";
 
@@ -13,6 +14,13 @@ const RIGHT_CHAR = {
   outfitColor: "#C9428B",
   skinColor: "#F3C08C",
 };
+
+const FEATURES = [
+  "Synchronized focus timer",
+  "Friends & invites",
+  "Shared session goals",
+  "Stats & streaks",
+];
 
 function DiscordIcon() {
   return (
@@ -45,6 +53,117 @@ function GoogleIcon() {
   );
 }
 
+/** The little pixel night scene, framed like a window into the app */
+function HeroScene() {
+  return (
+    <div
+      className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-line shadow-xl"
+      style={{
+        background:
+          "linear-gradient(180deg, #0f172a 0%, #1e3a5f 60%, #7EC8E3 100%)",
+      }}
+    >
+      {/* Stars */}
+      {[...Array(24)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full bg-white"
+          style={{
+            width: i % 4 === 0 ? 2 : 1,
+            height: i % 4 === 0 ? 2 : 1,
+            left: `${(i * 37 + 11) % 100}%`,
+            top: `${(i * 17 + 5) % 55}%`,
+            opacity: 0.5 + (i % 3) * 0.15,
+          }}
+        />
+      ))}
+
+      {/* Ground */}
+      <div
+        className="absolute bottom-0 left-0 right-0"
+        style={{
+          height: "30%",
+          background: "linear-gradient(180deg, #4a7c59 0%, #3d6849 100%)",
+        }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-green-600/40" />
+      </div>
+
+      {/* Trees */}
+      {[8, 18, 76, 88].map((left, i) => (
+        <div
+          key={i}
+          className="absolute bottom-[26%]"
+          style={{ left: `${left}%` }}
+        >
+          <div className="flex flex-col items-center">
+            <div
+              className="w-0 h-0"
+              style={{
+                borderLeft: "8px solid transparent",
+                borderRight: "8px solid transparent",
+                borderBottom: "12px solid #2d6a4f",
+              }}
+            />
+            <div
+              className="w-0 h-0 -mt-1"
+              style={{
+                borderLeft: "10px solid transparent",
+                borderRight: "10px solid transparent",
+                borderBottom: "14px solid #40916c",
+              }}
+            />
+            <div
+              className="w-0 h-0 -mt-1"
+              style={{
+                borderLeft: "12px solid transparent",
+                borderRight: "12px solid transparent",
+                borderBottom: "14px solid #52b788",
+              }}
+            />
+            <div className="w-2 h-6 bg-amber-900/70" />
+          </div>
+        </div>
+      ))}
+
+      {/* Heart at center */}
+      <motion.div
+        className="absolute bottom-[28%] left-1/2 -translate-x-1/2 text-2xl"
+        animate={{ y: [0, -8, 0], scale: [1, 1.15, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+      >
+        ❤️
+      </motion.div>
+
+      {/* Demo characters walking toward each other */}
+      <motion.div
+        className="absolute bottom-[26%]"
+        animate={{ left: ["5%", "38%"] }}
+        transition={{
+          duration: 4,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "linear",
+        }}
+      >
+        <PixelCharacter {...LEFT_CHAR} anim="walk" facing="right" size={3} />
+      </motion.div>
+      <motion.div
+        className="absolute bottom-[26%]"
+        animate={{ right: ["5%", "38%"] }}
+        transition={{
+          duration: 4,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "linear",
+        }}
+      >
+        <PixelCharacter {...RIGHT_CHAR} anim="walk" facing="left" size={3} />
+      </motion.div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [loading, setLoading] = useState<"google" | "discord" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,174 +180,73 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
-      {/* ── Pixel sky scene ── */}
-      <div
-        className="relative w-full flex-shrink-0 overflow-hidden"
-        style={{
-          height: "55vh",
-          background:
-            "linear-gradient(180deg, #0f172a 0%, #1e3a5f 60%, #7EC8E3 100%)",
-        }}
-      >
-        {/* Stars */}
-        {[...Array(30)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white"
-            style={{
-              width: i % 4 === 0 ? 2 : 1,
-              height: i % 4 === 0 ? 2 : 1,
-              left: `${(i * 37 + 11) % 100}%`,
-              top: `${(i * 17 + 5) % 55}%`,
-              opacity: 0.5 + (i % 3) * 0.15,
-            }}
-          />
-        ))}
+    <div className="min-h-screen bg-bg texture-dots flex flex-col">
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-5 py-4 max-w-2xl w-full mx-auto">
+        <span className="font-display text-xl text-ink tracking-wide">
+          Duodoro
+        </span>
+        <ThemeToggle />
+      </header>
 
-        {/* Ground */}
-        <div
-          className="absolute bottom-0 left-0 right-0"
-          style={{
-            height: "30%",
-            background: "linear-gradient(180deg, #4a7c59 0%, #3d6849 100%)",
-          }}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-green-600/40" />
-        </div>
-
-        {/* Trees */}
-        {[8, 18, 76, 88].map((left, i) => (
-          <div
-            key={i}
-            className="absolute bottom-[26%]"
-            style={{ left: `${left}%` }}
-          >
-            <div className="flex flex-col items-center">
-              <div
-                className="w-0 h-0"
-                style={{
-                  borderLeft: "8px solid transparent",
-                  borderRight: "8px solid transparent",
-                  borderBottom: "12px solid #2d6a4f",
-                }}
-              />
-              <div
-                className="w-0 h-0 -mt-1"
-                style={{
-                  borderLeft: "10px solid transparent",
-                  borderRight: "10px solid transparent",
-                  borderBottom: "14px solid #40916c",
-                }}
-              />
-              <div
-                className="w-0 h-0 -mt-1"
-                style={{
-                  borderLeft: "12px solid transparent",
-                  borderRight: "12px solid transparent",
-                  borderBottom: "14px solid #52b788",
-                }}
-              />
-              <div className="w-2 h-6 bg-amber-900/70" />
-            </div>
+      {/* Hero */}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 pb-12 w-full">
+        <div className="w-full max-w-md flex flex-col items-center gap-7">
+          <div className="text-center">
+            <h1 className="font-display text-5xl sm:text-6xl text-ink leading-none">
+              Focus together
+            </h1>
+            <p className="mt-3 text-muted text-base sm:text-lg">
+              A shared pomodoro timer for long-distance couples and friends.
+              Walk toward each other while you work — meet in the middle on
+              every break.
+            </p>
           </div>
-        ))}
 
-        {/* Heart at center */}
-        <motion.div
-          className="absolute bottom-[28%] left-1/2 -translate-x-1/2 text-3xl"
-          animate={{ y: [0, -8, 0], scale: [1, 1.15, 1] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          ❤️
-        </motion.div>
+          <HeroScene />
 
-        {/* Demo characters walking toward each other */}
-        <motion.div
-          className="absolute bottom-[26%]"
-          animate={{ left: ["5%", "40%"] }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "linear",
-          }}
-        >
-          <PixelCharacter {...LEFT_CHAR} anim="walk" facing="right" size={3} />
-        </motion.div>
-        <motion.div
-          className="absolute bottom-[26%]"
-          animate={{ right: ["5%", "40%"] }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "linear",
-          }}
-        >
-          <PixelCharacter {...RIGHT_CHAR} anim="walk" facing="left" size={3} />
-        </motion.div>
-      </div>
+          {/* Auth buttons */}
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={() => handleAuth("google")}
+              disabled={loading !== null}
+              className="flex items-center justify-center gap-3 w-full bg-surface hover:bg-raise active:scale-[0.98] text-ink font-semibold py-3.5 px-6 rounded-xl border border-line transition-all shadow-sm disabled:opacity-60"
+            >
+              <GoogleIcon />
+              {loading === "google" ? "Signing in..." : "Continue with Google"}
+            </button>
 
-      {/* ── Copy + CTAs ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 gap-6 text-center">
-        <div>
-          <h1 className="text-5xl font-black font-mono tracking-tight text-white drop-shadow-lg">
-            Duodoro
-          </h1>
-          <p className="mt-2 text-gray-400 text-lg font-mono">
-            Focus together, no matter the distance
+            <button
+              onClick={() => handleAuth("discord")}
+              disabled={loading !== null}
+              className="flex items-center justify-center gap-3 w-full bg-[#5865F2] hover:bg-[#4752c4] active:scale-[0.98] text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-sm disabled:opacity-60"
+            >
+              <DiscordIcon />
+              {loading === "discord" ? "Signing in..." : "Continue with Discord"}
+            </button>
+
+            {error && (
+              <p className="text-danger text-sm text-center">{error}</p>
+            )}
+          </div>
+
+          {/* Feature pills */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {FEATURES.map((f) => (
+              <span
+                key={f}
+                className="bg-surface text-muted text-xs px-3 py-1.5 rounded-full border border-line"
+              >
+                {f}
+              </span>
+            ))}
+          </div>
+
+          <p className="text-faint text-xs max-w-xs text-center">
+            By signing in you agree to our terms of service. No spam, ever.
           </p>
         </div>
-
-        {/* Feature pills */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {[
-            "👥 Friends list",
-            "🎮 Break mini-game",
-            "📝 Shared journal",
-            "🐾 Pets (Premium)",
-          ].map((f) => (
-            <span
-              key={f}
-              className="bg-gray-800 text-gray-300 text-xs font-mono px-3 py-1.5 rounded-full border border-gray-700"
-            >
-              {f}
-            </span>
-          ))}
-        </div>
-
-        {/* Auth buttons */}
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button
-            onClick={() => handleAuth("google")}
-            disabled={loading !== null}
-            className="flex items-center justify-center gap-3 w-full bg-white hover:bg-gray-100 active:scale-95 text-gray-900 font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg disabled:opacity-60"
-          >
-            <GoogleIcon />
-            {loading === "google" ? "Signing in..." : "Continue with Google"}
-          </button>
-
-          <button
-            onClick={() => handleAuth("discord")}
-            disabled={loading !== null}
-            className="flex items-center justify-center gap-3 w-full bg-[#5865F2] hover:bg-[#4752c4] active:scale-95 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg disabled:opacity-60"
-          >
-            <DiscordIcon />
-            {loading === "discord" ? "Signing in..." : "Continue with Discord"}
-          </button>
-
-          {error && (
-            <p className="text-red-400 text-sm font-mono text-center">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <p className="text-gray-600 text-xs font-mono max-w-xs">
-          By signing in you agree to our terms of service. No spam, ever.
-        </p>
-      </div>
+      </main>
     </div>
   );
 }
