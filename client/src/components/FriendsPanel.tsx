@@ -25,7 +25,7 @@ const WORLD_LABEL: Record<string, { emoji: string; label: string }> =
 function StatusDot({ inSession }: { inSession: boolean }) {
   return (
     <div
-      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${inSession ? "bg-emerald-400 animate-pulse" : "bg-gray-600"}`}
+      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${inSession ? "bg-go animate-pulse" : "bg-faint"}`}
       title={inSession ? "In session" : "Offline"}
     />
   );
@@ -47,16 +47,16 @@ function FriendRow({
   const name = friend.display_name ?? friend.username;
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-gray-700/50 transition-colors group">
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-raise transition-colors group">
       <StatusDot inSession={inSession} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">{name}</p>
+        <p className="text-sm font-bold text-ink truncate">{name}</p>
         {inSession && worldInfo ? (
-          <p className="text-xs text-emerald-400 font-mono truncate">
+          <p className="text-xs text-go truncate">
             {worldInfo.emoji} In {worldInfo.label}
           </p>
         ) : (
-          <p className="text-xs text-gray-500 font-mono truncate">
+          <p className="text-xs text-faint font-mono truncate">
             @{friend.discriminator ? formatTag(friend.username, friend.discriminator) : friend.username}
           </p>
         )}
@@ -64,14 +64,14 @@ function FriendRow({
       {inSession && friend.current_session_id ? (
         <button
           onClick={() => onJoin(friend.current_session_id!)}
-          className="text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors"
+          className="text-xs bg-go/15 hover:bg-go/30 text-go font-bold px-2.5 py-1 rounded-lg transition-colors"
         >
           Join
         </button>
       ) : (
         <button
           onClick={onInvite}
-          className="text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-400 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+          className="text-xs bg-raise hover:bg-line text-muted font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
         >
           Invite
         </button>
@@ -92,23 +92,23 @@ function RequestRow({
   onDecline: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-gray-700/30">
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-raise">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">
+        <p className="text-sm font-bold text-ink truncate">
           {requester.display_name ?? requester.username}
         </p>
-        <p className="text-xs text-gray-500 font-mono">wants to be friends</p>
+        <p className="text-xs text-faint">wants to be friends</p>
       </div>
       <div className="flex gap-1.5">
         <button
           onClick={() => onAccept(friendshipId)}
-          className="text-xs bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-2.5 py-1 rounded-lg transition-colors"
+          className="text-xs bg-go hover:brightness-105 text-white font-bold px-2.5 py-1 rounded-lg transition-all"
         >
           ✓
         </button>
         <button
           onClick={() => onDecline(friendshipId)}
-          className="text-xs bg-gray-600 hover:bg-gray-500 text-white font-bold px-2.5 py-1 rounded-lg transition-colors"
+          className="text-xs bg-line hover:bg-faint text-ink font-bold px-2.5 py-1 rounded-lg transition-colors"
         >
           ✕
         </button>
@@ -144,35 +144,35 @@ export default function FriendsPanel({
           {/* Vertically-centered panel on the left */}
           <div className="fixed inset-x-2 sm:inset-x-auto sm:left-4 top-0 bottom-0 z-40 flex items-stretch py-3 pointer-events-none">
             <motion.div
-              className="pointer-events-auto w-full sm:w-80 bg-gray-900 border border-gray-700 flex flex-col shadow-2xl rounded-2xl overflow-hidden"
+              className="pointer-events-auto w-full sm:w-80 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: -60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -60, opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
-                <h2 className="font-bold text-white font-mono tracking-widest">
-                  FRIENDS
+              <div className="flex items-center justify-between px-4 py-4 border-b border-line">
+                <h2 className="font-display text-lg text-ink tracking-wide">
+                  Friends
                 </h2>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-white transition-colors"
+                  className="text-faint hover:text-ink transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
               {/* Tabs */}
-              <div className="flex border-b border-gray-700">
+              <div className="flex border-b border-line">
                 {(["friends", "requests", "find"] as Tab[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`flex-1 py-2.5 text-xs font-mono font-bold capitalize transition-colors ${
+                    className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
-                        ? "text-emerald-400 border-b-2 border-emerald-400"
-                        : "text-gray-500 hover:text-gray-300"
+                        ? "text-accent border-b-2 border-accent"
+                        : "text-muted hover:text-ink"
                     }`}
                   >
                     {t}
@@ -191,7 +191,7 @@ export default function FriendsPanel({
                 {tab === "friends" && (
                   <div>
                     {friends.length === 0 ? (
-                      <p className="text-gray-500 text-sm font-mono text-center py-8">
+                      <p className="text-faint text-sm text-center py-8">
                         No friends yet.
                         <br />
                         Use the &quot;Find&quot; tab to add some!
@@ -213,7 +213,7 @@ export default function FriendsPanel({
                 {tab === "requests" && (
                   <div className="space-y-2">
                     {requests.length === 0 ? (
-                      <p className="text-gray-500 text-sm font-mono text-center py-8">
+                      <p className="text-faint text-sm text-center py-8">
                         No pending requests
                       </p>
                     ) : (
@@ -235,7 +235,7 @@ export default function FriendsPanel({
                   <div>
                     <div className="flex gap-2 mb-3">
                       <input
-                        className="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500"
+                        className="flex-1 bg-raise border border-line rounded-xl px-3 py-2 text-ink text-sm placeholder-faint focus:outline-none focus:border-accent"
                         placeholder="Search name or tag#0000"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -244,7 +244,7 @@ export default function FriendsPanel({
                       <button
                         onClick={handleSearch}
                         disabled={loading}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-sm transition-colors disabled:opacity-40"
+                        className="bg-accent hover:brightness-105 text-white font-bold px-3 py-2 rounded-xl text-sm transition-all disabled:opacity-40"
                       >
                         {loading ? "…" : "Go"}
                       </button>
@@ -256,28 +256,28 @@ export default function FriendsPanel({
                         return (
                           <div
                             key={user.id}
-                            className="flex items-center gap-3 py-2 px-3 rounded-xl bg-gray-800/50"
+                            className="flex items-center gap-3 py-2 px-3 rounded-xl bg-raise"
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-white truncate">
+                              <p className="text-sm font-bold text-ink truncate">
                                 {user.display_name ?? user.username}
                               </p>
-                              <p className="text-xs text-gray-500 font-mono">
+                              <p className="text-xs text-faint font-mono">
                                 @{user.discriminator ? formatTag(user.username, user.discriminator) : user.username}
                               </p>
                             </div>
                             {alreadyFriend ? (
-                              <span className="text-xs text-gray-500 font-mono">
+                              <span className="text-xs text-faint">
                                 Friends
                               </span>
                             ) : sent ? (
-                              <span className="text-xs text-emerald-400 font-mono">
+                              <span className="text-xs text-go">
                                 Sent ✓
                               </span>
                             ) : (
                               <button
                                 onClick={() => sendRequest(user.id)}
-                                className="text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-lg transition-colors"
+                                className="text-xs bg-accent/15 hover:bg-accent/30 text-accent font-bold px-2.5 py-1 rounded-lg transition-colors"
                               >
                                 + Add
                               </button>
@@ -291,14 +291,14 @@ export default function FriendsPanel({
               </div>
 
               {/* Footer: my profile */}
-              <div className="border-t border-gray-700 px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm font-bold">
+              <div className="border-t border-line px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-accent/15 border border-accent/40 flex items-center justify-center text-accent text-sm font-bold">
                   {(myProfile.display_name ?? myProfile.username)
                     .charAt(0)
                     .toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">
+                  <p className="text-sm font-bold text-ink truncate">
                     {myProfile.display_name ?? myProfile.username}
                   </p>
                   <button
@@ -308,14 +308,14 @@ export default function FriendsPanel({
                         : myProfile.username;
                       navigator.clipboard.writeText(tag);
                     }}
-                    className="text-xs text-gray-500 font-mono hover:text-emerald-400 transition-colors"
+                    className="text-xs text-faint font-mono hover:text-accent transition-colors"
                     title="Copy tag to clipboard"
                   >
                     @{myProfile.discriminator ? formatTag(myProfile.username, myProfile.discriminator) : myProfile.username}
                   </button>
                 </div>
                 {myProfile.is_premium && (
-                  <span className="text-xs font-mono text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full">
                     PRO
                   </span>
                 )}

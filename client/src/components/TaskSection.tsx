@@ -26,20 +26,20 @@ export default function TaskSection({
   clearCompleted,
 }: Props) {
   return (
-    <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4">
+    <div className="bg-surface rounded-2xl border border-line p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold font-mono text-gray-400 uppercase tracking-wider">
+        <h2 className="text-xs font-semibold text-faint uppercase tracking-wider">
           Goals
         </h2>
         {tasks.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-gray-600">
+            <span className="text-[10px] text-faint">
               {completedTasks.length}/{tasks.length} done
             </span>
             {completedTasks.length > 0 && (
               <button
                 onClick={clearCompleted}
-                className="text-[10px] font-mono text-gray-600 hover:text-red-400 transition-colors"
+                className="text-[10px] text-faint hover:text-danger transition-colors"
               >
                 Clean
               </button>
@@ -61,14 +61,14 @@ export default function TaskSection({
             >
               <button
                 onClick={() => toggleTask(task.id, true)}
-                className="flex-shrink-0 w-4.5 h-4.5 w-[18px] h-[18px] rounded border-2 border-gray-600 hover:border-emerald-500 flex items-center justify-center transition-colors"
+                className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-line hover:border-go flex items-center justify-center transition-colors"
               />
-              <p className="flex-1 text-sm text-gray-300 font-mono truncate">
+              <p className="flex-1 text-sm text-ink truncate">
                 {task.content}
               </p>
               <button
                 onClick={() => deleteTask(task.id)}
-                className="text-gray-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all"
+                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
               >
                 {"✕"}
               </button>
@@ -85,16 +85,16 @@ export default function TaskSection({
             >
               <button
                 onClick={() => toggleTask(task.id, false)}
-                className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-emerald-600 bg-emerald-600 flex items-center justify-center"
+                className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-go bg-go flex items-center justify-center"
               >
                 <span className="text-white text-[10px]">{"✓"}</span>
               </button>
-              <p className="flex-1 text-sm text-gray-600 font-mono truncate line-through">
+              <p className="flex-1 text-sm text-faint truncate line-through">
                 {task.content}
               </p>
               <button
                 onClick={() => deleteTask(task.id)}
-                className="text-gray-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all"
+                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
               >
                 {"✕"}
               </button>
@@ -104,14 +104,14 @@ export default function TaskSection({
       </div>
 
       {tasks.length === 0 && (
-        <p className="text-gray-600 text-xs font-mono text-center py-3">
+        <p className="text-faint text-xs text-center py-3">
           Add goals for your focus session
         </p>
       )}
 
-      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
+      <div className="flex gap-2 mt-3 pt-3 border-t border-line">
         <input
-          className="flex-1 bg-transparent text-sm text-gray-300 placeholder-gray-600 focus:outline-none font-mono"
+          className="flex-1 bg-transparent text-sm text-ink placeholder-faint focus:outline-none"
           placeholder="Add a goal..."
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
@@ -121,7 +121,7 @@ export default function TaskSection({
         <button
           onClick={addTask}
           disabled={!newTask.trim()}
-          className="text-emerald-400 font-bold text-lg disabled:opacity-30 transition-opacity"
+          className="text-accent font-bold text-lg disabled:opacity-30 transition-opacity"
         >
           +
         </button>

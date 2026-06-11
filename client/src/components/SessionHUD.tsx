@@ -22,7 +22,7 @@ function DurationSlider({
 }) {
   return (
     <div className="flex items-center gap-3 w-full">
-      <span className="text-gray-500 text-xs font-mono w-14 text-right shrink-0">
+      <span className="text-muted text-xs font-medium w-14 text-right shrink-0">
         {label}
       </span>
       <input
@@ -32,9 +32,10 @@ function DurationSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-emerald-500 h-1.5"
+        className="flex-1 h-1.5"
+        style={{ accentColor: "var(--accent)" }}
       />
-      <span className="text-emerald-400 text-xs font-mono font-bold w-12 shrink-0">
+      <span className="text-accent text-xs font-mono font-bold w-12 shrink-0">
         {value}
         {unit}
       </span>
@@ -56,8 +57,8 @@ function PhaseDots({
           key={i}
           className={`w-2.5 h-2.5 rounded-full border transition-all ${
             i < filled
-              ? "bg-emerald-500 border-emerald-500"
-              : "bg-transparent border-gray-600"
+              ? "bg-accent border-accent"
+              : "bg-transparent border-line"
           }`}
         />
       ))}
@@ -92,11 +93,11 @@ interface SessionHUDProps {
 }
 
 const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
-  waiting: (pc) => (pc < 1 ? "SETTING UP..." : "READY TO FOCUS"),
-  focus: () => "FOCUS TIME",
-  celebration: () => "YOU MET!",
-  break: () => "BREAK TIME",
-  returning: () => "HEADING BACK...",
+  waiting: (pc) => (pc < 1 ? "Setting up..." : "Ready to focus"),
+  focus: () => "Focus time",
+  celebration: () => "You met!",
+  break: () => "Break time",
+  returning: () => "Heading back...",
 };
 
 export default function SessionHUD({
@@ -127,8 +128,8 @@ export default function SessionHUD({
 
   return (
     <div className="flex-1 flex items-start justify-center px-6 pt-4 overflow-y-auto">
-      <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/60 rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-2xl mb-4">
-        <div className="text-sm font-mono font-bold tracking-widest text-gray-400 uppercase">
+      <div className="bg-surface/85 backdrop-blur border border-line rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-xl mb-4">
+        <div className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
         </div>
 
@@ -137,17 +138,13 @@ export default function SessionHUD({
         )}
 
         {showTimer && (
-          <div className="text-6xl font-mono font-bold tracking-widest tabular-nums drop-shadow-lg flex flex-col items-center">
+          <div className="text-6xl font-mono font-bold tabular-nums flex flex-col items-center">
             {phase === "focus" && serverMode === "flow" && (
-              <span className="text-xs text-emerald-500 mb-1 tracking-widest font-bold">
-                FLOW ELAPSED
+              <span className="text-xs text-calm mb-1 tracking-widest font-bold uppercase">
+                Flow elapsed
               </span>
             )}
-            <span
-              className={
-                phase === "break" ? "text-blue-400" : "text-emerald-400"
-              }
-            >
+            <span className={phase === "break" ? "text-calm" : "text-accent"}>
               {phase === "focus" && serverMode === "flow"
                 ? formatTime(Math.round(flowElapsed))
                 : formatTime(timeLeft)}
@@ -157,23 +154,23 @@ export default function SessionHUD({
 
         {!sessionStarted && phase === "waiting" && (
           <div className="w-full max-w-xs space-y-4 mt-1">
-            <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
+            <div className="flex bg-raise rounded-lg p-1 border border-line">
               <button
                 onClick={() => onTimerModeChange("pomodoro")}
-                className={`flex-1 py-2 sm:py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-bold rounded-md transition-colors ${
                   timerMode === "pomodoro"
-                    ? "bg-emerald-500 text-white"
-                    : "text-gray-400 hover:text-white"
+                    ? "bg-accent text-white"
+                    : "text-muted hover:text-ink"
                 }`}
               >
                 Pomodoro
               </button>
               <button
                 onClick={() => onTimerModeChange("flow")}
-                className={`flex-1 py-2 sm:py-1 text-xs font-mono font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-bold rounded-md transition-colors ${
                   timerMode === "flow"
-                    ? "bg-blue-500 text-white"
-                    : "text-gray-400 hover:text-white"
+                    ? "bg-calm text-white"
+                    : "text-muted hover:text-ink"
                 }`}
               >
                 Flowmodoro
@@ -182,7 +179,7 @@ export default function SessionHUD({
             {timerMode === "pomodoro" ? (
               <>
                 <DurationSlider
-                  label="FOCUS"
+                  label="Focus"
                   value={focusDuration}
                   onChange={onFocusDurationChange}
                   min={5}
@@ -191,7 +188,7 @@ export default function SessionHUD({
                   unit="m"
                 />
                 <DurationSlider
-                  label="BREAK"
+                  label="Break"
                   value={breakDuration}
                   onChange={onBreakDurationChange}
                   min={1}
@@ -201,7 +198,7 @@ export default function SessionHUD({
                 />
               </>
             ) : (
-              <div className="text-center text-xs text-gray-400 font-mono px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700/50">
+              <div className="text-center text-xs text-muted px-4 py-2 bg-raise rounded-lg border border-line">
                 Focus as long as you want. When you&apos;re done, you&apos;ll
                 earn a break tailored to how long you worked (5:1 ratio).
               </div>
@@ -221,22 +218,26 @@ export default function SessionHUD({
         {/* Player indicators */}
         <div className="flex items-center gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-emerald-400" : "bg-gray-600"}`}
+            className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-go" : "bg-faint"}`}
           />
-          <span className="text-gray-500 text-xs font-mono">YOU</span>
+          <span className="text-muted text-xs font-medium uppercase tracking-wide">
+            You
+          </span>
           {playerCount >= 2 && (
             <>
-              <div className="w-8 h-px bg-gray-700" />
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-gray-500 text-xs font-mono">PARTNER</span>
+              <div className="w-8 h-px bg-line" />
+              <div className="w-2 h-2 rounded-full bg-go" />
+              <span className="text-muted text-xs font-medium uppercase tracking-wide">
+                Partner
+              </span>
             </>
           )}
           {playerCount < 2 && phase === "waiting" && (
             <>
-              <div className="w-8 h-px bg-gray-700" />
-              <div className="w-2 h-2 rounded-full bg-gray-600" />
-              <span className="text-gray-500 text-xs font-mono">
-                WAITING...
+              <div className="w-8 h-px bg-line" />
+              <div className="w-2 h-2 rounded-full bg-faint" />
+              <span className="text-faint text-xs font-medium uppercase tracking-wide">
+                Waiting...
               </span>
             </>
           )}
@@ -247,36 +248,39 @@ export default function SessionHUD({
           {canStart && (
             <button
               onClick={onStart}
-              className={`${timerMode === "flow" ? "bg-blue-500 hover:bg-blue-400 border-blue-700" : "bg-emerald-500 hover:bg-emerald-400 border-emerald-700"} active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 text-sm`}
+              className={`${
+                timerMode === "flow"
+                  ? "bg-calm hover:brightness-105 border-calm-deep"
+                  : "bg-accent hover:brightness-105 border-accent-deep"
+              } active:scale-95 text-white font-display px-10 py-3 rounded-full shadow-lg tracking-wide transition-all border-b-4 text-base`}
             >
-              {"▶"} START{playerCount < 2 ? " SOLO" : " SESSION"}
+              Start{playerCount < 2 ? " solo" : " session"}
             </button>
           )}
           {playerCount < 2 && phase === "waiting" && (
-            <p className="text-gray-500 text-xs font-mono text-center">
+            <p className="text-faint text-xs text-center">
               Friends can join from their dashboard
             </p>
           )}
           {phase === "focus" && serverMode === "flow" && (
             <button
               onClick={onFinishFlow}
-              className="bg-blue-500 hover:bg-blue-400 active:scale-95 text-white font-bold px-10 py-3 rounded-full shadow-lg font-mono tracking-widest transition-all border-b-4 border-blue-700 text-sm mt-2"
+              className="bg-calm hover:brightness-105 active:scale-95 text-white font-display px-10 py-3 rounded-full shadow-lg tracking-wide transition-all border-b-4 border-calm-deep text-base mt-2"
             >
-              {"⏸"} TAKE BREAK
+              Take break
             </button>
           )}
           {canStop && (
             <button
               onClick={onStop}
-              className="text-gray-400 hover:text-red-420 text-xs font-mono transition-colors mt-2"
+              className="text-muted hover:text-danger text-xs transition-colors mt-2"
             >
               end session
             </button>
           )}
           <button
             onClick={onLeave}
-            className="text-xs font-mono transition-colors mt-2 hover:opacity-80"
-            style={{ color: "#f89c9c89" }}
+            className="text-xs text-danger/60 hover:text-danger transition-colors mt-2"
           >
             {"←"} leave session
           </button>

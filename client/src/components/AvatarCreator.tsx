@@ -41,8 +41,8 @@ function ColorSwatch({
           className="w-11 h-11 sm:w-7 sm:h-7 rounded border-2 transition-all"
           style={{
             backgroundColor: hex,
-            borderColor: selected === hex ? "white" : "transparent",
-            boxShadow: selected === hex ? "0 0 0 2px #6ee7b7" : undefined,
+            borderColor: selected === hex ? "var(--surface)" : "transparent",
+            boxShadow: selected === hex ? "0 0 0 2px var(--accent)" : undefined,
           }}
         />
       ))}
@@ -69,21 +69,21 @@ function CycleRow<T extends string>({
   const next = () => onChange(options[(idx + 1) % options.length]);
 
   return (
-    <div className="flex items-center justify-between bg-gray-900/60 px-3 py-2 rounded-lg">
-      <span className="text-gray-400 text-xs font-bold w-14">{label}</span>
+    <div className="flex items-center justify-between bg-raise px-3 py-2 rounded-lg">
+      <span className="text-muted text-xs font-bold w-14">{label}</span>
       <div className="flex items-center gap-2">
         <button
           onClick={prev}
-          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold text-lg sm:text-sm"
+          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ‹
         </button>
-        <span className="w-20 text-center text-xs text-white">
+        <span className="w-20 text-center text-xs text-ink">
           {labels[value]}
         </span>
         <button
           onClick={next}
-          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-white font-bold text-lg sm:text-sm"
+          className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ›
         </button>
@@ -113,25 +113,25 @@ export default function AvatarCreator({
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-md mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-center text-white font-mono tracking-widest">
+        <h1 className="font-display text-3xl text-center text-ink tracking-wide">
           Duodoro
         </h1>
-        <p className="text-gray-400 text-center text-sm mt-1">
+        <p className="text-muted text-center text-sm mt-1">
           {isEditing
             ? "Update your character"
             : "Focus together, no matter the distance"}
         </p>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700 w-full">
-        <h2 className="text-lg font-bold text-white font-mono tracking-widest text-center mb-6">
-          {isEditing ? "EDIT CHARACTER" : "DESIGN YOUR HERO"}
+      <div className="bg-surface p-6 rounded-2xl shadow-xl border border-line w-full">
+        <h2 className="font-display text-lg text-ink tracking-wide text-center mb-6">
+          {isEditing ? "Edit character" : "Design your hero"}
         </h2>
 
         {/* ── Live Preview ── */}
         <div className="flex justify-center mb-6">
           <div
-            className="rounded-2xl border-4 border-gray-600 flex items-end justify-center overflow-hidden"
+            className="rounded-2xl border-4 border-line flex items-end justify-center overflow-hidden"
             style={{
               width: 120,
               height: 140,
@@ -147,11 +147,11 @@ export default function AvatarCreator({
         {!isEditing && (
           <>
             <div className="mb-4">
-              <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-                YOUR NAME
+              <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-2">
+                Your name
               </p>
               <input
-                className="w-full px-3 py-2 bg-gray-900/60 border border-gray-600 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                className="w-full px-3 py-2 bg-raise border border-line rounded-lg text-ink text-sm placeholder-faint focus:outline-none focus:border-accent transition-colors"
                 placeholder="e.g. Jorge"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -159,12 +159,12 @@ export default function AvatarCreator({
               />
             </div>
             <div className="mb-4">
-              <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-                USERNAME
+              <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-2">
+                Username
               </p>
               <input
-                className={`w-full px-3 py-2 bg-gray-900/60 border rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none transition-colors ${
-                  usernameError ? "border-red-500 focus:border-red-400" : "border-gray-600 focus:border-emerald-500"
+                className={`w-full px-3 py-2 bg-raise border rounded-lg text-ink text-sm font-mono placeholder-faint focus:outline-none transition-colors ${
+                  usernameError ? "border-danger focus:border-danger" : "border-line focus:border-accent"
                 }`}
                 placeholder="e.g. jorji"
                 value={username}
@@ -179,18 +179,18 @@ export default function AvatarCreator({
                 }}
                 maxLength={20}
               />
-              <p className="text-gray-600 text-[10px] font-mono mt-1">
+              <p className="text-faint text-[10px] mt-1">
                 Lowercase letters, numbers, underscores. A #tag will be added automatically.
               </p>
               {usernameError && (
-                <p className="text-red-400 text-xs font-mono mt-1">{usernameError}</p>
+                <p className="text-danger text-xs mt-1">{usernameError}</p>
               )}
             </div>
           </>
         )}
 
         {/* ── Controls ── */}
-        <div className="space-y-3 font-mono text-sm mb-5">
+        <div className="space-y-3 text-sm mb-5">
           <CycleRow
             label="HAIR"
             options={HAIR_STYLES}
@@ -210,8 +210,8 @@ export default function AvatarCreator({
         {/* ── Color Pickers ── */}
         <div className="space-y-3 mb-6">
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-              SKIN
+            <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-2">
+              Skin
             </p>
             <ColorSwatch
               colors={SKIN_COLORS}
@@ -220,8 +220,8 @@ export default function AvatarCreator({
             />
           </div>
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-              HAIR COLOR
+            <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-2">
+              Hair color
             </p>
             <ColorSwatch
               colors={HAIR_COLORS}
@@ -230,8 +230,8 @@ export default function AvatarCreator({
             />
           </div>
           <div>
-            <p className="text-gray-400 text-xs font-bold font-mono mb-2">
-              OUTFIT
+            <p className="text-faint text-xs font-semibold uppercase tracking-wider mb-2">
+              Outfit
             </p>
             <ColorSwatch
               colors={OUTFIT_COLORS}
@@ -243,15 +243,15 @@ export default function AvatarCreator({
 
         <button
           onClick={() => onSave(config, displayName.trim(), !isEditing && username ? username : undefined)}
-          className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-bold py-3 px-4 rounded-xl border-b-4 border-emerald-700 transition-all font-mono tracking-widest"
+          className="w-full bg-accent hover:brightness-105 active:scale-95 text-white font-display text-lg py-3 px-4 rounded-xl border-b-4 border-accent-deep transition-all tracking-wide"
         >
-          {isEditing ? "SAVE CHANGES →" : "READY TO FOCUS →"}
+          {isEditing ? "Save changes →" : "Ready to focus →"}
         </button>
 
         {onBack && (
           <button
             onClick={onBack}
-            className="w-full mt-3 text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors"
+            className="w-full mt-3 text-muted hover:text-ink text-sm transition-colors"
           >
             ← Cancel
           </button>

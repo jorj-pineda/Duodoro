@@ -1,6 +1,92 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Theme Tokens — "warm paper" light / "warm charcoal" dark
+   Components use semantic Tailwind classes (bg-bg, bg-surface, text-ink,
+   border-line, bg-accent…) which resolve to these variables, so the whole
+   UI re-themes by swapping data-theme on <html>.
+───────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3ede1;
+  --surface: #fbf7ee;
+  --raise: #eae2cf;
+  --ink: #332d24;
+  --muted: #847862;
+  --faint: #aca18a;
+  --line: #ddd3bd;
+  --accent: #d96c57;
+  --accent-deep: #b9543f;
+  --go: #4f9e6e;
+  --go-deep: #3c7f56;
+  --calm: #5b8fd9;
+  --calm-deep: #4674b8;
+  --gold: #e0a83f;
+  --gold-deep: #b9882c;
+  --danger: #c4554d;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171411;
+  --surface: #211d18;
+  --raise: #2b261f;
+  --ink: #ede4d3;
+  --muted: #a2967e;
+  --faint: #6b614f;
+  --line: #363026;
+  --accent: #e6876f;
+  --accent-deep: #b95f49;
+  --go: #5fbe8a;
+  --go-deep: #3f9468;
+  --calm: #7da7e8;
+  --calm-deep: #5d86c8;
+  --gold: #e6b554;
+  --gold-deep: #bb8d33;
+  --danger: #e07b72;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raise: var(--raise);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-go: var(--go);
+  --color-go-deep: var(--go-deep);
+  --color-calm: var(--calm);
+  --color-calm-deep: var(--calm-deep);
+  --color-gold: var(--gold);
+  --color-gold-deep: var(--gold-deep);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-pixel), var(--font-geist-mono), monospace;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* Subtle dot-grid texture for large empty backgrounds */
+.texture-dots {
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Pixel Art Utilities
 ───────────────────────────────────────────────────────────────────────────── */
 
@@ -58,9 +144,9 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Scrollbar (dark theme)
+   Scrollbar (theme-aware)
 ───────────────────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }

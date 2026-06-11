@@ -43,11 +43,11 @@ const WORLD_EMOJI: Record<string, string> = {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-gray-800/60 rounded-xl px-3 py-2.5 text-center">
-      <p className="text-gray-500 text-[10px] font-mono font-bold uppercase tracking-wider">
+    <div className="bg-raise rounded-xl px-3 py-2.5 text-center">
+      <p className="text-faint text-[10px] font-semibold uppercase tracking-wider">
         {label}
       </p>
-      <p className="text-white text-lg font-bold font-mono mt-0.5">{value}</p>
+      <p className="text-ink text-lg font-bold font-mono tabular-nums mt-0.5">{value}</p>
     </div>
   );
 }
@@ -56,19 +56,19 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 function PartnerRow({ duo, rank }: { duo: DuoStats; rank: number }) {
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-gray-700/50 transition-colors">
-      <span className="text-gray-600 text-xs font-mono font-bold w-5">
+    <div className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-raise transition-colors">
+      <span className={`text-xs font-bold w-5 ${rank === 1 ? "text-gold" : "text-faint"}`}>
         {rank === 1 ? "★" : `#${rank}`}
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">
+        <p className="text-sm font-bold text-ink truncate">
           {duo.partnerName}
         </p>
-        <p className="text-xs text-gray-500 font-mono">
+        <p className="text-xs text-faint">
           {duo.sessionsTogether} sessions
         </p>
       </div>
-      <span className="text-emerald-400 text-xs font-mono font-bold">
+      <span className="text-accent text-xs font-mono font-bold">
         {formatDuration(duo.totalCoFocusTime)}
       </span>
     </div>
@@ -79,27 +79,27 @@ function PartnerRow({ duo, rank }: { duo: DuoStats; rank: number }) {
 
 function SessionRow({ session }: { session: SessionWithPartner }) {
   return (
-    <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-800/40">
+    <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-raise">
       <span className="text-sm">{WORLD_EMOJI[session.world] ?? "🌍"}</span>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-white truncate">
+        <p className="text-xs font-bold text-ink truncate">
           {formatDuration(session.actual_focus)} focus
           {session.partner_name && (
-            <span className="text-gray-500 font-normal">
+            <span className="text-muted font-normal">
               {" "}
               with {session.partner_name}
             </span>
           )}
         </p>
-        <p className="text-[10px] text-gray-600 font-mono">
+        <p className="text-[10px] text-faint font-mono">
           {formatDate(session.ended_at)}
         </p>
       </div>
       <span
-        className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
           session.completed
-            ? "bg-emerald-500/20 text-emerald-400"
-            : "bg-red-500/20 text-red-400"
+            ? "bg-go/15 text-go"
+            : "bg-danger/15 text-danger"
         }`}
       >
         {session.completed ? "✓" : "—"}
@@ -139,35 +139,35 @@ export default function StatsPanel({
           />
           <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-stretch justify-end py-3 pointer-events-none">
             <motion.div
-              className="pointer-events-auto w-full sm:w-80 bg-gray-900 border border-gray-700 flex flex-col shadow-2xl rounded-2xl overflow-hidden"
+              className="pointer-events-auto w-full sm:w-80 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: 60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 60, opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
-                <h2 className="font-bold text-white font-mono tracking-widest">
-                  STATS
+              <div className="flex items-center justify-between px-4 py-4 border-b border-line">
+                <h2 className="font-display text-lg text-ink tracking-wide">
+                  Stats
                 </h2>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-white transition-colors"
+                  className="text-faint hover:text-ink transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
               {/* Tabs */}
-              <div className="flex border-b border-gray-700">
+              <div className="flex border-b border-line">
                 {(["personal", "duo", "history"] as Tab[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`flex-1 py-2.5 text-xs font-mono font-bold capitalize transition-colors ${
+                    className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
-                        ? "text-emerald-400 border-b-2 border-emerald-400"
-                        : "text-gray-500 hover:text-gray-300"
+                        ? "text-accent border-b-2 border-accent"
+                        : "text-muted hover:text-ink"
                     }`}
                   >
                     {t}
@@ -178,7 +178,7 @@ export default function StatsPanel({
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-3">
                 {loading && (
-                  <p className="text-gray-500 text-sm font-mono text-center py-8">
+                  <p className="text-faint text-sm text-center py-8">
                     Loading...
                   </p>
                 )}
@@ -214,7 +214,7 @@ export default function StatsPanel({
                         />
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-sm font-mono text-center py-8">
+                      <p className="text-faint text-sm text-center py-8">
                         No sessions yet.
                         <br />
                         Start focusing to see stats!
@@ -227,7 +227,7 @@ export default function StatsPanel({
                 {!loading && tab === "duo" && (
                   <div>
                     {duoStats.length === 0 ? (
-                      <p className="text-gray-500 text-sm font-mono text-center py-8">
+                      <p className="text-faint text-sm text-center py-8">
                         No partner sessions yet.
                         <br />
                         Focus with a friend to see duo stats!
@@ -250,7 +250,7 @@ export default function StatsPanel({
                 {!loading && tab === "history" && (
                   <div>
                     {recentSessions.length === 0 ? (
-                      <p className="text-gray-500 text-sm font-mono text-center py-8">
+                      <p className="text-faint text-sm text-center py-8">
                         No sessions recorded yet.
                       </p>
                     ) : (
@@ -265,10 +265,10 @@ export default function StatsPanel({
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-700 px-4 py-3">
+              <div className="border-t border-line px-4 py-3">
                 <button
                   onClick={onViewFullStats}
-                  className="w-full text-center text-xs font-mono text-emerald-400 hover:text-emerald-300 font-bold transition-colors"
+                  className="w-full text-center text-xs text-accent hover:text-accent-deep font-bold transition-colors"
                 >
                   View detailed stats →
                 </button>

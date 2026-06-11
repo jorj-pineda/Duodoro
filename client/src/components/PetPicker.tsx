@@ -14,13 +14,13 @@ export default function PetPicker({
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap justify-center">
-      <span className="text-gray-600 text-xs font-mono">PET:</span>
+      <span className="text-faint text-xs font-medium uppercase tracking-wide">Pet:</span>
       <button
         onClick={() => (isPremium ? onSelect(null) : onPremiumClick())}
         className={`w-7 h-7 rounded-full border text-xs flex items-center justify-center transition-all ${
           selected === null
-            ? "border-gray-500 bg-gray-700 text-gray-300"
-            : "border-gray-700 bg-gray-800 text-gray-600 hover:border-gray-600"
+            ? "border-faint bg-raise text-ink"
+            : "border-line bg-surface text-faint hover:border-faint"
         }`}
         title="No pet"
       >
@@ -32,8 +32,8 @@ export default function PetPicker({
           onClick={() => (isPremium ? onSelect(type) : onPremiumClick())}
           className={`w-7 h-7 rounded-full border text-sm flex items-center justify-center transition-all ${
             selected === type
-              ? "border-emerald-500 bg-emerald-500/20"
-              : "border-gray-700 bg-gray-800 hover:border-gray-500"
+              ? "border-accent bg-accent/15"
+              : "border-line bg-surface hover:border-faint"
           } ${!isPremium ? "opacity-50" : ""}`}
           title={isPremium ? label : `${label} (Premium)`}
         >
