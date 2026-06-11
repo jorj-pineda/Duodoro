@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
@@ -12,6 +12,14 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const pixelSans = Pixelify_Sans({
+  variable: "--font-pixel",
+  subsets: ["latin"],
+});
+
+// Runs before paint: picks saved theme or system preference so there's no flash
+const themeInitScript = `(function(){try{var t=localStorage.getItem("duodoro-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})();`;
 
 export const metadata: Metadata = {
   title: "Duodoro — Focus together, anywhere.",
@@ -37,7 +45,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#111827",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3ede1" },
+    { media: "(prefers-color-scheme: dark)", color: "#171411" },
+  ],
 };
 
 export default function RootLayout({
@@ -46,9 +57,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${pixelSans.variable} font-sans antialiased`}
       >
         {children}
         <ServiceWorkerRegister />
