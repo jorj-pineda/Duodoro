@@ -144,6 +144,52 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Ambient World Motion — slow, low-key loops for scenery decorations
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Clouds — gentle horizontal sway */
+@keyframes decor-drift {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(28px); }
+}
+.decor-drift {
+  animation: decor-drift 26s ease-in-out infinite;
+}
+.decor-drift-slow {
+  animation: decor-drift 44s ease-in-out infinite;
+}
+
+/* Stars & string lights — soft brightness pulse */
+@keyframes decor-twinkle {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+.decor-twinkle {
+  animation: decor-twinkle 3.2s ease-in-out infinite;
+}
+
+/* Coffee steam — pixel puffs rising and fading */
+@keyframes decor-steam {
+  0%   { opacity: 0; transform: translateY(0); }
+  25%  { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+.decor-steam {
+  animation: decor-steam 2.8s ease-out infinite;
+}
+
+/* Shooting star — rare diagonal streak */
+@keyframes decor-shooting-star {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(-20deg); }
+  3%   { opacity: 1; }
+  12%  { opacity: 0; transform: translate(-110px, 45px) rotate(-20deg); }
+  100% { opacity: 0; transform: translate(-110px, 45px) rotate(-20deg); }
+}
+.decor-shooting-star {
+  animation: decor-shooting-star 11s linear infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Scrollbar (theme-aware)
 ───────────────────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
