@@ -1,6 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
+import { getWorld, type WorldId } from "@/lib/avatarData";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // World Decorations — pixel-art scenery for each world.
@@ -740,6 +741,50 @@ export function CafeDecor() {
       <CafeTable left={6} />
       <CafeTable right={6} />
     </>
+  );
+}
+
+// ── World thumbnail — mini scene preview for pickers ────────────────────────
+
+const THUMB_SPRITES: Record<
+  WorldId,
+  { map: PixelMap; palette: PixelPalette; scale: number }
+> = {
+  forest: { map: PINE, palette: PINE_PALETTE, scale: 2 },
+  space: { map: PLANET, palette: PLANET_PALETTE, scale: 2 },
+  beach: { map: PALM, palette: PALM_PALETTE, scale: 2 },
+  city: { map: BUILDING_SHORT, palette: BUILDING_PALETTE, scale: 2 },
+  mountain: { map: MOUNTAIN, palette: MOUNTAIN_FRONT, scale: 2 },
+  library: { map: BOOKSHELF, palette: BOOKSHELF_PALETTE, scale: 2 },
+  cafe: { map: CUP, palette: CUP_PALETTE, scale: 3 },
+  lofi: { map: MOON, palette: { M: "#e0c3fc", m: "#b794f4" }, scale: 2 },
+};
+
+/** Tiny sky + ground + signature sprite; size it via the parent element. */
+export function WorldThumbnail({ worldId }: { worldId: WorldId }) {
+  const world = getWorld(worldId);
+  const sprite = THUMB_SPRITES[worldId];
+  return (
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{ background: world.skyGradient }}
+      aria-hidden="true"
+    >
+      <div
+        className="absolute bottom-0 left-0 right-0"
+        style={{ height: "24%", backgroundColor: world.groundColor }}
+      />
+      <div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ bottom: "20%" }}
+      >
+        <PixelSprite
+          map={sprite.map}
+          palette={sprite.palette}
+          scale={sprite.scale}
+        />
+      </div>
+    </div>
   );
 }
 

@@ -8,6 +8,7 @@ import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
+import { WorldThumbnail } from "./WorldDecorations";
 import {
   UsersIcon,
   ChartIcon,
@@ -289,14 +290,16 @@ export default function HomeDashboard({
                 <button
                   key={w.id}
                   onClick={() => setSelectedWorld(w.id)}
-                  className={`py-2.5 px-1 rounded-xl border text-xs transition-all text-center ${
+                  className={`rounded-xl border overflow-hidden transition-all text-center ${
                     selectedWorld === w.id
-                      ? "border-accent bg-accent/10 text-ink shadow-sm"
+                      ? "border-accent ring-2 ring-accent/40 text-ink shadow-sm"
                       : "border-line bg-surface text-muted hover:border-faint"
                   }`}
                 >
-                  <span className="text-base block">{w.emoji}</span>
-                  <span className="mt-0.5 block text-[10px] font-medium">
+                  <div className="h-12 w-full">
+                    <WorldThumbnail worldId={w.id} />
+                  </div>
+                  <span className="block py-1 text-[10px] font-medium">
                     {w.label}
                   </span>
                 </button>
