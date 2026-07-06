@@ -79,7 +79,7 @@ io.use(async (socket, next) => {
 
 // sessions[sessionId] = {
 //   phase, focusDuration, breakDuration, phaseStartTime, phaseTimer,
-//   world, hostId (socketId), soloAllowed,
+//   world, hostId (socketId),
 //   players: { [socketId]: { avatar, displayName, userId } }
 // }
 const sessions = {};
@@ -300,26 +300,9 @@ function leaveSession(socket, sessionId) {
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
     delete sessions[sessionId];
     console.log(`[${sessionId}] Session deleted`);
-    return;
   }
-
-  // Solo session keeps running, multi-player pauses if only 1 left and not solo-allowed
-  if (playerCount < 1 && session.phase !== 'waiting') {
-    if (session.phase === 'focus') recordSession(sessionId, session, false);
-    if (session.phaseTimer) {
-      clearTimeout(session.phaseTimer);
-      session.phaseTimer = null;
-    }
-    session.phase = 'waiting';
-    session.phaseStartTime = null;
-    io.to(sessionId).emit('phase_change', {
-      mode: session.mode,
-      phase: 'waiting',
-      phaseStartTime: null,
-      focusDuration: session.focusDuration,
-      breakDuration: session.breakDuration,
-    });
-  }
+  // If players remain, the session keeps running for them (solo continuation
+  // is intentional — sessions can also be started solo).
 }
 
 // ── Socket Handlers ────────────────────────────────────────────────────────
