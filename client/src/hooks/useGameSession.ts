@@ -21,7 +21,9 @@ export type { InviteData };
 export function useGameSession(profile: Profile | null) {
   // ── Avatar & world ──────────────────────────────────────────────────────
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
-  const [myPet, setMyPet] = useState<PetType | null>(null);
+  const [myPet, setMyPetState] = useState<PetType | null>(null);
+  // Ref mirror so reconnect/rejoin (registered once) sees the current pet
+  const myPetRef = useRef<PetType | null>(null);
 
   // ── Session ─────────────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string>("");
@@ -159,15 +161,28 @@ export function useGameSession(profile: Profile | null) {
           playerId,
           avatar,
           displayName,
+          pet,
         }: {
           playerId: string;
           avatar: AvatarConfig;
           displayName?: string;
+          pet?: PetType | null;
         }) => {
           setPlayers((prev) => ({
             ...prev,
-            [playerId]: { avatar, displayName },
+            [playerId]: { avatar, displayName, pet: pet ?? null },
           }));
+        },
+      );
+
+      socket.on(
+        "pet_changed",
+        ({ playerId, pet }: { playerId: string; pet: PetType | null }) => {
+          setPlayers((prev) =>
+            prev[playerId]
+              ? { ...prev, [playerId]: { ...prev[playerId], pet } }
+              : prev,
+          );
         },
       );
 
@@ -231,6 +246,7 @@ export function useGameSession(profile: Profile | null) {
         sessionId: sid,
         avatar,
         displayName: lastDisplayNameRef.current,
+        pet: myPetRef.current,
       });
     };
 
@@ -300,6 +316,7 @@ export function useGameSession(profile: Profile | null) {
     ? { id: partnerEntry[0], avatar: partnerEntry[1].avatar }
     : null;
   const partnerName = partnerEntry?.[1].displayName;
+  const partnerPet = partnerEntry?.[1].pet ?? null;
 
   const playerCount = Object.keys(players).length;
 
@@ -319,7 +336,12 @@ export function useGameSession(profile: Profile | null) {
       const displayName = profile?.display_name ?? profile?.username ?? "Player";
       lastAvatarRef.current = avatar;
       lastDisplayNameRef.current = displayName;
-      socket.emit("create_session", { avatar, world, displayName });
+      socket.emit("create_session", {
+        avatar,
+        world,
+        displayName,
+        pet: myPetRef.current,
+      });
     },
     [profile, sessionId],
   );
@@ -332,7 +354,12 @@ export function useGameSession(profile: Profile | null) {
       const displayName = profile?.display_name ?? profile?.username ?? "Player";
       lastAvatarRef.current = avatar;
       lastDisplayNameRef.current = displayName;
-      socket.emit("join_session", { sessionId: sid, avatar, displayName });
+      socket.emit("join_session", {
+        sessionId: sid,
+        avatar,
+        displayName,
+        pet: myPetRef.current,
+      });
     },
     [profile],
   );
@@ -369,6 +396,14 @@ export function useGameSession(profile: Profile | null) {
     playSound("click");
   }, [sessionId]);
 
+  // Set/change pet — keeps the ref mirror in sync and relays mid-session
+  const setMyPet = useCallback((pet: PetType | null) => {
+    setMyPetState(pet);
+    myPetRef.current = pet;
+    const sid = sessionIdRef.current;
+    if (sid) socketRef.current?.emit("set_pet", { sessionId: sid, pet });
+  }, []);
+
   const sendInvite = useCallback(
     (targetUserId: string, avatar: AvatarConfig) => {
       const socket = socketRef.current;
@@ -390,6 +425,7 @@ export function useGameSession(profile: Profile | null) {
           avatar,
           world: myWorld,
           displayName: profile?.display_name ?? profile?.username ?? "Player",
+          pet: myPetRef.current,
         });
       }
     },
@@ -425,6 +461,7 @@ export function useGameSession(profile: Profile | null) {
     phaseProgress,
     partner,
     partnerName,
+    partnerPet,
     playerCount,
     // Session actions
     sessionId,

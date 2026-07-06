@@ -274,7 +274,7 @@ export default function DuoTimer() {
           me={{ id: game.myId, avatar: myAvatar }}
           partner={game.partner}
           myPet={game.myPet}
-          partnerPet={null}
+          partnerPet={game.partnerPet}
           myName={profile?.display_name ?? profile?.username}
           partnerName={game.partnerName}
         />

@@ -3,6 +3,7 @@ import {
   createSessionState,
   addPlayer,
   removePlayer,
+  setPlayerPet,
   buildSyncPayload,
 } from "./session.js";
 
@@ -97,5 +98,29 @@ describe("presence maps", () => {
     userSockets.delete("user-1");
     socketToUser.delete("socket-a");
     expect(userSockets.has("user-1")).toBe(false);
+  });
+});
+
+describe("setPlayerPet", () => {
+  it("stores a pet on join and defaults to null", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1", pet: "cat" });
+    addPlayer(s, "p2", { avatar: {}, displayName: "B", userId: "u2" });
+    expect(s.players["p1"].pet).toBe("cat");
+    expect(s.players["p2"].pet).toBe(null);
+  });
+
+  it("updates an existing player's pet", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(setPlayerPet(s, "p1", "dragon")).toBe(true);
+    expect(s.players["p1"].pet).toBe("dragon");
+    expect(setPlayerPet(s, "p1", null)).toBe(true);
+    expect(s.players["p1"].pet).toBe(null);
+  });
+
+  it("returns false for a socket that is not a player", () => {
+    const s = createSessionState("forest", "host");
+    expect(setPlayerPet(s, "ghost", "cat")).toBe(false);
   });
 });

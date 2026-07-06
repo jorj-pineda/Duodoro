@@ -8,6 +8,7 @@ const {
   createSessionState,
   addPlayer,
   removePlayer,
+  setPlayerPet,
   buildSyncPayload,
 } = require('./session');
 require('dotenv').config();
@@ -50,7 +51,12 @@ const MAX_BREAK = 60 * 60;    // 1 hour in seconds
 
 const VALID_HAIR_STYLES = ['bob', 'mohawk', 'long', 'spiky', 'bald'];
 const VALID_EYE_STYLES = ['normal', 'anime', 'sleepy'];
+const VALID_PETS = ['cat', 'dog', 'dragon', 'rabbit'];
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function sanitizePet(pet) {
+  return VALID_PETS.includes(pet) ? pet : null;
+}
 
 function sanitizeAvatar(avatar) {
   if (!avatar || typeof avatar !== 'object') return null;
@@ -85,7 +91,7 @@ io.use(async (socket, next) => {
 // sessions[sessionId] = {
 //   phase, focusDuration, breakDuration, phaseStartTime, phaseTimer,
 //   world, hostId (socketId),
-//   players: { [socketId]: { avatar, displayName, userId } }
+//   players: { [socketId]: { avatar, displayName, userId, pet } }
 // }
 const sessions = {};
 const socketToSession = {};
@@ -359,10 +365,10 @@ io.on('connection', (socket) => {
     console.log(`[invite] ${safeName} invited ${targetUserId}`);
   });
 
-  // create_session: { avatar, world, displayName }
+  // create_session: { avatar, world, displayName, pet }
   // Creates a new session with a UUID, user becomes host.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('create_session', ({ avatar, world, displayName }) => {
+  socket.on('create_session', ({ avatar, world, displayName, pet }) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -391,6 +397,7 @@ io.on('connection', (socket) => {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
+      pet: sanitizePet(pet),
     });
 
     if (userId) setPresence(userId, sessionId, safeWorld);
@@ -401,10 +408,10 @@ io.on('connection', (socket) => {
     socket.emit('sync_state', buildSyncPayload(session));
   });
 
-  // join_session: { sessionId, avatar, displayName }
+  // join_session: { sessionId, avatar, displayName, pet }
   // Joins an existing session by its UUID.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('join_session', ({ sessionId, avatar, displayName }) => {
+  socket.on('join_session', ({ sessionId, avatar, displayName, pet }) => {
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -431,12 +438,14 @@ io.on('connection', (socket) => {
 
     const userId = socket.userId || null;
 
+    const safePet = sanitizePet(pet);
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     const playerCount = addPlayer(session, socket.id, {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
+      pet: safePet,
     });
 
     if (userId) setPresence(userId, sessionId, session.world);
@@ -446,6 +455,7 @@ io.on('connection', (socket) => {
       playerId: socket.id,
       avatar: safeAvatar,
       displayName: safeName,
+      pet: safePet,
     });
 
     socket.emit('sync_state', buildSyncPayload(session));
@@ -537,6 +547,17 @@ io.on('connection', (socket) => {
       focusDuration: session.focusDuration,
       breakDuration: session.breakDuration,
     });
+  });
+
+  // set_pet: { sessionId, pet }
+  // Change your pet mid-session; relayed to the other player.
+  socket.on('set_pet', ({ sessionId, pet }) => {
+    const session = getSession(sessionId);
+    if (!session) return;
+    if (!session.players[socket.id]) return; // Only participants
+    const safePet = sanitizePet(pet);
+    setPlayerPet(session, socket.id, safePet);
+    socket.to(sessionId).emit('pet_changed', { playerId: socket.id, pet: safePet });
   });
 
   // leave_session: { sessionId }
