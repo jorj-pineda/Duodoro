@@ -20,16 +20,20 @@ if (!supabase) {
 }
 
 const app = express();
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+// Comma-separated list, e.g. "https://duodoro.live,https://duodoro.vercel.app"
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: allowedOrigin }));
+app.use(cors({ origin: allowedOrigins }));
 app.use(helmet());
 app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
 app.get('/health', (_, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: allowedOrigin, methods: ['GET', 'POST'] },
+  cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
   maxHttpBufferSize: 1e5, // 100KB max payload
 });
 
@@ -607,5 +611,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Allowed origin: ${allowedOrigin}`);
+  console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
 });
