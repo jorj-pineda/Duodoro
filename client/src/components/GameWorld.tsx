@@ -15,16 +15,7 @@ import {
   CONTROLLER,
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
-import {
-  ForestDecor,
-  SpaceDecor,
-  BeachDecor,
-  CityDecor,
-  MountainDecor,
-  LibraryDecor,
-  CafeDecor,
-  LofiDecor,
-} from "./WorldDecorations";
+import { WorldDecor } from "./WorldDecorations";
 
 export type GamePhase =
   | "waiting"
@@ -128,14 +119,7 @@ export default function GameWorld({
         className="absolute inset-0 overflow-hidden"
         style={{ background: world.skyGradient }}
       >
-        {worldId === "forest" && <ForestDecor />}
-        {worldId === "space" && <SpaceDecor />}
-        {worldId === "beach" && <BeachDecor />}
-        {worldId === "city" && <CityDecor />}
-        {worldId === "mountain" && <MountainDecor />}
-        {worldId === "library" && <LibraryDecor />}
-        {worldId === "cafe" && <CafeDecor />}
-        {worldId === "lofi" && <LofiDecor />}
+        <WorldDecor worldId={worldId} />
       </div>
 
       {/* Ground */}

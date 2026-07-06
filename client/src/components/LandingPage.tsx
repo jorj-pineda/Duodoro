@@ -1,10 +1,13 @@
 "use client";
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
+import PixelSprite from "./PixelSprite";
 import ThemeToggle from "./ThemeToggle";
+import { WorldDecor } from "./WorldDecorations";
 import { signInWithProvider } from "@/lib/supabase";
-import { DEFAULT_AVATAR } from "@/lib/avatarData";
+import { DEFAULT_AVATAR, WORLDS } from "@/lib/avatarData";
+import { HEART, HEART_PALETTE } from "@/lib/uiSprites";
 
 // Two sample characters walking toward each other on the landing page
 const LEFT_CHAR = { ...DEFAULT_AVATAR, outfitColor: "#3B5BDB" };
@@ -53,91 +56,69 @@ function GoogleIcon() {
   );
 }
 
-/** The little pixel night scene, framed like a window into the app */
+const HERO_WORLD_MS = 6000;
+
+/** A window into the app: cycles through the real worlds while two
+ *  characters walk toward each other. */
 function HeroScene() {
+  const [worldIndex, setWorldIndex] = useState(0);
+  const world = WORLDS[worldIndex];
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setWorldIndex((i) => (i + 1) % WORLDS.length),
+      HERO_WORLD_MS,
+    );
+    return () => clearInterval(id);
+  }, []);
+
   return (
-    <div
-      className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-line shadow-xl"
-      style={{
-        background:
-          "linear-gradient(180deg, #0f172a 0%, #1e3a5f 60%, #7EC8E3 100%)",
-      }}
-    >
-      {/* Stars */}
-      {[...Array(24)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full bg-white"
-          style={{
-            width: i % 4 === 0 ? 2 : 1,
-            height: i % 4 === 0 ? 2 : 1,
-            left: `${(i * 37 + 11) % 100}%`,
-            top: `${(i * 17 + 5) % 55}%`,
-            opacity: 0.5 + (i % 3) * 0.15,
-          }}
-        />
-      ))}
-
-      {/* Ground */}
-      <div
-        className="absolute bottom-0 left-0 right-0"
-        style={{
-          height: "30%",
-          background: "linear-gradient(180deg, #4a7c59 0%, #3d6849 100%)",
-        }}
-      >
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-green-600/40" />
-      </div>
-
-      {/* Trees */}
-      {[8, 18, 76, 88].map((left, i) => (
-        <div
-          key={i}
-          className="absolute bottom-[26%]"
-          style={{ left: `${left}%` }}
+    <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-line shadow-xl">
+      {/* Crossfading world scene (sky + decor + ground) */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={world.id}
+          className="absolute inset-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
         >
-          <div className="flex flex-col items-center">
-            <div
-              className="w-0 h-0"
-              style={{
-                borderLeft: "8px solid transparent",
-                borderRight: "8px solid transparent",
-                borderBottom: "12px solid #2d6a4f",
-              }}
-            />
-            <div
-              className="w-0 h-0 -mt-1"
-              style={{
-                borderLeft: "10px solid transparent",
-                borderRight: "10px solid transparent",
-                borderBottom: "14px solid #40916c",
-              }}
-            />
-            <div
-              className="w-0 h-0 -mt-1"
-              style={{
-                borderLeft: "12px solid transparent",
-                borderRight: "12px solid transparent",
-                borderBottom: "14px solid #52b788",
-              }}
-            />
-            <div className="w-2 h-6 bg-amber-900/70" />
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ background: world.skyGradient }}
+          >
+            <WorldDecor worldId={world.id} />
           </div>
-        </div>
-      ))}
+          <div
+            className="absolute bottom-0 left-0 right-0"
+            style={{ height: "19%", backgroundColor: world.groundColor }}
+          >
+            <div
+              className="absolute top-0 left-0 right-0 h-1.5"
+              style={{ backgroundColor: world.groundPatternColor }}
+            />
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* World name tag */}
+      <div className="absolute top-2 right-2 bg-black/40 text-white text-[10px] font-mono px-2 py-0.5 rounded">
+        {world.label}
+      </div>
 
       {/* Heart at center */}
       <motion.div
-        className="absolute bottom-[28%] left-1/2 -translate-x-1/2 text-2xl"
+        className="absolute bottom-[24%] left-1/2 -translate-x-1/2"
         animate={{ y: [0, -8, 0], scale: [1, 1.15, 1] }}
         transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
       >
-        ❤️
+        <PixelSprite map={HEART} palette={HEART_PALETTE} scale={3} />
       </motion.div>
 
       {/* Demo characters walking toward each other */}
       <motion.div
-        className="absolute bottom-[26%]"
+        className="absolute bottom-[17%]"
         animate={{ left: ["5%", "38%"] }}
         transition={{
           duration: 4,
@@ -149,7 +130,7 @@ function HeroScene() {
         <PixelCharacter {...LEFT_CHAR} anim="walk" facing="right" size={3} />
       </motion.div>
       <motion.div
-        className="absolute bottom-[26%]"
+        className="absolute bottom-[17%]"
         animate={{ right: ["5%", "38%"] }}
         transition={{
           duration: 4,

@@ -744,6 +744,29 @@ export function CafeDecor() {
   );
 }
 
+// ── World decor dispatcher — one component per worldId ──────────────────────
+
+export function WorldDecor({ worldId }: { worldId: WorldId }) {
+  switch (worldId) {
+    case "forest":
+      return <ForestDecor />;
+    case "space":
+      return <SpaceDecor />;
+    case "beach":
+      return <BeachDecor />;
+    case "city":
+      return <CityDecor />;
+    case "mountain":
+      return <MountainDecor />;
+    case "library":
+      return <LibraryDecor />;
+    case "cafe":
+      return <CafeDecor />;
+    case "lofi":
+      return <LofiDecor />;
+  }
+}
+
 // ── World thumbnail — mini scene preview for pickers ────────────────────────
 
 const THUMB_SPRITES: Record<
