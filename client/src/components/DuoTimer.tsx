@@ -31,6 +31,12 @@ export default function DuoTimer() {
   const [fullStatsOpen, setFullStatsOpen] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const [displayNameModalOpen, setDisplayNameModalOpen] = useState(false);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+
+  const showError = (message: string) => {
+    setErrorToast(message);
+    window.setTimeout(() => setErrorToast(null), 4000);
+  };
 
   const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb } =
     auth;
@@ -57,9 +63,27 @@ export default function DuoTimer() {
     if (!game.sessionId) setAppStep("game");
   };
 
+  // Danger-styled sibling of the "Invite sent!" toast; rendered on every
+  // screen that can produce an error (avatar/home/game)
+  const errorToastEl = (
+    <AnimatePresence>
+      {errorToast && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-danger text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
+        >
+          {errorToast}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   // ── Overlays shared by the home and game screens ────────────────────────
   const sharedOverlays = (
     <>
+      {errorToastEl}
       {game.pendingInvite && (
         <InvitePopup
           invite={game.pendingInvite}
@@ -170,8 +194,12 @@ export default function DuoTimer() {
                   username: tag.username,
                   discriminator: tag.discriminator,
                 });
-              } catch (err: any) {
-                alert(err?.message ?? "Failed to claim username");
+              } catch (err) {
+                showError(
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to claim username",
+                );
                 return;
               }
             }
@@ -189,6 +217,7 @@ export default function DuoTimer() {
             setAppStep("home");
           }}
         />
+        {errorToastEl}
       </div>
     );
   }
