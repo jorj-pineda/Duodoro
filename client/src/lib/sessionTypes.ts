@@ -1,11 +1,13 @@
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig } from "./avatarData";
+import type { PetType } from "./types";
 
 export type AppStep = "loading" | "landing" | "avatar" | "home" | "game";
 
 export interface PlayerData {
   avatar: AvatarConfig;
   displayName?: string;
+  pet?: PetType | null;
 }
 
 export interface SyncPayload {

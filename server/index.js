@@ -1,10 +1,16 @@
 const express = require('express');
 const http = require('http');
-const { randomUUID } = require('crypto');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
+const {
+  createSessionState,
+  addPlayer,
+  removePlayer,
+  setPlayerPet,
+  buildSyncPayload,
+} = require('./session');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -20,16 +26,20 @@ if (!supabase) {
 }
 
 const app = express();
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+// Comma-separated list, e.g. "https://duodoro.live,https://duodoro.vercel.app"
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: allowedOrigin }));
+app.use(cors({ origin: allowedOrigins }));
 app.use(helmet());
 app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
 app.get('/health', (_, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: allowedOrigin, methods: ['GET', 'POST'] },
+  cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
   maxHttpBufferSize: 1e5, // 100KB max payload
 });
 
@@ -41,7 +51,12 @@ const MAX_BREAK = 60 * 60;    // 1 hour in seconds
 
 const VALID_HAIR_STYLES = ['bob', 'mohawk', 'long', 'spiky', 'bald'];
 const VALID_EYE_STYLES = ['normal', 'anime', 'sleepy'];
+const VALID_PETS = ['cat', 'dog', 'dragon', 'rabbit'];
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function sanitizePet(pet) {
+  return VALID_PETS.includes(pet) ? pet : null;
+}
 
 function sanitizeAvatar(avatar) {
   if (!avatar || typeof avatar !== 'object') return null;
@@ -75,8 +90,8 @@ io.use(async (socket, next) => {
 
 // sessions[sessionId] = {
 //   phase, focusDuration, breakDuration, phaseStartTime, phaseTimer,
-//   world, hostId (socketId), soloAllowed,
-//   players: { [socketId]: { avatar, displayName, userId } }
+//   world, hostId (socketId),
+//   players: { [socketId]: { avatar, displayName, userId, pet } }
 // }
 const sessions = {};
 const socketToSession = {};
@@ -88,7 +103,7 @@ const socketToUser = new Map();  // socket.id -> userId
 // ── Simple per-socket rate limiter ───────────────────────────────────────────
 function createRateLimiter(maxPerWindow, windowMs) {
   const counters = new Map(); // socketId -> { count, resetAt }
-  return (socketId) => {
+  const check = (socketId) => {
     const now = Date.now();
     const entry = counters.get(socketId);
     if (!entry || now > entry.resetAt) {
@@ -98,6 +113,8 @@ function createRateLimiter(maxPerWindow, windowMs) {
     entry.count++;
     return entry.count <= maxPerWindow;
   };
+  check.clear = (socketId) => counters.delete(socketId);
+  return check;
 }
 
 const rateLimits = {
@@ -108,19 +125,6 @@ const rateLimits = {
 
 function getSession(sessionId) {
   return sessions[sessionId];
-}
-
-function buildSyncPayload(session) {
-  return {
-    phase: session.phase,
-    focusDuration: session.focusDuration,
-    breakDuration: session.breakDuration,
-    phaseStartTime: session.phaseStartTime,
-    world: session.world,
-    players: session.players,
-    playerCount: Object.keys(session.players).length,
-    sessionId: session.id,
-  };
 }
 
 // ── Supabase Presence Helpers ──────────────────────────────────────────────
@@ -280,11 +284,9 @@ function leaveSession(socket, sessionId) {
   const player = session.players[socket.id];
   if (player?.userId) clearPresence(player.userId);
 
-  delete session.players[socket.id];
+  const playerCount = removePlayer(session, socket.id);
   delete socketToSession[socket.id];
   socket.leave(sessionId);
-
-  const playerCount = Object.keys(session.players).length;
   console.log(`[${sessionId}] ${socket.id} left (${playerCount} remaining)`);
 
   io.to(sessionId).emit('player_left', { playerId: socket.id });
@@ -294,26 +296,9 @@ function leaveSession(socket, sessionId) {
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
     delete sessions[sessionId];
     console.log(`[${sessionId}] Session deleted`);
-    return;
   }
-
-  // Solo session keeps running, multi-player pauses if only 1 left and not solo-allowed
-  if (playerCount < 1 && session.phase !== 'waiting') {
-    if (session.phase === 'focus') recordSession(sessionId, session, false);
-    if (session.phaseTimer) {
-      clearTimeout(session.phaseTimer);
-      session.phaseTimer = null;
-    }
-    session.phase = 'waiting';
-    session.phaseStartTime = null;
-    io.to(sessionId).emit('phase_change', {
-      mode: session.mode,
-      phase: 'waiting',
-      phaseStartTime: null,
-      focusDuration: session.focusDuration,
-      breakDuration: session.breakDuration,
-    });
-  }
+  // If players remain, the session keeps running for them (solo continuation
+  // is intentional — sessions can also be started solo).
 }
 
 // ── Socket Handlers ────────────────────────────────────────────────────────
@@ -380,10 +365,10 @@ io.on('connection', (socket) => {
     console.log(`[invite] ${safeName} invited ${targetUserId}`);
   });
 
-  // create_session: { avatar, world, displayName }
+  // create_session: { avatar, world, displayName, pet }
   // Creates a new session with a UUID, user becomes host.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('create_session', ({ avatar, world, displayName }) => {
+  socket.on('create_session', ({ avatar, world, displayName, pet }) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -400,41 +385,33 @@ io.on('connection', (socket) => {
     const prevSession = socketToSession[socket.id];
     if (prevSession) leaveSession(socket, prevSession);
 
-    const sessionId = randomUUID();
     const userId = socket.userId || null;
 
-    sessions[sessionId] = {
-      id: sessionId,
-      phase: 'waiting',
-      focusDuration: 25 * 60,
-      breakDuration: 5 * 60,
-      phaseStartTime: null,
-      phaseTimer: null,
-      world: safeWorld,
-      hostId: socket.id,
-      players: {},
-    };
+    const session = createSessionState(safeWorld, socket.id);
+    const sessionId = session.id;
+    sessions[sessionId] = session;
 
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
-    sessions[sessionId].players[socket.id] = {
+    addPlayer(session, socket.id, {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
-    };
+      pet: sanitizePet(pet),
+    });
 
     if (userId) setPresence(userId, sessionId, safeWorld);
 
     console.log(`[${sessionId}] ${safeName} created session (world: ${safeWorld})`);
 
     socket.emit('session_created', { sessionId });
-    socket.emit('sync_state', buildSyncPayload(sessions[sessionId]));
+    socket.emit('sync_state', buildSyncPayload(session));
   });
 
-  // join_session: { sessionId, avatar, displayName }
+  // join_session: { sessionId, avatar, displayName, pet }
   // Joins an existing session by its UUID.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('join_session', ({ sessionId, avatar, displayName }) => {
+  socket.on('join_session', ({ sessionId, avatar, displayName, pet }) => {
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -461,23 +438,24 @@ io.on('connection', (socket) => {
 
     const userId = socket.userId || null;
 
+    const safePet = sanitizePet(pet);
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
-    session.players[socket.id] = {
+    const playerCount = addPlayer(session, socket.id, {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
-    };
+      pet: safePet,
+    });
 
     if (userId) setPresence(userId, sessionId, session.world);
-
-    const playerCount = Object.keys(session.players).length;
     console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
 
     socket.to(sessionId).emit('player_joined', {
       playerId: socket.id,
       avatar: safeAvatar,
       displayName: safeName,
+      pet: safePet,
     });
 
     socket.emit('sync_state', buildSyncPayload(session));
@@ -571,6 +549,17 @@ io.on('connection', (socket) => {
     });
   });
 
+  // set_pet: { sessionId, pet }
+  // Change your pet mid-session; relayed to the other player.
+  socket.on('set_pet', ({ sessionId, pet }) => {
+    const session = getSession(sessionId);
+    if (!session) return;
+    if (!session.players[socket.id]) return; // Only participants
+    const safePet = sanitizePet(pet);
+    setPlayerPet(session, socket.id, safePet);
+    socket.to(sessionId).emit('pet_changed', { playerId: socket.id, pet: safePet });
+  });
+
   // leave_session: { sessionId }
   socket.on('leave_session', ({ sessionId }) => {
     leaveSession(socket, sessionId);
@@ -593,6 +582,9 @@ io.on('connection', (socket) => {
     const sessionId = socketToSession[socket.id];
     if (sessionId) leaveSession(socket, sessionId);
 
+    // Drop this socket's rate-limit counters — they'd otherwise accumulate forever
+    Object.values(rateLimits).forEach((limiter) => limiter.clear(socket.id));
+
     // Clean up presence
     const userId = socketToUser.get(socket.id);
     if (userId) {
@@ -607,5 +599,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Allowed origin: ${allowedOrigin}`);
+  console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
 });

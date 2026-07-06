@@ -15,13 +15,21 @@ function createSessionState(world, hostSocketId) {
   };
 }
 
-function addPlayer(session, socketId, { avatar, displayName, userId }) {
+function addPlayer(session, socketId, { avatar, displayName, userId, pet }) {
   session.players[socketId] = {
     avatar,
     displayName: displayName || "Player",
     userId: userId || null,
+    pet: pet || null,
   };
   return Object.keys(session.players).length;
+}
+
+function setPlayerPet(session, socketId, pet) {
+  const player = session.players[socketId];
+  if (!player) return false;
+  player.pet = pet || null;
+  return true;
 }
 
 function removePlayer(session, socketId) {
@@ -47,5 +55,6 @@ module.exports = {
   createSessionState,
   addPlayer,
   removePlayer,
+  setPlayerPet,
   buildSyncPayload,
 };
