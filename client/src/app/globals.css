@@ -186,7 +186,28 @@ body {
   100% { opacity: 0; transform: translate(-110px, 45px) rotate(-20deg); }
 }
 .decor-shooting-star {
+  opacity: 0; /* only visible mid-animation; stays hidden if animations are off */
   animation: decor-shooting-star 11s linear infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Reduced motion — freeze decorative loops; characters keep their pose
+───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .pixel-idle,
+  .pixel-jump,
+  .pixel-float,
+  .sparkle,
+  .decor-drift,
+  .decor-drift-slow,
+  .decor-twinkle,
+  .decor-steam,
+  .decor-shooting-star {
+    animation: none;
+  }
+  .decor-steam {
+    opacity: 0;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
