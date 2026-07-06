@@ -53,7 +53,7 @@ Security conventions in the socket layer (preserve these when adding events):
 - Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_WORLDS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`).
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 
-Note: `server/session.js` is a pure-function extraction of session state logic used **only by tests** (`session.test.js`) — `index.js` does not import it and has its own inline copies. Keep them in sync or be aware they can drift.
+Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
 
 ### Client structure
 

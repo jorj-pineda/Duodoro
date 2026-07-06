@@ -1,10 +1,15 @@
 const express = require('express');
 const http = require('http');
-const { randomUUID } = require('crypto');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
+const {
+  createSessionState,
+  addPlayer,
+  removePlayer,
+  buildSyncPayload,
+} = require('./session');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -114,19 +119,6 @@ const rateLimits = {
 
 function getSession(sessionId) {
   return sessions[sessionId];
-}
-
-function buildSyncPayload(session) {
-  return {
-    phase: session.phase,
-    focusDuration: session.focusDuration,
-    breakDuration: session.breakDuration,
-    phaseStartTime: session.phaseStartTime,
-    world: session.world,
-    players: session.players,
-    playerCount: Object.keys(session.players).length,
-    sessionId: session.id,
-  };
 }
 
 // ── Supabase Presence Helpers ──────────────────────────────────────────────
@@ -286,11 +278,9 @@ function leaveSession(socket, sessionId) {
   const player = session.players[socket.id];
   if (player?.userId) clearPresence(player.userId);
 
-  delete session.players[socket.id];
+  const playerCount = removePlayer(session, socket.id);
   delete socketToSession[socket.id];
   socket.leave(sessionId);
-
-  const playerCount = Object.keys(session.players).length;
   console.log(`[${sessionId}] ${socket.id} left (${playerCount} remaining)`);
 
   io.to(sessionId).emit('player_left', { playerId: socket.id });
@@ -389,35 +379,26 @@ io.on('connection', (socket) => {
     const prevSession = socketToSession[socket.id];
     if (prevSession) leaveSession(socket, prevSession);
 
-    const sessionId = randomUUID();
     const userId = socket.userId || null;
 
-    sessions[sessionId] = {
-      id: sessionId,
-      phase: 'waiting',
-      focusDuration: 25 * 60,
-      breakDuration: 5 * 60,
-      phaseStartTime: null,
-      phaseTimer: null,
-      world: safeWorld,
-      hostId: socket.id,
-      players: {},
-    };
+    const session = createSessionState(safeWorld, socket.id);
+    const sessionId = session.id;
+    sessions[sessionId] = session;
 
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
-    sessions[sessionId].players[socket.id] = {
+    addPlayer(session, socket.id, {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
-    };
+    });
 
     if (userId) setPresence(userId, sessionId, safeWorld);
 
     console.log(`[${sessionId}] ${safeName} created session (world: ${safeWorld})`);
 
     socket.emit('session_created', { sessionId });
-    socket.emit('sync_state', buildSyncPayload(sessions[sessionId]));
+    socket.emit('sync_state', buildSyncPayload(session));
   });
 
   // join_session: { sessionId, avatar, displayName }
@@ -452,15 +433,13 @@ io.on('connection', (socket) => {
 
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
-    session.players[socket.id] = {
+    const playerCount = addPlayer(session, socket.id, {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
-    };
+    });
 
     if (userId) setPresence(userId, sessionId, session.world);
-
-    const playerCount = Object.keys(session.players).length;
     console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
 
     socket.to(sessionId).emit('player_joined', {
