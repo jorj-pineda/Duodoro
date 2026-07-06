@@ -288,6 +288,13 @@ export function useGameSession(profile: Profile | null) {
       ? Math.min(1, (now - phaseStartTime) / 3500)
       : 0;
 
+  // 0–1 through the current focus/break phase (meaningless for flow focus,
+  // where the "duration" is just the server's safety cap — HUD hides it)
+  const phaseProgress =
+    (phase === "focus" || phase === "break") && phaseStartTime
+      ? Math.min(1, (now - phaseStartTime) / (currentPhaseDuration * 1000))
+      : 0;
+
   const partnerEntry = Object.entries(players).find(([id]) => id !== myId);
   const partner = partnerEntry
     ? { id: partnerEntry[0], avatar: partnerEntry[1].avatar }
@@ -415,6 +422,7 @@ export function useGameSession(profile: Profile | null) {
     flowElapsed,
     focusProgress,
     returningProgress,
+    phaseProgress,
     partner,
     partnerName,
     playerCount,

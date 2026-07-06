@@ -332,6 +332,7 @@ export default function DuoTimer() {
           playerCount={game.playerCount}
           timeLeft={game.timeLeft}
           flowElapsed={game.flowElapsed}
+          phaseProgress={game.phaseProgress}
           timerMode={game.timerMode}
           focusDuration={game.focusDuration}
           breakDuration={game.breakDuration}

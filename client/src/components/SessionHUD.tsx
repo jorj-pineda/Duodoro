@@ -43,25 +43,23 @@ function DurationSlider({
   );
 }
 
-function PhaseDots({
-  filled = 0,
-  total = 7,
+/** Real progress through the current focus/break phase. */
+function PhaseProgressBar({
+  progress,
+  phase,
 }: {
-  filled?: number;
-  total?: number;
+  progress: number;
+  phase: "focus" | "break";
 }) {
   return (
-    <div className="flex gap-1.5 items-center">
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          className={`w-2.5 h-2.5 rounded-full border transition-all ${
-            i < filled
-              ? "bg-accent border-accent"
-              : "bg-transparent border-line"
-          }`}
-        />
-      ))}
+    <div className="w-full max-w-[240px] h-1.5 rounded-sm bg-raise border border-line overflow-hidden">
+      <div
+        className={`h-full ${phase === "break" ? "bg-calm" : "bg-accent"}`}
+        style={{
+          width: `${Math.round(progress * 100)}%`,
+          transition: "width 1s linear",
+        }}
+      />
     </div>
   );
 }
@@ -73,6 +71,8 @@ interface SessionHUDProps {
   playerCount: number;
   timeLeft: number;
   flowElapsed: number;
+  /** 0–1 through the current focus/break phase */
+  phaseProgress: number;
   // Session config
   timerMode: "pomodoro" | "flow";
   focusDuration: number;
@@ -107,6 +107,7 @@ export default function SessionHUD({
   playerCount,
   timeLeft,
   flowElapsed,
+  phaseProgress,
   timerMode,
   focusDuration,
   breakDuration,
@@ -133,8 +134,9 @@ export default function SessionHUD({
           {phaseLabel[phase](playerCount)}
         </div>
 
-        {(phase === "focus" || phase === "break") && (
-          <PhaseDots filled={phase === "focus" ? 4 : 0} />
+        {(phase === "break" ||
+          (phase === "focus" && serverMode === "pomodoro")) && (
+          <PhaseProgressBar progress={phaseProgress} phase={phase} />
         )}
 
         {showTimer && (
