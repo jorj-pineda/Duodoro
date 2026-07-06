@@ -57,6 +57,64 @@ export default function DuoTimer() {
     if (!game.sessionId) setAppStep("game");
   };
 
+  // ── Overlays shared by the home and game screens ────────────────────────
+  const sharedOverlays = (
+    <>
+      {game.pendingInvite && (
+        <InvitePopup
+          invite={game.pendingInvite}
+          onAccept={() => {
+            if (game.pendingInvite?.sessionId)
+              handleJoinSession(game.pendingInvite.sessionId);
+            game.dismissInvite();
+          }}
+          onDismiss={game.dismissInvite}
+        />
+      )}
+      <AnimatePresence>
+        {game.inviteSentName && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
+          >
+            Invite sent!
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {profile && (
+        <>
+          <FriendsPanel
+            open={friendsOpen}
+            onClose={() => setFriendsOpen(false)}
+            myProfile={profile}
+            onJoinSession={handleJoinSession}
+            onInviteFriend={handleSendInvite}
+          />
+          <StatsPanel
+            open={statsOpen}
+            onClose={() => setStatsOpen(false)}
+            userId={profile.id}
+            onViewFullStats={() => {
+              setStatsOpen(false);
+              setFullStatsOpen(true);
+            }}
+          />
+          <StatsScreen
+            open={fullStatsOpen}
+            onClose={() => setFullStatsOpen(false)}
+            userId={profile.id}
+          />
+          <PremiumModal
+            open={premiumOpen}
+            onClose={() => setPremiumOpen(false)}
+          />
+        </>
+      )}
+    </>
+  );
+
   // ── Loading ─────────────────────────────────────────────────────────────
   if (appStep === "loading") {
     return (
@@ -163,58 +221,7 @@ export default function DuoTimer() {
             setFriendsOpen(false);
           }}
         />
-        {game.pendingInvite && (
-          <InvitePopup
-            invite={game.pendingInvite}
-            onAccept={() => {
-              if (game.pendingInvite?.sessionId)
-                handleJoinSession(game.pendingInvite.sessionId);
-              game.dismissInvite();
-            }}
-            onDismiss={game.dismissInvite}
-          />
-        )}
-        <AnimatePresence>
-          {game.inviteSentName && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
-            >
-              Invite sent!
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {profile && (
-          <>
-            <FriendsPanel
-              open={friendsOpen}
-              onClose={() => setFriendsOpen(false)}
-              myProfile={profile}
-              onJoinSession={handleJoinSession}
-              onInviteFriend={handleSendInvite}
-            />
-            <StatsPanel
-              open={statsOpen}
-              onClose={() => setStatsOpen(false)}
-              userId={profile.id}
-              onViewFullStats={() => {
-                setStatsOpen(false);
-                setFullStatsOpen(true);
-              }}
-            />
-            <StatsScreen
-              open={fullStatsOpen}
-              onClose={() => setFullStatsOpen(false)}
-              userId={profile.id}
-            />
-            <PremiumModal
-              open={premiumOpen}
-              onClose={() => setPremiumOpen(false)}
-            />
-          </>
-        )}
+        {sharedOverlays}
         <UsernameChangeModal
           open={usernameModalOpen}
           currentUsername={profile?.username ?? ""}
@@ -350,63 +357,14 @@ export default function DuoTimer() {
         />
       </div>
 
-      {game.pendingInvite && (
-        <InvitePopup
-          invite={game.pendingInvite}
-          onAccept={() => {
-            if (game.pendingInvite?.sessionId)
-              handleJoinSession(game.pendingInvite.sessionId);
-            game.dismissInvite();
-          }}
-          onDismiss={game.dismissInvite}
-        />
-      )}
-      <AnimatePresence>
-        {game.inviteSentName && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
-          >
-            Invite sent!
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {sharedOverlays}
       {profile && (
-        <>
-          <FriendsPanel
-            open={friendsOpen}
-            onClose={() => setFriendsOpen(false)}
-            myProfile={profile}
-            onJoinSession={handleJoinSession}
-            onInviteFriend={handleSendInvite}
-          />
-          <StickyNote
-            open={notesOpen}
-            onClose={() => setNotesOpen(false)}
-            userId={profile.id}
-            roomCode={game.sessionId || null}
-          />
-          <StatsPanel
-            open={statsOpen}
-            onClose={() => setStatsOpen(false)}
-            userId={profile.id}
-            onViewFullStats={() => {
-              setStatsOpen(false);
-              setFullStatsOpen(true);
-            }}
-          />
-          <StatsScreen
-            open={fullStatsOpen}
-            onClose={() => setFullStatsOpen(false)}
-            userId={profile.id}
-          />
-          <PremiumModal
-            open={premiumOpen}
-            onClose={() => setPremiumOpen(false)}
-          />
-        </>
+        <StickyNote
+          open={notesOpen}
+          onClose={() => setNotesOpen(false)}
+          userId={profile.id}
+          roomCode={game.sessionId || null}
+        />
       )}
     </div>
   );
