@@ -9,6 +9,7 @@ import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
 import { WorldThumbnail } from "./WorldDecorations";
+import Button from "./Button";
 import {
   UsersIcon,
   ChartIcon,
@@ -309,23 +310,18 @@ export default function HomeDashboard({
 
           <div className="space-y-2 pt-2">
             {activeSessionId && (
-              <button
-                onClick={onRejoinSession}
-                className="w-full bg-gold hover:brightness-105 active:scale-[0.98] text-white font-display px-8 py-4 rounded-2xl shadow-lg tracking-wide transition-all border-b-4 border-gold-deep text-xl"
-              >
+              <Button variant="gold" size="lg" fullWidth onClick={onRejoinSession}>
                 Return to session
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant={activeSessionId ? "surface" : "accent"}
+              size={activeSessionId ? "md" : "lg"}
+              fullWidth
               onClick={() => onFocus(selectedWorld)}
-              className={`w-full active:scale-[0.98] text-white font-display px-8 rounded-2xl shadow-lg tracking-wide transition-all border-b-4 ${
-                activeSessionId
-                  ? "bg-raise hover:bg-line text-ink border-line py-3 text-base"
-                  : "bg-accent hover:brightness-105 border-accent-deep py-4 text-xl"
-              }`}
             >
               {activeSessionId ? "New session" : "Focus"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

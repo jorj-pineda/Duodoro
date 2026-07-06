@@ -2,6 +2,7 @@ import type { GamePhase } from "./GameWorld";
 import type { PetType } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import PetPicker from "./PetPicker";
+import Button from "./Button";
 
 function DurationSlider({
   label,
@@ -248,16 +249,12 @@ export default function SessionHUD({
         {/* Start / stop */}
         <div className="flex flex-col items-center gap-2">
           {canStart && (
-            <button
+            <Button
+              variant={timerMode === "flow" ? "calm" : "accent"}
               onClick={onStart}
-              className={`${
-                timerMode === "flow"
-                  ? "bg-calm hover:brightness-105 border-calm-deep"
-                  : "bg-accent hover:brightness-105 border-accent-deep"
-              } active:scale-95 text-white font-display px-10 py-3 rounded-full shadow-lg tracking-wide transition-all border-b-4 text-base`}
             >
               Start{playerCount < 2 ? " solo" : " session"}
-            </button>
+            </Button>
           )}
           {playerCount < 2 && phase === "waiting" && (
             <p className="text-faint text-xs text-center">
@@ -265,12 +262,9 @@ export default function SessionHUD({
             </p>
           )}
           {phase === "focus" && serverMode === "flow" && (
-            <button
-              onClick={onFinishFlow}
-              className="bg-calm hover:brightness-105 active:scale-95 text-white font-display px-10 py-3 rounded-full shadow-lg tracking-wide transition-all border-b-4 border-calm-deep text-base mt-2"
-            >
+            <Button variant="calm" className="mt-2" onClick={onFinishFlow}>
               Take break
-            </button>
+            </Button>
           )}
           {canStop && (
             <button
