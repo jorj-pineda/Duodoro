@@ -92,7 +92,7 @@ const socketToUser = new Map();  // socket.id -> userId
 // ── Simple per-socket rate limiter ───────────────────────────────────────────
 function createRateLimiter(maxPerWindow, windowMs) {
   const counters = new Map(); // socketId -> { count, resetAt }
-  return (socketId) => {
+  const check = (socketId) => {
     const now = Date.now();
     const entry = counters.get(socketId);
     if (!entry || now > entry.resetAt) {
@@ -102,6 +102,8 @@ function createRateLimiter(maxPerWindow, windowMs) {
     entry.count++;
     return entry.count <= maxPerWindow;
   };
+  check.clear = (socketId) => counters.delete(socketId);
+  return check;
 }
 
 const rateLimits = {
@@ -596,6 +598,9 @@ io.on('connection', (socket) => {
     console.log(`Disconnected: ${socket.id}`);
     const sessionId = socketToSession[socket.id];
     if (sessionId) leaveSession(socket, sessionId);
+
+    // Drop this socket's rate-limit counters — they'd otherwise accumulate forever
+    Object.values(rateLimits).forEach((limiter) => limiter.clear(socket.id));
 
     // Clean up presence
     const userId = socketToUser.get(socket.id);
