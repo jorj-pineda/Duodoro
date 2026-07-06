@@ -8,6 +8,8 @@ import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
+import { WorldThumbnail } from "./WorldDecorations";
+import Button from "./Button";
 import {
   UsersIcon,
   ChartIcon,
@@ -289,14 +291,16 @@ export default function HomeDashboard({
                 <button
                   key={w.id}
                   onClick={() => setSelectedWorld(w.id)}
-                  className={`py-2.5 px-1 rounded-xl border text-xs transition-all text-center ${
+                  className={`rounded-xl border overflow-hidden transition-all text-center ${
                     selectedWorld === w.id
-                      ? "border-accent bg-accent/10 text-ink shadow-sm"
+                      ? "border-accent ring-2 ring-accent/40 text-ink shadow-sm"
                       : "border-line bg-surface text-muted hover:border-faint"
                   }`}
                 >
-                  <span className="text-base block">{w.emoji}</span>
-                  <span className="mt-0.5 block text-[10px] font-medium">
+                  <div className="h-12 w-full">
+                    <WorldThumbnail worldId={w.id} />
+                  </div>
+                  <span className="block py-1 text-[10px] font-medium">
                     {w.label}
                   </span>
                 </button>
@@ -306,23 +310,18 @@ export default function HomeDashboard({
 
           <div className="space-y-2 pt-2">
             {activeSessionId && (
-              <button
-                onClick={onRejoinSession}
-                className="w-full bg-gold hover:brightness-105 active:scale-[0.98] text-white font-display px-8 py-4 rounded-2xl shadow-lg tracking-wide transition-all border-b-4 border-gold-deep text-xl"
-              >
+              <Button variant="gold" size="lg" fullWidth onClick={onRejoinSession}>
                 Return to session
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant={activeSessionId ? "surface" : "accent"}
+              size={activeSessionId ? "md" : "lg"}
+              fullWidth
               onClick={() => onFocus(selectedWorld)}
-              className={`w-full active:scale-[0.98] text-white font-display px-8 rounded-2xl shadow-lg tracking-wide transition-all border-b-4 ${
-                activeSessionId
-                  ? "bg-raise hover:bg-line text-ink border-line py-3 text-base"
-                  : "bg-accent hover:brightness-105 border-accent-deep py-4 text-xl"
-              }`}
             >
               {activeSessionId ? "New session" : "Focus"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

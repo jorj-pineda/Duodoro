@@ -1,144 +1,550 @@
 "use client";
 import { useMemo } from "react";
+import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
+import { getWorld, type WorldId } from "@/lib/avatarData";
 
-function PixelTree() {
+// ─────────────────────────────────────────────────────────────────────────────
+// World Decorations — pixel-art scenery for each world.
+//
+// Every prop-less component here renders inside GameWorld's sky container
+// (absolute inset-0, overflow-hidden). The ground plane starts at bottom: 19%,
+// so anything "standing" is anchored there. Scenes are built from three
+// layers for depth: far silhouettes → mid sprites → near sprites, plus slow
+// ambient motion (drifting clouds, twinkling stars, rising steam).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GROUND = "19%";
+
+// ── Sprite maps ─────────────────────────────────────────────────────────────
+
+const CLOUD: PixelMap = [
+  "...WWWWW....",
+  ".WWWWWWWWW..",
+  "WWWWWWWWWWWW",
+  ".SWWWWWWWWS.",
+];
+const CLOUD_PALETTE: PixelPalette = { W: "#ffffff", S: "#dbe5ee" };
+
+const PINE: PixelMap = [
+  ".....DD.....",
+  "....DDDD....",
+  "...DDDDDD...",
+  "....MMMM....",
+  "...MMMMMM...",
+  "..MMMMMMMM..",
+  "...LLLLLL...",
+  "..LLLLLLLL..",
+  ".LLLLLLLLLL.",
+  "LLLLLLLLLLLL",
+  ".....TT.....",
+  ".....TT.....",
+  ".....TT.....",
+  "....TTTT....",
+];
+const PINE_PALETTE: PixelPalette = {
+  D: "#2d6a4f",
+  M: "#40916c",
+  L: "#52b788",
+  T: "#6b4f2a",
+};
+
+const SUN: PixelMap = [
+  "...GGG...",
+  "..GYYYG..",
+  ".GYYYYYG.",
+  "GYYYHYYYG",
+  "GYYHHHYYG",
+  "GYYYHYYYG",
+  ".GYYYYYG.",
+  "..GYYYG..",
+  "...GGG...",
+];
+const SUN_PALETTE: PixelPalette = {
+  G: "#f0b429",
+  Y: "#ffd166",
+  H: "#fff3b0",
+};
+
+const MOON: PixelMap = [
+  "..MMMM..",
+  ".MMMmm..",
+  "MMMm....",
+  "MMm.....",
+  "MMm.....",
+  "MMMm....",
+  ".MMMmm..",
+  "..MMMM..",
+];
+
+const PLANET: PixelMap = [
+  "......PPPP......",
+  "....PPPPPPPP....",
+  "...PPPddPPPPP...",
+  "...PPPPPPPPPP...",
+  "RRR.PPPPPPPP.RRR",
+  ".RRRRRRRRRRRRRR.",
+  "...PPPPPPPPPP...",
+  "....PPddPPPP....",
+  "......PPPP......",
+];
+const PLANET_PALETTE: PixelPalette = {
+  P: "#c084fc",
+  d: "#9f5ff0",
+  R: "#e9d5ff",
+};
+
+const MINI_PLANET: PixelMap = [
+  ".pppp.",
+  "pppddp",
+  "pppppp",
+  "pddppp",
+  "pppppp",
+  ".pppp.",
+];
+const MINI_PLANET_PALETTE: PixelPalette = { p: "#f0abfc", d: "#c26bd9" };
+
+const MOUNTAIN: PixelMap = [
+  ".......SS.......",
+  "......SSSS......",
+  ".....SSSSSS.....",
+  ".....MSSSSm.....",
+  "....MMMSSmmm....",
+  "...MMMMMmmmm....",
+  "..MMMMMMmmmmm...",
+  ".MMMMMMMmmmmmm..",
+  "MMMMMMMMmmmmmmm.",
+  "MMMMMMMMMmmmmmmm",
+];
+const MOUNTAIN_FRONT: PixelPalette = {
+  M: "#7c8490",
+  m: "#5f6875",
+  S: "#f1f5f9",
+};
+const MOUNTAIN_BACK: PixelPalette = {
+  M: "#9aa3b0",
+  m: "#8891a0",
+  S: "#e8eef5",
+};
+
+const PALM: PixelMap = [
+  ".GGGG....GGGG.",
+  "GGGGGGLLGGGGGG",
+  ".GGG.LLLL.GGG.",
+  ".....CTTC.....",
+  "......TT......",
+  "......TTt.....",
+  "......TTt.....",
+  ".......TTt....",
+  ".......TTt....",
+  "........TTt...",
+  "........TTt...",
+];
+const PALM_PALETTE: PixelPalette = {
+  G: "#40916c",
+  L: "#52b788",
+  C: "#6b4226",
+  T: "#a16207",
+  t: "#78350f",
+};
+
+const UMBRELLA: PixelMap = [
+  "....RRRR....",
+  "..RRRRRRRR..",
+  ".RRWWRRWWRR.",
+  "RWWRRRRRRWWR",
+  ".....PP.....",
+  ".....PP.....",
+  ".....PP.....",
+  ".....PP.....",
+  ".....PP.....",
+];
+const UMBRELLA_PALETTE: PixelPalette = {
+  R: "#e76f51",
+  W: "#fdf6ec",
+  P: "#8d5a2b",
+};
+
+const BUILDING_TALL: PixelMap = [
+  "....A....",
+  "....A....",
+  "BBBBBBBBB",
+  "ByBuByBuB",
+  "BBBBBBBBB",
+  "BuByBuByB",
+  "BBBBBBBBB",
+  "ByBuBuByB",
+  "BBBBBBBBB",
+  "BuByByBuB",
+  "BBBBBBBBB",
+  "ByBuByBuB",
+  "BBBBBBBBB",
+  "BuBuByBuB",
+  "BBBBBBBBB",
+  "BBBBBBBBB",
+];
+const BUILDING_SHORT: PixelMap = [
+  "BBBBBBB",
+  "ByBuByB",
+  "BBBBBBB",
+  "BuByBuB",
+  "BBBBBBB",
+  "ByByBuB",
+  "BBBBBBB",
+  "BuByByB",
+  "BBBBBBB",
+  "BBBBBBB",
+];
+const BUILDING_PALETTE: PixelPalette = {
+  B: "#262640",
+  y: "#ffd166",
+  u: "#3b4261",
+  A: "#94a3b8",
+};
+
+const BOOKSHELF: PixelMap = [
+  "FFFFFFFFFFFFFF",
+  "F112233445566F",
+  "F112233445566F",
+  "F112233445566F",
+  "FFFFFFFFFFFFFF",
+  "F445566112233F",
+  "F445566112233F",
+  "F445566112233F",
+  "FFFFFFFFFFFFFF",
+  "F2233ff661144F",
+  "F2233ff661144F",
+  "F2233ff661144F",
+  "FFFFFFFFFFFFFF",
+  "F663311224455F",
+  "F663311224455F",
+  "F663311224455F",
+  "FFFFFFFFFFFFFF",
+];
+const BOOKSHELF_PALETTE: PixelPalette = {
+  F: "#4e342e",
+  f: "#33211c",
+  "1": "#c62828",
+  "2": "#1565c0",
+  "3": "#2e7d32",
+  "4": "#f9a825",
+  "5": "#6a1b9a",
+  "6": "#e65100",
+};
+
+const LAMP: PixelMap = [
+  "....C....",
+  "....C....",
+  "....C....",
+  "....C....",
+  "..GGGGG..",
+  ".GGGGGGG.",
+  "..YYYYY..",
+  "...YYY...",
+];
+const LAMP_PALETTE: PixelPalette = {
+  C: "#3e2723",
+  G: "#2e7d32",
+  Y: "#ffe082",
+};
+
+const CUP: PixelMap = [
+  ".CCCCC..",
+  ".CkkkCH.",
+  ".CkkkCH.",
+  ".CCCCC..",
+  "..DDDD..",
+];
+const CUP_PALETTE: PixelPalette = {
+  C: "#fdf6ec",
+  k: "#6b4226",
+  H: "#fdf6ec",
+  D: "#d9c8a8",
+};
+
+const TABLE: PixelMap = [
+  "TTTTTTTTTTTTTTTT",
+  ".tt..........tt.",
+  ".tt..........tt.",
+  ".tt..........tt.",
+  ".tt..........tt.",
+];
+const TABLE_PALETTE: PixelPalette = { T: "#8d5a2b", t: "#6e441f" };
+
+// ── Shared layer helpers ────────────────────────────────────────────────────
+
+/** Column heights (0–10) stretched full-width — stepped hills / skylines. */
+function SteppedSilhouette({
+  heights,
+  color,
+  height,
+  opacity = 1,
+  bottom = GROUND,
+}: {
+  heights: number[];
+  color: string;
+  height: string;
+  opacity?: number;
+  bottom?: string;
+}) {
   return (
-    <div
-      className="flex flex-col items-center"
-      style={{ imageRendering: "pixelated" }}
+    <svg
+      viewBox={`0 0 ${heights.length} 10`}
+      preserveAspectRatio="none"
+      className="absolute left-0 right-0 w-full"
+      style={{ bottom, height, opacity, shapeRendering: "crispEdges" }}
+      aria-hidden="true"
     >
-      <div
-        className="w-0 h-0"
-        style={{
-          borderLeft: "10px solid transparent",
-          borderRight: "10px solid transparent",
-          borderBottom: "14px solid #2d6a4f",
-        }}
-      />
-      <div
-        className="w-0 h-0 -mt-2"
-        style={{
-          borderLeft: "13px solid transparent",
-          borderRight: "13px solid transparent",
-          borderBottom: "16px solid #40916c",
-        }}
-      />
-      <div
-        className="w-0 h-0 -mt-2"
-        style={{
-          borderLeft: "16px solid transparent",
-          borderRight: "16px solid transparent",
-          borderBottom: "18px solid #52b788",
-        }}
-      />
-      <div className="w-3 h-8" style={{ backgroundColor: "#6b4f2a" }} />
-    </div>
-  );
-}
-
-function PalmTree() {
-  return (
-    <div className="flex flex-col items-center">
-      <div className="flex gap-1 mb-1">
-        <div className="w-6 h-2 rounded-full bg-green-600 -rotate-45 origin-right" />
-        <div className="w-6 h-2 rounded-full bg-green-500 rotate-45 origin-left" />
-      </div>
-      <div
-        className="w-2 h-14 rounded-b-sm"
-        style={{
-          background: "linear-gradient(180deg, #a16207, #78350f)",
-          transform: "rotate(5deg)",
-        }}
-      />
-    </div>
-  );
-}
-
-export function ForestDecor() {
-  return (
-    <>
-      {/* Clouds */}
-      {[
-        [8, 14],
-        [22, 6],
-        [35, 18],
-        [50, 10],
-        [62, 22],
-        [72, 5],
-        [80, 15],
-        [92, 8],
-        [15, 25],
-      ].map(([left, top], i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{ left: `${left}%`, top: `${top}%` }}
-        >
-          <div className="flex gap-1 opacity-90">
-            <div className="w-6 h-4 bg-white rounded-full" />
-            <div className="w-8 h-5 bg-white rounded-full -ml-3 -mt-1" />
-            <div className="w-5 h-4 bg-white rounded-full -ml-2" />
-          </div>
-        </div>
+      {heights.map((h, i) => (
+        <rect key={i} x={i} y={10 - h} width={1} height={h} fill={color} />
       ))}
-      {/* Trees */}
-      {[
-        [5, 19],
-        [12, 19],
-        [82, 19],
-        [90, 19],
-      ].map(([left, bottom], i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{ left: `${left}%`, bottom: `${bottom}%` }}
-        >
-          <PixelTree />
-        </div>
-      ))}
-    </>
+    </svg>
   );
 }
 
-export function SpaceDecor() {
+const HILLS_BACK = [
+  3, 3, 4, 4, 5, 5, 6, 6, 6, 5, 5, 4, 4, 3, 3, 3, 4, 5, 6, 7, 7, 6, 5, 4, 4,
+  3, 3, 4, 4, 5, 5, 4,
+];
+const HILLS_FRONT = [
+  2, 2, 2, 3, 3, 4, 4, 4, 3, 3, 2, 2, 3, 4, 5, 5, 5, 4, 3, 3, 2, 2, 2, 3, 4,
+  4, 5, 5, 4, 3, 2, 2,
+];
+const SKYLINE = [
+  3, 3, 3, 5, 5, 5, 5, 2, 2, 4, 4, 4, 7, 7, 7, 3, 3, 6, 6, 6, 2, 2, 5, 5, 5,
+  8, 8, 4, 4, 4, 6, 6,
+];
+const SKYLINE_FAR = [
+  2, 2, 4, 4, 4, 3, 3, 5, 5, 2, 2, 3, 3, 6, 6, 6, 4, 4, 2, 2, 5, 5, 3, 3, 3,
+  4, 4, 6, 6, 3, 3, 2,
+];
+
+/** Deterministic star field; a third of the stars twinkle on a stagger. */
+function Stars({
+  count,
+  color = "#ffffff",
+  maxY = 60,
+  baseOpacity = 0.55,
+}: {
+  count: number;
+  color?: string;
+  maxY?: number;
+  baseOpacity?: number;
+}) {
   const stars = useMemo(
     () =>
-      Array.from({ length: 40 }, (_, i) => ({
+      Array.from({ length: count }, (_, i) => ({
         x: (i * 37 + 11) % 100,
-        y: (i * 53 + 7) % 65,
+        y: (i * 53 + 7) % maxY,
         size: i % 3 === 0 ? 2 : 1,
+        twinkle: i % 3 === 0,
+        delay: (i % 5) * 0.7,
       })),
-    [],
+    [count, maxY],
   );
   return (
     <>
       {stars.map((s, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-white"
+          className={`absolute ${s.twinkle ? "decor-twinkle" : ""}`}
           style={{
             left: `${s.x}%`,
             top: `${s.y}%`,
             width: s.size,
             height: s.size,
-            opacity: 0.6 + (i % 4) * 0.1,
+            backgroundColor: color,
+            opacity: baseOpacity + (i % 4) * 0.1,
+            animationDelay: `${s.delay}s`,
           }}
         />
       ))}
-      {/* Planet */}
+    </>
+  );
+}
+
+function DriftingCloud({
+  left,
+  top,
+  scale = 2,
+  delay = 0,
+  slow = false,
+  opacity = 0.95,
+}: {
+  left: number;
+  top: number;
+  scale?: number;
+  delay?: number;
+  slow?: boolean;
+  opacity?: number;
+}) {
+  return (
+    <div
+      className={`absolute ${slow ? "decor-drift-slow" : "decor-drift"}`}
+      style={{
+        left: `${left}%`,
+        top: `${top}%`,
+        opacity,
+        animationDelay: `${delay}s`,
+      }}
+    >
+      <PixelSprite map={CLOUD} palette={CLOUD_PALETTE} scale={scale} />
+    </div>
+  );
+}
+
+function Grounded({
+  left,
+  right,
+  children,
+  z = 0,
+}: {
+  left?: number;
+  right?: number;
+  children: React.ReactNode;
+  z?: number;
+}) {
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: left !== undefined ? `${left}%` : undefined,
+        right: right !== undefined ? `${right}%` : undefined,
+        bottom: GROUND,
+        zIndex: z,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SteamPuffs({ left, bottom }: { left: string; bottom: string }) {
+  return (
+    <div className="absolute" style={{ left, bottom }}>
+      {[0, 1].map((i) => (
+        <div
+          key={i}
+          className="decor-steam absolute rounded-none bg-white/70"
+          style={{
+            width: 2,
+            height: 2,
+            left: i * 4 - 2,
+            animationDelay: `${i * 1.3}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Forest — daytime, layered hills, drifting clouds, pine clusters ─────────
+
+export function ForestDecor() {
+  return (
+    <>
       <div
-        className="absolute right-12 top-4 w-16 h-16 rounded-full opacity-70"
+        className="absolute right-[10%] top-[8%]"
+        style={{ filter: "drop-shadow(0 0 12px #ffd16688)" }}
+      >
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={4} />
+      </div>
+      <DriftingCloud left={10} top={12} scale={3} slow />
+      <DriftingCloud left={38} top={7} scale={2} delay={4} />
+      <DriftingCloud left={64} top={17} scale={2} delay={9} slow />
+      <DriftingCloud left={84} top={26} scale={2} delay={2} opacity={0.7} />
+      <SteppedSilhouette
+        heights={HILLS_BACK}
+        color="#a4cdb0"
+        height="13%"
+        opacity={0.8}
+      />
+      <SteppedSilhouette heights={HILLS_FRONT} color="#7db892" height="9%" />
+      <Grounded left={3}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={4} />
+      </Grounded>
+      <Grounded left={12}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={3} />
+      </Grounded>
+      <Grounded right={12}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={4} />
+      </Grounded>
+      <Grounded right={4}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={3} />
+      </Grounded>
+    </>
+  );
+}
+
+// ── Space — nebulas, twinkling stars, ringed planet, shooting star ──────────
+
+export function SpaceDecor() {
+  return (
+    <>
+      <div
+        className="absolute pointer-events-none"
         style={{
-          background: "radial-gradient(circle at 35% 35%, #c084fc, #4c1d95)",
-          boxShadow: "0 0 20px #7c3aed55",
+          left: "8%",
+          top: "10%",
+          width: 220,
+          height: 160,
+          background:
+            "radial-gradient(ellipse at center, #7c3aed33, transparent 70%)",
         }}
       />
-      {/* Planet ring */}
       <div
-        className="absolute right-6 top-10 w-28 h-6 border-2 border-purple-400 rounded-full opacity-40"
-        style={{ transform: "rotateX(70deg)" }}
+        className="absolute pointer-events-none"
+        style={{
+          right: "12%",
+          bottom: "30%",
+          width: 260,
+          height: 180,
+          background:
+            "radial-gradient(ellipse at center, #2563eb22, transparent 70%)",
+        }}
+      />
+      <Stars count={40} maxY={70} />
+      <div
+        className="absolute right-[8%] top-[8%]"
+        style={{ filter: "drop-shadow(0 0 16px #7c3aed88)" }}
+      >
+        <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={4} />
+      </div>
+      <div className="absolute left-[14%] top-[30%] opacity-80">
+        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={2} />
+      </div>
+      <div
+        className="decor-shooting-star absolute left-[70%] top-[14%] bg-white"
+        style={{ width: 10, height: 2 }}
       />
     </>
+  );
+}
+
+// ── Beach — sunset sun, ocean horizon bands, palm + umbrella ────────────────
+
+function WaveBand({
+  bottom,
+  height,
+  color,
+}: {
+  bottom: string;
+  height: string;
+  color: string;
+}) {
+  return (
+    <div className="absolute left-0 right-0" style={{ bottom, height }}>
+      <div
+        className="absolute left-0 right-0 top-0"
+        style={{
+          height: 4,
+          backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 8px, transparent 8px 16px)`,
+        }}
+      />
+      <div
+        className="absolute left-0 right-0"
+        style={{ top: 4, bottom: 0, backgroundColor: color }}
+      />
+    </div>
   );
 }
 
@@ -146,194 +552,179 @@ export function BeachDecor() {
   return (
     <>
       <div
-        className="absolute left-8 top-4 w-14 h-14 rounded-full"
-        style={{
-          background: "radial-gradient(circle, #FFF9C4, #FFD166)",
-          boxShadow: "0 0 24px #FFD16688",
-        }}
-      />
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            bottom: `${23 + i * 3}%`,
-            left: 0,
-            right: 0,
-            height: 8,
-            background: "rgba(96, 165, 250, 0.4)",
-            borderRadius: "50% 50% 0 0",
-            transform: `scaleX(${1 + i * 0.1})`,
-          }}
-        />
-      ))}
-      <div className="absolute right-8 bottom-[19%]">
-        <PalmTree />
+        className="absolute left-[8%] top-[6%]"
+        style={{ filter: "drop-shadow(0 0 18px #ffd166aa)" }}
+      >
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={5} />
       </div>
+      <DriftingCloud left={40} top={10} scale={2} slow opacity={0.8} />
+      <DriftingCloud left={70} top={20} scale={3} delay={6} slow opacity={0.7} />
+      <WaveBand bottom={GROUND} height="12%" color="rgba(59,130,199,0.45)" />
+      <WaveBand bottom={GROUND} height="7%" color="rgba(37,99,168,0.5)" />
+      <Grounded right={7}>
+        <PixelSprite map={PALM} palette={PALM_PALETTE} scale={4} />
+      </Grounded>
+      <Grounded left={8}>
+        <PixelSprite map={UMBRELLA} palette={UMBRELLA_PALETTE} scale={4} />
+      </Grounded>
     </>
   );
 }
+
+// ── City — far skyline, lit pixel towers, moon and sparse stars ─────────────
 
 export function CityDecor() {
   return (
     <>
-      {[
-        [6, 55],
-        [14, 45],
-        [22, 60],
-        [72, 50],
-        [80, 42],
-        [88, 55],
-      ].map(([left, h], i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: `${left}%`,
-            bottom: "19%",
-            width: 22,
-            height: h,
-            background: `linear-gradient(180deg, #2a2a3e, #1a1a2e)`,
-            borderRadius: "2px 2px 0 0",
-          }}
-        >
-          {[0.2, 0.4, 0.6, 0.8].map((t, j) => (
-            <div
-              key={j}
-              className="absolute"
-              style={{
-                left: "30%",
-                top: `${t * 100}%`,
-                width: 4,
-                height: 3,
-                backgroundColor: (i + j) % 3 === 0 ? "#ffd166" : "#334155",
-              }}
-            />
-          ))}
-        </div>
-      ))}
+      <Stars count={14} maxY={40} baseOpacity={0.4} />
       <div
-        className="absolute top-6 left-12 w-10 h-10 rounded-full"
-        style={{
-          background: "radial-gradient(circle, #fde68a, #fbbf24)",
-          boxShadow: "0 0 20px #fbbf2466",
-        }}
+        className="absolute left-[10%] top-[6%]"
+        style={{ filter: "drop-shadow(0 0 12px #fde68a66)" }}
+      >
+        <PixelSprite
+          map={MOON}
+          palette={{ M: "#fde68a", m: "#e8c96a" }}
+          scale={4}
+        />
+      </div>
+      <SteppedSilhouette
+        heights={SKYLINE_FAR}
+        color="#20263e"
+        height="16%"
+        opacity={0.9}
       />
+      <Grounded left={4}>
+        <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
+      </Grounded>
+      <Grounded left={13}>
+        <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
+      </Grounded>
+      <Grounded right={13}>
+        <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
+      </Grounded>
+      <Grounded right={4}>
+        <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
+      </Grounded>
     </>
   );
 }
+
+// ── Mountain — layered ranges, clouds, alpine pines ─────────────────────────
 
 export function MountainDecor() {
   return (
     <>
-      {[
-        [8, 14],
-        [55, 8],
-        [82, 12],
-      ].map(([left, top], i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{ left: `${left}%`, top: `${top}%` }}
-        >
-          <div className="flex gap-1 opacity-90">
-            <div className="w-6 h-4 bg-white rounded-full" />
-            <div className="w-8 h-5 bg-white rounded-full -ml-3 -mt-1" />
-            <div className="w-5 h-4 bg-white rounded-full -ml-2" />
-          </div>
-        </div>
-      ))}
-      {[
-        { left: 2, w: 120, h: 70, color: "#6b7280" },
-        { left: 25, w: 100, h: 55, color: "#7c8490" },
-        { left: 65, w: 130, h: 75, color: "#5f6875" },
-      ].map((m, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: `${m.left}%`,
-            bottom: "19%",
-            width: 0,
-            height: 0,
-            borderLeft: `${m.w / 2}px solid transparent`,
-            borderRight: `${m.w / 2}px solid transparent`,
-            borderBottom: `${m.h}px solid ${m.color}`,
-          }}
-        />
-      ))}
-      {[
-        { left: 12, w: 30, h: 18 },
-        { left: 78, w: 35, h: 20 },
-      ].map((s, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: `${s.left}%`,
-            bottom: `${19 + 12}%`,
-            width: 0,
-            height: 0,
-            borderLeft: `${s.w / 2}px solid transparent`,
-            borderRight: `${s.w / 2}px solid transparent`,
-            borderBottom: `${s.h}px solid white`,
-            opacity: 0.9,
-          }}
-        />
-      ))}
+      <div
+        className="absolute right-[14%] top-[7%]"
+        style={{ filter: "drop-shadow(0 0 12px #ffd16677)" }}
+      >
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={3} />
+      </div>
+      <DriftingCloud left={8} top={13} scale={2} slow />
+      <DriftingCloud left={52} top={8} scale={3} delay={5} slow />
+      <DriftingCloud left={80} top={18} scale={2} delay={10} />
+      {/* Back range */}
+      <Grounded left={12}>
+        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_BACK} scale={6} />
+      </Grounded>
+      <Grounded left={55}>
+        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_BACK} scale={5} />
+      </Grounded>
+      {/* Front range */}
+      <Grounded left={-2}>
+        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={8} />
+      </Grounded>
+      <Grounded left={34}>
+        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={7} />
+      </Grounded>
+      <Grounded right={-2}>
+        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={8} />
+      </Grounded>
+      <Grounded left={20}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={2} />
+      </Grounded>
+      <Grounded right={24}>
+        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={2} />
+      </Grounded>
     </>
   );
 }
 
+// ── Library — shelves, hanging reading lamps, warm glow ─────────────────────
+
 export function LibraryDecor() {
   return (
     <>
-      {[6, 82].map((left, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: `${left}%`,
-            bottom: "19%",
-            width: 28,
-            height: 80,
-            background: "#4e342e",
-            borderRadius: "2px 2px 0 0",
-          }}
-        >
-          {[0, 1, 2, 3, 4, 5].map((r) => (
-            <div
-              key={r}
-              className="absolute"
-              style={{
-                left: 2,
-                right: 2,
-                top: 4 + r * 12,
-                height: 10,
-                background: [
-                  "#c62828",
-                  "#1565c0",
-                  "#2e7d32",
-                  "#f9a825",
-                  "#6a1b9a",
-                  "#e65100",
-                ][r],
-                borderRadius: 1,
-                opacity: 0.8,
-              }}
-            />
-          ))}
-        </div>
-      ))}
       <div
-        className="absolute top-8 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full"
+        className="absolute top-[4%] left-1/2 -translate-x-1/2 pointer-events-none"
         style={{
-          background: "radial-gradient(circle, #ffcc80, #ff8f00)",
-          opacity: 0.6,
-          boxShadow: "0 0 40px #ff8f0055",
+          width: 260,
+          height: 140,
+          background:
+            "radial-gradient(ellipse at center, #ff8f0033, transparent 70%)",
         }}
       />
+      <div
+        className="absolute left-[30%] top-0"
+        style={{ filter: "drop-shadow(0 4px 10px #ffe08266)" }}
+      >
+        <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={3} />
+      </div>
+      <div
+        className="absolute right-[30%] top-0"
+        style={{ filter: "drop-shadow(0 4px 10px #ffe08266)" }}
+      >
+        <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={3} />
+      </div>
+      <Grounded left={4}>
+        <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
+      </Grounded>
+      <Grounded right={4}>
+        <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
+      </Grounded>
     </>
+  );
+}
+
+// ── Café — string lights, tables with steaming cups ─────────────────────────
+
+const BULB_COLORS = ["#ffd166", "#e76f51", "#52b788"];
+const BULB_SAG = [2, 8, 13, 16, 16, 13, 8, 2];
+
+function StringLights() {
+  return (
+    <div className="absolute left-[6%] right-[6%] top-[6%] h-6">
+      {BULB_SAG.map((sag, i) => (
+        <div
+          key={i}
+          className="decor-twinkle absolute"
+          style={{
+            left: `${(i / (BULB_SAG.length - 1)) * 100}%`,
+            top: sag,
+            width: 4,
+            height: 4,
+            backgroundColor: BULB_COLORS[i % BULB_COLORS.length],
+            boxShadow: `0 0 6px ${BULB_COLORS[i % BULB_COLORS.length]}`,
+            animationDelay: `${(i % 4) * 0.9}s`,
+            animationDuration: "4.5s",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CafeTable({ left, right }: { left?: number; right?: number }) {
+  return (
+    <Grounded left={left} right={right}>
+      <div className="relative">
+        <div className="absolute" style={{ bottom: "100%", left: 10 }}>
+          <PixelSprite map={CUP} palette={CUP_PALETTE} scale={2} />
+        </div>
+        <SteamPuffs left="16px" bottom="calc(100% + 12px)" />
+        <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={3} />
+      </div>
+    </Grounded>
   );
 }
 
@@ -341,69 +732,111 @@ export function CafeDecor() {
   return (
     <>
       <div
-        className="absolute right-10 top-6 w-10 h-10 rounded-full"
-        style={{
-          background: "radial-gradient(circle, #FFF9C4, #FFD166)",
-          boxShadow: "0 0 20px #FFD16644",
-        }}
-      />
-      {[8, 85].map((left, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{ left: `${left}%`, bottom: "19%" }}
-        >
-          <div className="w-5 h-16 bg-amber-900 rounded-t-sm" />
-          <div className="w-12 h-2 bg-amber-800 rounded-full -ml-3.5 -mt-0.5" />
-        </div>
-      ))}
-      <div className="absolute top-4 left-12 text-2xl opacity-40">{"☁️"}</div>
+        className="absolute right-[10%] top-[10%] opacity-80"
+        style={{ filter: "drop-shadow(0 0 14px #ffd16655)" }}
+      >
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={3} />
+      </div>
+      <StringLights />
+      <CafeTable left={6} />
+      <CafeTable right={6} />
     </>
   );
 }
 
-export function LofiDecor() {
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 25 }, (_, i) => ({
-        x: (i * 41 + 7) % 100,
-        y: (i * 29 + 13) % 55,
-        size: i % 4 === 0 ? 2 : 1,
-      })),
-    [],
+// ── World decor dispatcher — one component per worldId ──────────────────────
+
+export function WorldDecor({ worldId }: { worldId: WorldId }) {
+  switch (worldId) {
+    case "forest":
+      return <ForestDecor />;
+    case "space":
+      return <SpaceDecor />;
+    case "beach":
+      return <BeachDecor />;
+    case "city":
+      return <CityDecor />;
+    case "mountain":
+      return <MountainDecor />;
+    case "library":
+      return <LibraryDecor />;
+    case "cafe":
+      return <CafeDecor />;
+    case "lofi":
+      return <LofiDecor />;
+  }
+}
+
+// ── World thumbnail — mini scene preview for pickers ────────────────────────
+
+const THUMB_SPRITES: Record<
+  WorldId,
+  { map: PixelMap; palette: PixelPalette; scale: number }
+> = {
+  forest: { map: PINE, palette: PINE_PALETTE, scale: 2 },
+  space: { map: PLANET, palette: PLANET_PALETTE, scale: 2 },
+  beach: { map: PALM, palette: PALM_PALETTE, scale: 2 },
+  city: { map: BUILDING_SHORT, palette: BUILDING_PALETTE, scale: 2 },
+  mountain: { map: MOUNTAIN, palette: MOUNTAIN_FRONT, scale: 2 },
+  library: { map: BOOKSHELF, palette: BOOKSHELF_PALETTE, scale: 2 },
+  cafe: { map: CUP, palette: CUP_PALETTE, scale: 3 },
+  lofi: { map: MOON, palette: { M: "#e0c3fc", m: "#b794f4" }, scale: 2 },
+};
+
+/** Tiny sky + ground + signature sprite; size it via the parent element. */
+export function WorldThumbnail({ worldId }: { worldId: WorldId }) {
+  const world = getWorld(worldId);
+  const sprite = THUMB_SPRITES[worldId];
+  return (
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{ background: world.skyGradient }}
+      aria-hidden="true"
+    >
+      <div
+        className="absolute bottom-0 left-0 right-0"
+        style={{ height: "24%", backgroundColor: world.groundColor }}
+      />
+      <div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ bottom: "20%" }}
+      >
+        <PixelSprite
+          map={sprite.map}
+          palette={sprite.palette}
+          scale={sprite.scale}
+        />
+      </div>
+    </div>
   );
+}
+
+// ── Lo-fi — purple night, twin skylines, big moon ───────────────────────────
+
+export function LofiDecor() {
   return (
     <>
-      {stars.map((s, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            left: `${s.x}%`,
-            top: `${s.y}%`,
-            width: s.size,
-            height: s.size,
-            backgroundColor: "#c084fc",
-            opacity: 0.4 + (i % 3) * 0.15,
-          }}
+      <Stars count={25} color="#c084fc" maxY={55} baseOpacity={0.45} />
+      <div
+        className="absolute right-[8%] top-[7%]"
+        style={{ filter: "drop-shadow(0 0 18px #8b5cf688)" }}
+      >
+        <PixelSprite
+          map={MOON}
+          palette={{ M: "#e0c3fc", m: "#b794f4" }}
+          scale={5}
         />
-      ))}
-      <div
-        className="absolute right-8 top-6 w-14 h-14 rounded-full"
-        style={{
-          background: "radial-gradient(circle at 40% 40%, #e0c3fc, #8b5cf6)",
-          boxShadow: "0 0 30px #8b5cf655",
-          opacity: 0.8,
-        }}
+      </div>
+      <div className="absolute left-[10%] top-[32%] opacity-60">
+        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={2} />
+      </div>
+      <SteppedSilhouette
+        heights={SKYLINE_FAR}
+        color="#341d66"
+        height="18%"
+        opacity={0.7}
       />
-      <div
-        className="absolute left-6 top-10 w-8 h-8 rounded-full"
-        style={{
-          background: "radial-gradient(circle, #f0abfc, #a855f7)",
-          opacity: 0.3,
-          boxShadow: "0 0 16px #a855f755",
-        }}
-      />
+      <SteppedSilhouette heights={SKYLINE} color="#241250" height="12%" />
     </>
   );
 }

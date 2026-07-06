@@ -5,16 +5,17 @@ import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
 import type { PetType } from "@/lib/types";
 import { useCharacterPosition } from "@/hooks/useCharacterPosition";
+import PixelSprite from "./PixelSprite";
 import {
-  ForestDecor,
-  SpaceDecor,
-  BeachDecor,
-  CityDecor,
-  MountainDecor,
-  LibraryDecor,
-  CafeDecor,
-  LofiDecor,
-} from "./WorldDecorations";
+  HEART,
+  HEART_PALETTE,
+  SPARKLE,
+  SPARKLE_PALETTE,
+  SPARKLE_BLUE_PALETTE,
+  CONTROLLER,
+  CONTROLLER_PALETTE,
+} from "@/lib/uiSprites";
+import { WorldDecor } from "./WorldDecorations";
 
 export type GamePhase =
   | "waiting"
@@ -44,14 +45,22 @@ interface Props {
   partnerName?: string;
 }
 
+const CELEBRATION_SPRITES = [
+  { map: HEART, palette: HEART_PALETTE, scale: 3 },
+  { map: SPARKLE, palette: SPARKLE_PALETTE, scale: 3 },
+  { map: HEART, palette: HEART_PALETTE, scale: 2 },
+  { map: SPARKLE, palette: SPARKLE_BLUE_PALETTE, scale: 3 },
+  { map: HEART, palette: HEART_PALETTE, scale: 3 },
+  { map: SPARKLE, palette: SPARKLE_PALETTE, scale: 2 },
+];
+
 function CelebrationOverlay() {
-  const hearts = ["❤️", "✨", "🌟", "💫", "❤️", "✨"];
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {hearts.map((emoji, i) => (
+      {CELEBRATION_SPRITES.map((s, i) => (
         <motion.div
           key={i}
-          className="absolute text-2xl"
+          className="absolute"
           initial={{ y: 60, x: `${15 + i * 14}%`, opacity: 0 }}
           animate={{ y: -40, opacity: [0, 1, 1, 0] }}
           transition={{
@@ -61,7 +70,7 @@ function CelebrationOverlay() {
             repeatDelay: 1,
           }}
         >
-          {emoji}
+          <PixelSprite map={s.map} palette={s.palette} scale={s.scale} />
         </motion.div>
       ))}
     </div>
@@ -72,11 +81,11 @@ function BreakOverlay() {
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
       <motion.div
-        className="mt-4 text-4xl"
+        className="mt-4"
         animate={{ rotate: [-10, 10, -10] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       >
-        🎮
+        <PixelSprite map={CONTROLLER} palette={CONTROLLER_PALETTE} scale={4} />
       </motion.div>
     </div>
   );
@@ -110,14 +119,7 @@ export default function GameWorld({
         className="absolute inset-0 overflow-hidden"
         style={{ background: world.skyGradient }}
       >
-        {worldId === "forest" && <ForestDecor />}
-        {worldId === "space" && <SpaceDecor />}
-        {worldId === "beach" && <BeachDecor />}
-        {worldId === "city" && <CityDecor />}
-        {worldId === "mountain" && <MountainDecor />}
-        {worldId === "library" && <LibraryDecor />}
-        {worldId === "cafe" && <CafeDecor />}
-        {worldId === "lofi" && <LofiDecor />}
+        <WorldDecor worldId={worldId} />
       </div>
 
       {/* Ground */}
@@ -191,7 +193,6 @@ export default function GameWorld({
       {/* Meeting heart marker */}
       <div className="absolute bottom-[17%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
         <motion.div
-          className="text-2xl"
           animate={{
             scale: phase === "celebration" ? [1, 1.4, 1] : 1,
             opacity: phase === "focus" ? 0.4 : 0.9,
@@ -201,9 +202,9 @@ export default function GameWorld({
             repeat: phase === "celebration" ? Infinity : 0,
           }}
         >
-          ❤️
+          <PixelSprite map={HEART} palette={HEART_PALETTE} scale={3} />
         </motion.div>
-        <div className="w-px h-8 bg-white/20" />
+        <div className="w-0.5 h-8 bg-white/20 mt-1" />
       </div>
 
       {/* Me (left side, walks right) */}
