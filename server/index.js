@@ -74,7 +74,13 @@ io.use(async (socket, next) => {
     return next(new Error('Authentication required'));
   }
   if (!supabase) {
-    // If Supabase isn't configured, skip JWT verification (dev mode)
+    // If Supabase isn't configured, skip JWT verification (dev mode) — but
+    // still decode the unverified sub claim so userId-keyed features
+    // (presence, reconnect grace) behave like production locally
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+      if (typeof payload?.sub === 'string') socket.userId = payload.sub;
+    } catch { /* not a JWT — stay anonymous */ }
     console.warn('[auth] Supabase not configured, skipping JWT verification');
     return next();
   }
@@ -282,7 +288,7 @@ function advancePhase(sessionId) {
 // A dropped socket doesn't eject the player immediately: authenticated players
 // get a grace window to reconnect (tab refresh, flaky Wi-Fi, mobile tab sleep)
 // before their spot — and a solo session's timer — is torn down.
-const RECONNECT_GRACE_MS = 60_000;
+const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || 60_000;
 const pendingDisconnects = new Map(); // userId -> { sessionId, socketId, timer }
 
 function cancelPendingDisconnect(userId) {
