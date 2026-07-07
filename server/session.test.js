@@ -4,6 +4,8 @@ import {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  findPlayerByUserId,
+  markPlayerDisconnected,
   buildSyncPayload,
 } from "./session.js";
 
@@ -98,6 +100,51 @@ describe("presence maps", () => {
     userSockets.delete("user-1");
     socketToUser.delete("socket-a");
     expect(userSockets.has("user-1")).toBe(false);
+  });
+});
+
+describe("findPlayerByUserId", () => {
+  it("finds the socket id for a user in the session", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "sock-a", { avatar: {}, displayName: "A", userId: "u1" });
+    addPlayer(s, "sock-b", { avatar: {}, displayName: "B", userId: "u2" });
+    expect(findPlayerByUserId(s, "u2")).toBe("sock-b");
+  });
+
+  it("returns null when the user is not in the session", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "sock-a", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(findPlayerByUserId(s, "u9")).toBe(null);
+  });
+
+  it("returns null for a null userId even if anonymous players exist", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "sock-a", { avatar: {}, displayName: "A", userId: null });
+    expect(findPlayerByUserId(s, null)).toBe(null);
+  });
+});
+
+describe("markPlayerDisconnected", () => {
+  it("players start connected and can be marked disconnected and back", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(s.players["p1"].disconnected).toBe(false);
+    expect(markPlayerDisconnected(s, "p1", true)).toBe(true);
+    expect(s.players["p1"].disconnected).toBe(true);
+    expect(markPlayerDisconnected(s, "p1", false)).toBe(true);
+    expect(s.players["p1"].disconnected).toBe(false);
+  });
+
+  it("returns false for a socket that is not a player", () => {
+    const s = createSessionState("forest", "host");
+    expect(markPlayerDisconnected(s, "ghost", true)).toBe(false);
+  });
+
+  it("disconnected flag survives into the sync payload", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    markPlayerDisconnected(s, "p1", true);
+    expect(buildSyncPayload(s).players["p1"].disconnected).toBe(true);
   });
 });
 

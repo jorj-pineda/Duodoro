@@ -21,8 +21,24 @@ function addPlayer(session, socketId, { avatar, displayName, userId, pet }) {
     displayName: displayName || "Player",
     userId: userId || null,
     pet: pet || null,
+    disconnected: false,
   };
   return Object.keys(session.players).length;
+}
+
+function findPlayerByUserId(session, userId) {
+  if (!userId) return null;
+  for (const [socketId, player] of Object.entries(session.players)) {
+    if (player.userId === userId) return socketId;
+  }
+  return null;
+}
+
+function markPlayerDisconnected(session, socketId, disconnected) {
+  const player = session.players[socketId];
+  if (!player) return false;
+  player.disconnected = disconnected;
+  return true;
 }
 
 function setPlayerPet(session, socketId, pet) {
@@ -56,5 +72,7 @@ module.exports = {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  findPlayerByUserId,
+  markPlayerDisconnected,
   buildSyncPayload,
 };
