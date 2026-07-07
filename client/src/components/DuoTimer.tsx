@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AvatarCreator from "./AvatarCreator";
 import GameWorld from "./GameWorld";
@@ -62,6 +62,24 @@ export default function DuoTimer() {
     game.sendInvite(targetUserId, myAvatar);
     if (!game.sessionId) setAppStep("game");
   };
+
+  // ── Resume after a page reload ──────────────────────────────────────────
+  // The server holds our spot during its reconnect grace window; once we're
+  // back on home with an avatar loaded, silently rejoin the stored session —
+  // and jump straight back into the game screen if the timer is running.
+  const resumingRef = useRef(false);
+  useEffect(() => {
+    if (appStep !== "home" || !game.resumeSessionId) return;
+    resumingRef.current = true;
+    game.joinSession(game.resumeSessionId, myAvatar);
+    game.consumeResumeSession();
+  }, [appStep, game, myAvatar]);
+  useEffect(() => {
+    if (resumingRef.current && game.sessionStarted && appStep === "home") {
+      resumingRef.current = false;
+      setAppStep("game");
+    }
+  }, [game.sessionStarted, appStep, setAppStep]);
 
   // Danger-styled sibling of the "Invite sent!" toast; rendered on every
   // screen that can produce an error (avatar/home/game)
