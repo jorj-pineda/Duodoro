@@ -186,6 +186,22 @@ export function useGameSession(profile: Profile | null) {
         },
       );
 
+      // Partner's socket dropped; the server is holding their spot during
+      // the reconnect grace window (player_joined or player_left follows).
+      socket.on(
+        "player_disconnected",
+        ({ playerId }: { playerId: string }) => {
+          setPlayers((prev) =>
+            prev[playerId]
+              ? {
+                  ...prev,
+                  [playerId]: { ...prev[playerId], disconnected: true },
+                }
+              : prev,
+          );
+        },
+      );
+
       socket.on("player_left", ({ playerId }: { playerId: string }) => {
         setPlayers((prev) => {
           const next = { ...prev };
@@ -317,6 +333,7 @@ export function useGameSession(profile: Profile | null) {
     : null;
   const partnerName = partnerEntry?.[1].displayName;
   const partnerPet = partnerEntry?.[1].pet ?? null;
+  const partnerDisconnected = partnerEntry?.[1].disconnected ?? false;
 
   const playerCount = Object.keys(players).length;
 
@@ -462,6 +479,7 @@ export function useGameSession(profile: Profile | null) {
     partner,
     partnerName,
     partnerPet,
+    partnerDisconnected,
     playerCount,
     // Session actions
     sessionId,

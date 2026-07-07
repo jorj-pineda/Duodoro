@@ -311,6 +311,7 @@ export default function DuoTimer() {
           partner={game.partner}
           myPet={game.myPet}
           partnerPet={game.partnerPet}
+          partnerDisconnected={game.partnerDisconnected}
           myName={profile?.display_name ?? profile?.username}
           partnerName={game.partnerName}
         />

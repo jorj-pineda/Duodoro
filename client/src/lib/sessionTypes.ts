@@ -8,6 +8,9 @@ export interface PlayerData {
   avatar: AvatarConfig;
   displayName?: string;
   pet?: PetType | null;
+  /** True while the player's socket dropped and the server is holding their
+   *  spot during the reconnect grace window. */
+  disconnected?: boolean;
 }
 
 export interface SyncPayload {
