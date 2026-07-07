@@ -13,7 +13,7 @@ Two independent npm packages (each with its own `package.json` and lockfile), pl
 - `client/` — Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, framer-motion). Single-page app: `app/page.tsx` just renders `DuoTimer`.
 - `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. All real logic lives in `server/index.js`.
 - `supabase/migrations/` — Numbered SQL migrations (001–009). These are run manually in the Supabase SQL editor, not via a migration tool. Add new ones as the next number in sequence.
-- `docker-compose.yml`, `nginx/`, `scripts/`, `.github/workflows/deploy.yml` — production deploy (GHCR images → VPS over SSH on push to `main`).
+- `docker-compose.yml` — local/self-hosted Docker setup (client + server, no nginx); kept for local dev, not used by the current deploy.
 - The root `package.json` is vestigial — don't add dependencies there; install into `client/` or `server/`.
 
 ## Commands
@@ -73,4 +73,12 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 
 ## Deployment
 
-Push to `main` → GitHub Actions builds client/server Docker images, pushes to GHCR, then SSHes into the VPS and runs `docker compose up -d` in `/opt/duodoro`. `NEXT_PUBLIC_*` vars are baked into the client image at build time (repo secrets). Nginx terminates TLS and proxies to client (3000) and server (3001, including websockets).
+Push to `main` auto-deploys both halves independently, no GitHub Actions involved:
+- **Client** (`client/`) → Vercel. `NEXT_PUBLIC_*` env vars are set in the Vercel project
+  and baked in at build time — changing one requires a redeploy, not just an env edit.
+- **Server** (`server/`) → Render (Node web service). `ALLOWED_ORIGIN` (comma-separated
+  for multiple origins), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` are set in Render's
+  Environment tab; the server exits at boot if the Supabase vars are missing.
+
+See `MIGRATE_TO_VERCEL.md` for the full migration history and gotchas. The old GCP VM /
+Docker-Compose/Nginx/GHCR pipeline has been retired.
