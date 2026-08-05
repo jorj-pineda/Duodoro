@@ -11,6 +11,7 @@ import StatsPanel from "./StatsPanel";
 import StatsScreen from "./StatsScreen";
 import HomeDashboard from "./HomeDashboard";
 import InvitePopup from "./InvitePopup";
+import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
 import UsernameChangeModal from "./UsernameChangeModal";
@@ -102,6 +103,12 @@ export default function DuoTimer() {
   const sharedOverlays = (
     <>
       {errorToastEl}
+      <ConnectionBanner
+        state={game.connectionState}
+        inSession={Boolean(game.sessionId)}
+        onRetry={() => window.location.reload()}
+      />
+
       {game.pendingInvite && (
         <InvitePopup
           invite={game.pendingInvite}

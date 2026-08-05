@@ -49,6 +49,11 @@ export function useGameSession(profile: Profile | null) {
   // ── Connection ──────────────────────────────────────────────────────────
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
+  // "reconnecting" = socket.io is retrying and the server is likely still
+  // holding our slot; "offline" = retries exhausted, the session is gone.
+  const [connectionState, setConnectionState] = useState<
+    "connecting" | "connected" | "reconnecting" | "offline"
+  >("connecting");
 
   // ── Timer tick ──────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now());
@@ -131,7 +136,13 @@ export function useGameSession(profile: Profile | null) {
 
       socket.on("connect", () => {
         setMyId(socket.id ?? "");
+        setConnectionState("connected");
       });
+
+      // socket.io retries automatically; the server holds our player slot for
+      // its grace window, so this is recoverable until retries run out.
+      socket.on("disconnect", () => setConnectionState("reconnecting"));
+      socket.io.on("reconnect_failed", () => setConnectionState("offline"));
 
       socket.on(
         "session_created",
@@ -502,6 +513,7 @@ export function useGameSession(profile: Profile | null) {
     sessionStarted,
     myId,
     socketRef,
+    connectionState,
     // Derived
     timeLeft,
     flowElapsed,
