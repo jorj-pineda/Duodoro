@@ -7,6 +7,7 @@ export function useFriendsList(myProfileId: string, active: boolean) {
   const [requests, setRequests] = useState<
     { id: string; requester: Profile }[]
   >([]);
+  const [error, setError] = useState<string | null>(null);
   const sb = getSupabase();
 
   const fetchFriends = useCallback(async () => {
@@ -71,22 +72,49 @@ export function useFriendsList(myProfileId: string, active: boolean) {
   }, [sb, fetchFriends]);
 
   const acceptRequest = async (friendshipId: string) => {
-    await sb
+    setError(null);
+    const { error: err } = await sb
       .from("friendships")
       .update({ status: "accepted" })
       .eq("id", friendshipId);
+    if (err) {
+      setError("Couldn't accept that request. Try again.");
+      return;
+    }
     fetchFriends();
   };
 
-  const declineRequest = async (friendshipId: string) => {
-    await sb.from("friendships").delete().eq("id", friendshipId);
+  // RLS refusing a DELETE is not an error — it just matches zero rows. So we
+  // ask for the deleted rows back and treat an empty result as a failure,
+  // rather than optimistically refetching and showing the entry again.
+  const deleteFriendship = async (friendshipId: string, label: string) => {
+    setError(null);
+    const { data, error: err } = await sb
+      .from("friendships")
+      .delete()
+      .eq("id", friendshipId)
+      .select("id");
+    if (err || !data || data.length === 0) {
+      setError(`Couldn't ${label}. You may not have permission.`);
+      return;
+    }
     fetchFriends();
   };
 
-  const removeFriend = async (friendshipId: string) => {
-    await sb.from("friendships").delete().eq("id", friendshipId);
-    fetchFriends();
-  };
+  const declineRequest = (friendshipId: string) =>
+    deleteFriendship(friendshipId, "decline that request");
 
-  return { friends, requests, acceptRequest, declineRequest, removeFriend, fetchFriends };
+  const removeFriend = (friendshipId: string) =>
+    deleteFriendship(friendshipId, "remove that friend");
+
+  return {
+    friends,
+    requests,
+    acceptRequest,
+    declineRequest,
+    removeFriend,
+    fetchFriends,
+    error,
+    clearError: () => setError(null),
+  };
 }
