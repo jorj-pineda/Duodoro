@@ -16,6 +16,10 @@ import { getSupabase } from "@/lib/supabase";
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
+// sessionStorage key mirroring the active session id, so a full page reload
+// can silently rejoin within the server's reconnect grace window.
+const RESUME_KEY = "duodoro:session";
+
 export type { InviteData };
 
 export function useGameSession(profile: Profile | null) {
@@ -45,6 +49,11 @@ export function useGameSession(profile: Profile | null) {
   // ── Connection ──────────────────────────────────────────────────────────
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
+  // "reconnecting" = socket.io is retrying and the server is likely still
+  // holding our slot; "offline" = retries exhausted, the session is gone.
+  const [connectionState, setConnectionState] = useState<
+    "connecting" | "connected" | "reconnecting" | "offline"
+  >("connecting");
 
   // ── Timer tick ──────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now());
@@ -70,6 +79,23 @@ export function useGameSession(profile: Profile | null) {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // ── Refresh resume ──────────────────────────────────────────────────────
+  // A reload wipes React state but the server holds the player's spot during
+  // its reconnect grace window; the stored id lets DuoTimer rejoin silently.
+  // sessionStorage scopes this to the tab — a fresh tab starts clean.
+  // Lazy init: only rendered on the client after hydration effects, and no
+  // DOM output depends on it, so reading storage here is hydration-safe.
+  const [resumeSessionId, setResumeSessionId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : sessionStorage.getItem(RESUME_KEY),
+  );
+  useEffect(() => {
+    if (sessionId) sessionStorage.setItem(RESUME_KEY, sessionId);
+  }, [sessionId]);
+  const consumeResumeSession = useCallback(
+    () => setResumeSessionId(null),
+    [],
+  );
 
   // ── Sound tracking ─────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
@@ -110,7 +136,13 @@ export function useGameSession(profile: Profile | null) {
 
       socket.on("connect", () => {
         setMyId(socket.id ?? "");
+        setConnectionState("connected");
       });
+
+      // socket.io retries automatically; the server holds our player slot for
+      // its grace window, so this is recoverable until retries run out.
+      socket.on("disconnect", () => setConnectionState("reconnecting"));
+      socket.io.on("reconnect_failed", () => setConnectionState("offline"));
 
       socket.on(
         "session_created",
@@ -132,6 +164,15 @@ export function useGameSession(profile: Profile | null) {
 
       socket.on("session_error", ({ message }: { message: string }) => {
         console.error("Session error:", message);
+        if (message === "Session not found") {
+          // Stale resume attempt or expired invite — the server has already
+          // removed us from any previous session, so mirror that here
+          sessionStorage.removeItem(RESUME_KEY);
+          setResumeSessionId(null);
+          setSessionId("");
+          setSessionStarted(false);
+          setPlayers({});
+        }
       });
 
       socket.on("sync_state", (data: SyncPayload) => {
@@ -181,6 +222,22 @@ export function useGameSession(profile: Profile | null) {
           setPlayers((prev) =>
             prev[playerId]
               ? { ...prev, [playerId]: { ...prev[playerId], pet } }
+              : prev,
+          );
+        },
+      );
+
+      // Partner's socket dropped; the server is holding their spot during
+      // the reconnect grace window (player_joined or player_left follows).
+      socket.on(
+        "player_disconnected",
+        ({ playerId }: { playerId: string }) => {
+          setPlayers((prev) =>
+            prev[playerId]
+              ? {
+                  ...prev,
+                  [playerId]: { ...prev[playerId], disconnected: true },
+                }
               : prev,
           );
         },
@@ -317,6 +374,7 @@ export function useGameSession(profile: Profile | null) {
     : null;
   const partnerName = partnerEntry?.[1].displayName;
   const partnerPet = partnerEntry?.[1].pet ?? null;
+  const partnerDisconnected = partnerEntry?.[1].disconnected ?? false;
 
   const playerCount = Object.keys(players).length;
 
@@ -373,6 +431,8 @@ export function useGameSession(profile: Profile | null) {
     setPlayers({});
     setSessionId("");
     lastAvatarRef.current = null;
+    sessionStorage.removeItem(RESUME_KEY);
+    setResumeSessionId(null);
   }, [sessionId]);
 
   const startSession = useCallback(() => {
@@ -453,6 +513,7 @@ export function useGameSession(profile: Profile | null) {
     sessionStarted,
     myId,
     socketRef,
+    connectionState,
     // Derived
     timeLeft,
     flowElapsed,
@@ -462,9 +523,12 @@ export function useGameSession(profile: Profile | null) {
     partner,
     partnerName,
     partnerPet,
+    partnerDisconnected,
     playerCount,
     // Session actions
     sessionId,
+    resumeSessionId,
+    consumeResumeSession,
     createSession,
     joinSession,
     leaveSession,

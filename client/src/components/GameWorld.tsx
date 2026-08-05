@@ -43,6 +43,8 @@ interface Props {
   partnerPet?: PetType | null;
   myName?: string;
   partnerName?: string;
+  /** Partner's socket dropped; server is holding their spot */
+  partnerDisconnected?: boolean;
 }
 
 const CELEBRATION_SPRITES = [
@@ -102,6 +104,7 @@ export default function GameWorld({
   partnerPet,
   myName,
   partnerName,
+  partnerDisconnected,
 }: Props) {
   const world = getWorld(worldId);
   const { myLeft, partnerRight, myAnim, partnerAnim } = useCharacterPosition(
@@ -248,10 +251,14 @@ export default function GameWorld({
           animate={{ right: partnerRight }}
           transition={{ type: "tween", ease: "linear", duration: 0.8 }}
         >
-          <div className="flex items-end gap-1">
+          <div
+            className={`flex items-end gap-1 transition-opacity duration-500 ${
+              partnerDisconnected ? "opacity-40" : ""
+            }`}
+          >
             <PixelCharacter
               {...partner.avatar}
-              anim={partnerAnim}
+              anim={partnerDisconnected ? "idle" : partnerAnim}
               facing="left"
               size={3}
             />
@@ -259,7 +266,7 @@ export default function GameWorld({
               <div className="mb-1">
                 <PetCharacter
                   type={partnerPet}
-                  anim={partnerAnim}
+                  anim={partnerDisconnected ? "idle" : partnerAnim}
                   facing="left"
                   size={2}
                 />
@@ -267,7 +274,11 @@ export default function GameWorld({
             )}
           </div>
           <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
-            {partnerName ?? "THEM"}
+            {partnerDisconnected ? (
+              <span className="animate-pulse">RECONNECTING…</span>
+            ) : (
+              (partnerName ?? "THEM")
+            )}
           </div>
         </motion.div>
       )}

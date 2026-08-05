@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AvatarCreator from "./AvatarCreator";
 import GameWorld from "./GameWorld";
@@ -11,6 +11,7 @@ import StatsPanel from "./StatsPanel";
 import StatsScreen from "./StatsScreen";
 import HomeDashboard from "./HomeDashboard";
 import InvitePopup from "./InvitePopup";
+import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
 import UsernameChangeModal from "./UsernameChangeModal";
@@ -63,6 +64,24 @@ export default function DuoTimer() {
     if (!game.sessionId) setAppStep("game");
   };
 
+  // ── Resume after a page reload ──────────────────────────────────────────
+  // The server holds our spot during its reconnect grace window; once we're
+  // back on home with an avatar loaded, silently rejoin the stored session —
+  // and jump straight back into the game screen if the timer is running.
+  const resumingRef = useRef(false);
+  useEffect(() => {
+    if (appStep !== "home" || !game.resumeSessionId) return;
+    resumingRef.current = true;
+    game.joinSession(game.resumeSessionId, myAvatar);
+    game.consumeResumeSession();
+  }, [appStep, game, myAvatar]);
+  useEffect(() => {
+    if (resumingRef.current && game.sessionStarted && appStep === "home") {
+      resumingRef.current = false;
+      setAppStep("game");
+    }
+  }, [game.sessionStarted, appStep, setAppStep]);
+
   // Danger-styled sibling of the "Invite sent!" toast; rendered on every
   // screen that can produce an error (avatar/home/game)
   const errorToastEl = (
@@ -84,6 +103,12 @@ export default function DuoTimer() {
   const sharedOverlays = (
     <>
       {errorToastEl}
+      <ConnectionBanner
+        state={game.connectionState}
+        inSession={Boolean(game.sessionId)}
+        onRetry={() => window.location.reload()}
+      />
+
       {game.pendingInvite && (
         <InvitePopup
           invite={game.pendingInvite}
@@ -311,6 +336,7 @@ export default function DuoTimer() {
           partner={game.partner}
           myPet={game.myPet}
           partnerPet={game.partnerPet}
+          partnerDisconnected={game.partnerDisconnected}
           myName={profile?.display_name ?? profile?.username}
           partnerName={game.partnerName}
         />

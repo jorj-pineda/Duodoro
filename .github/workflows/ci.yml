@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm run test:run
+        working-directory: server
+
+  client:
+    name: Client tests & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+        working-directory: client
+
+      - run: npx tsc --noEmit
+        working-directory: client
+
+      - run: npm run test:run
+        working-directory: client
+
+      # NEXT_PUBLIC_* are inlined at build time, and the prerender pass
+      # constructs the Supabase client — so the build needs syntactically valid
+      # values. These dummies never reach a deployed artifact: Vercel builds
+      # production with the real values from its own project settings.
+      - run: npm run build
+        working-directory: client
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+
+# No lint job yet, deliberately. `npm run lint` currently reports ~28
+# pre-existing violations (mostly no-explicit-any in hooks/ plus a few
+# setState-in-effect) in files unrelated to any current work. Adding it as a
+# failing-but-advisory check would paint every PR red and train us to ignore
+# CI; adding it as `|| true` would paint every PR green and hide the signal.
+# The fix is to burn the violations down, then add a blocking lint job here.

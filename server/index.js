@@ -9,6 +9,8 @@ const {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  findPlayerByUserId,
+  markPlayerDisconnected,
   buildSyncPayload,
 } = require('./session');
 require('dotenv').config();
@@ -72,7 +74,13 @@ io.use(async (socket, next) => {
     return next(new Error('Authentication required'));
   }
   if (!supabase) {
-    // If Supabase isn't configured, skip JWT verification (dev mode)
+    // If Supabase isn't configured, skip JWT verification (dev mode) — but
+    // still decode the unverified sub claim so userId-keyed features
+    // (presence, reconnect grace) behave like production locally
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+      if (typeof payload?.sub === 'string') socket.userId = payload.sub;
+    } catch { /* not a JWT — stay anonymous */ }
     console.warn('[auth] Supabase not configured, skipping JWT verification');
     return next();
   }
@@ -275,21 +283,39 @@ function advancePhase(sessionId) {
   session.phaseTimer = setTimeout(() => advancePhase(sessionId), delay);
 }
 
-// ── Leave Session Helper ───────────────────────────────────────────────────
+// ── Leave Session / Reconnect Grace ────────────────────────────────────────
 
-function leaveSession(socket, sessionId) {
+// A dropped socket doesn't eject the player immediately: authenticated players
+// get a grace window to reconnect (tab refresh, flaky Wi-Fi, mobile tab sleep)
+// before their spot — and a solo session's timer — is torn down.
+const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || 60_000;
+
+// Keyed by the *dropped socket id*, not userId. socketToSession is per-socket,
+// so a second tab joins a second session without leaving the first, and one
+// user can legitimately hold a slot in two sessions. Keying by userId would let
+// the second drop cancel the first one's timer, orphaning a player slot whose
+// session then never gets deleted — its phase chain runs forever, re-recording
+// completed focus on every cycle. Per-socket timers finalize independently.
+const pendingDisconnects = new Map(); // socketId -> timer
+
+function cancelPendingDisconnect(socketId) {
+  const timer = pendingDisconnects.get(socketId);
+  if (!timer) return;
+  clearTimeout(timer);
+  pendingDisconnects.delete(socketId);
+}
+
+function finalizePlayerRemoval(sessionId, socketId) {
   const session = getSession(sessionId);
-  if (!session) return;
+  if (!session || !session.players[socketId]) return;
 
-  const player = session.players[socket.id];
-  if (player?.userId) clearPresence(player.userId);
+  const player = session.players[socketId];
+  if (player.userId) clearPresence(player.userId);
 
-  const playerCount = removePlayer(session, socket.id);
-  delete socketToSession[socket.id];
-  socket.leave(sessionId);
-  console.log(`[${sessionId}] ${socket.id} left (${playerCount} remaining)`);
+  const playerCount = removePlayer(session, socketId);
+  console.log(`[${sessionId}] ${socketId} left (${playerCount} remaining)`);
 
-  io.to(sessionId).emit('player_left', { playerId: socket.id });
+  io.to(sessionId).emit('player_left', { playerId: socketId });
 
   if (playerCount === 0) {
     if (session.phase === 'focus') recordSession(sessionId, session, false);
@@ -299,6 +325,13 @@ function leaveSession(socket, sessionId) {
   }
   // If players remain, the session keeps running for them (solo continuation
   // is intentional — sessions can also be started solo).
+}
+
+function leaveSession(socket, sessionId) {
+  cancelPendingDisconnect(socket.id);
+  delete socketToSession[socket.id];
+  socket.leave(sessionId);
+  finalizePlayerRemoval(sessionId, socket.id);
 }
 
 // ── Socket Handlers ────────────────────────────────────────────────────────
@@ -437,6 +470,23 @@ io.on('connection', (socket) => {
     }
 
     const userId = socket.userId || null;
+
+    // Reconnect: this user already has a player slot in the session under an
+    // old socket id (grace-pending, or a zombie socket the server hasn't
+    // noticed dropping yet). Evict the old entry so the join below re-keys
+    // them instead of duplicating the player.
+    const oldSocketId = userId ? findPlayerByUserId(session, userId) : null;
+    if (oldSocketId && oldSocketId !== socket.id) {
+      cancelPendingDisconnect(oldSocketId);
+      removePlayer(session, oldSocketId);
+      delete socketToSession[oldSocketId];
+      // Stop broadcasting to a socket that's no longer a player (a still-open
+      // stale tab); harmless no-op when the old socket is already gone.
+      io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
+      if (session.hostId === oldSocketId) session.hostId = socket.id;
+      socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
+      console.log(`[${sessionId}] ${userId} reconnected (${oldSocketId} → ${socket.id})`);
+    }
 
     const safePet = sanitizePet(pet);
     socket.join(sessionId);
@@ -580,7 +630,26 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`Disconnected: ${socket.id}`);
     const sessionId = socketToSession[socket.id];
-    if (sessionId) leaveSession(socket, sessionId);
+    if (sessionId) {
+      delete socketToSession[socket.id];
+      const session = getSession(sessionId);
+      const player = session?.players[socket.id];
+      if (session && player?.userId) {
+        // Grace window: keep the player's slot (and a solo session's timer)
+        // alive so a reconnect can resume instead of losing the pomodoro.
+        markPlayerDisconnected(session, socket.id, true);
+        const timer = setTimeout(() => {
+          pendingDisconnects.delete(socket.id);
+          finalizePlayerRemoval(sessionId, socket.id);
+        }, RECONNECT_GRACE_MS);
+        pendingDisconnects.set(socket.id, timer);
+        io.to(sessionId).emit('player_disconnected', { playerId: socket.id });
+        console.log(`[${sessionId}] ${socket.id} dropped — ${RECONNECT_GRACE_MS / 1000}s reconnect grace`);
+      } else if (session) {
+        // Unauthenticated (dev mode) players can't be matched on reconnect
+        finalizePlayerRemoval(sessionId, socket.id);
+      }
+    }
 
     // Drop this socket's rate-limit counters — they'd otherwise accumulate forever
     Object.values(rateLimits).forEach((limiter) => limiter.clear(socket.id));
