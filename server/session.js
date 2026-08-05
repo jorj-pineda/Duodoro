@@ -53,6 +53,19 @@ function removePlayer(session, socketId) {
   return Object.keys(session.players).length;
 }
 
+// Distinct authenticated userIds currently holding a slot. Deduped because
+// session_participants has a unique (session_id, user_id) index — a repeated id
+// would fail the whole batch insert, losing the entire record.
+function sessionParticipantIds(session) {
+  return [
+    ...new Set(
+      Object.values(session.players)
+        .map((p) => p.userId)
+        .filter(Boolean),
+    ),
+  ];
+}
+
 function buildSyncPayload(session) {
   return {
     mode: session.mode,
@@ -74,5 +87,6 @@ module.exports = {
   setPlayerPet,
   findPlayerByUserId,
   markPlayerDisconnected,
+  sessionParticipantIds,
   buildSyncPayload,
 };
