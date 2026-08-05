@@ -289,23 +289,20 @@ function advancePhase(sessionId) {
 // get a grace window to reconnect (tab refresh, flaky Wi-Fi, mobile tab sleep)
 // before their spot — and a solo session's timer — is torn down.
 const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || 60_000;
-const pendingDisconnects = new Map(); // userId -> { sessionId, socketId, timer }
 
-function cancelPendingDisconnect(userId) {
-  const pending = userId ? pendingDisconnects.get(userId) : null;
-  if (!pending) return null;
-  clearTimeout(pending.timer);
-  pendingDisconnects.delete(userId);
-  return pending;
-}
+// Keyed by the *dropped socket id*, not userId. socketToSession is per-socket,
+// so a second tab joins a second session without leaving the first, and one
+// user can legitimately hold a slot in two sessions. Keying by userId would let
+// the second drop cancel the first one's timer, orphaning a player slot whose
+// session then never gets deleted — its phase chain runs forever, re-recording
+// completed focus on every cycle. Per-socket timers finalize independently.
+const pendingDisconnects = new Map(); // socketId -> timer
 
-// If this user still has a grace-pending ghost in a *different* session,
-// remove it now — they've moved on, no point keeping the old spot warm.
-function resolveStalePendingDisconnect(userId, targetSessionId) {
-  const pending = userId ? pendingDisconnects.get(userId) : null;
-  if (!pending || pending.sessionId === targetSessionId) return;
-  cancelPendingDisconnect(userId);
-  finalizePlayerRemoval(pending.sessionId, pending.socketId);
+function cancelPendingDisconnect(socketId) {
+  const timer = pendingDisconnects.get(socketId);
+  if (!timer) return;
+  clearTimeout(timer);
+  pendingDisconnects.delete(socketId);
 }
 
 function finalizePlayerRemoval(sessionId, socketId) {
@@ -331,6 +328,7 @@ function finalizePlayerRemoval(sessionId, socketId) {
 }
 
 function leaveSession(socket, sessionId) {
+  cancelPendingDisconnect(socket.id);
   delete socketToSession[socket.id];
   socket.leave(sessionId);
   finalizePlayerRemoval(sessionId, socket.id);
@@ -421,7 +419,6 @@ io.on('connection', (socket) => {
     if (prevSession) leaveSession(socket, prevSession);
 
     const userId = socket.userId || null;
-    resolveStalePendingDisconnect(userId, null);
 
     const session = createSessionState(safeWorld, socket.id);
     const sessionId = session.id;
@@ -473,7 +470,6 @@ io.on('connection', (socket) => {
     }
 
     const userId = socket.userId || null;
-    resolveStalePendingDisconnect(userId, sessionId);
 
     // Reconnect: this user already has a player slot in the session under an
     // old socket id (grace-pending, or a zombie socket the server hasn't
@@ -481,9 +477,12 @@ io.on('connection', (socket) => {
     // them instead of duplicating the player.
     const oldSocketId = userId ? findPlayerByUserId(session, userId) : null;
     if (oldSocketId && oldSocketId !== socket.id) {
-      cancelPendingDisconnect(userId);
+      cancelPendingDisconnect(oldSocketId);
       removePlayer(session, oldSocketId);
       delete socketToSession[oldSocketId];
+      // Stop broadcasting to a socket that's no longer a player (a still-open
+      // stale tab); harmless no-op when the old socket is already gone.
+      io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
       if (session.hostId === oldSocketId) session.hostId = socket.id;
       socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
       console.log(`[${sessionId}] ${userId} reconnected (${oldSocketId} → ${socket.id})`);
@@ -639,12 +638,11 @@ io.on('connection', (socket) => {
         // Grace window: keep the player's slot (and a solo session's timer)
         // alive so a reconnect can resume instead of losing the pomodoro.
         markPlayerDisconnected(session, socket.id, true);
-        cancelPendingDisconnect(player.userId);
         const timer = setTimeout(() => {
-          pendingDisconnects.delete(player.userId);
+          pendingDisconnects.delete(socket.id);
           finalizePlayerRemoval(sessionId, socket.id);
         }, RECONNECT_GRACE_MS);
-        pendingDisconnects.set(player.userId, { sessionId, socketId: socket.id, timer });
+        pendingDisconnects.set(socket.id, timer);
         io.to(sessionId).emit('player_disconnected', { playerId: socket.id });
         console.log(`[${sessionId}] ${socket.id} dropped — ${RECONNECT_GRACE_MS / 1000}s reconnect grace`);
       } else if (session) {
