@@ -57,22 +57,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
           NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
 
-  lint:
-    name: Client lint (advisory)
-    runs-on: ubuntu-latest
-    # Non-blocking: the codebase carries pre-existing `no-explicit-any` and
-    # setState-in-effect violations in hooks/ and older components. Surfaced
-    # here so the count is visible and can be burned down, but it must not
-    # gate merges until it's clean. Flip to blocking once it passes.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-      - run: npm ci
-        working-directory: client
-      - run: npm run lint
-        working-directory: client
+# No lint job yet, deliberately. `npm run lint` currently reports ~28
+# pre-existing violations (mostly no-explicit-any in hooks/ plus a few
+# setState-in-effect) in files unrelated to any current work. Adding it as a
+# failing-but-advisory check would paint every PR red and train us to ignore
+# CI; adding it as `|| true` would paint every PR green and hide the signal.
+# The fix is to burn the violations down, then add a blocking lint job here.
