@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm run test:run
+        working-directory: server
+
+  client:
+    name: Client tests & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+        working-directory: client
+
+      - run: npx tsc --noEmit
+        working-directory: client
+
+      - run: npm run test:run
+        working-directory: client
+
+      # NEXT_PUBLIC_* are inlined at build time, and the prerender pass
+      # constructs the Supabase client — so the build needs syntactically valid
+      # values. These dummies never reach a deployed artifact: Vercel builds
+      # production with the real values from its own project settings.
+      - run: npm run build
+        working-directory: client
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+
+  lint:
+    name: Client lint (advisory)
+    runs-on: ubuntu-latest
+    # Non-blocking: the codebase carries pre-existing `no-explicit-any` and
+    # setState-in-effect violations in hooks/ and older components. Surfaced
+    # here so the count is visible and can be burned down, but it must not
+    # gate merges until it's clean. Flip to blocking once it passes.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+        working-directory: client
+      - run: npm run lint
+        working-directory: client
