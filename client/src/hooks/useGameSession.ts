@@ -184,7 +184,12 @@ export function useGameSession(profile: Profile | null) {
         setPlayers(data.players || {});
         if (data.world) setMyWorld(data.world as WorldId);
         if (data.sessionId) setSessionId(data.sessionId);
-        if (data.phase !== "waiting") setSessionStarted(true);
+        // Mirror the phase in both directions. Only ever setting this to true
+        // left the *other* player stuck after someone pressed end-session:
+        // phase went back to "waiting" but sessionStarted stayed true, which
+        // makes both canStart and canStop false in SessionHUD — no Start
+        // button, no mode toggle, no sliders, only "leave session".
+        setSessionStarted(data.phase !== "waiting");
       });
 
       socket.on("phase_change", (data: PhaseChangePayload) => {
@@ -193,7 +198,7 @@ export function useGameSession(profile: Profile | null) {
         setPhaseStartTime(data.phaseStartTime);
         setServerFocusDuration(data.focusDuration);
         setServerBreakDuration(data.breakDuration);
-        if (data.phase !== "waiting") setSessionStarted(true);
+        setSessionStarted(data.phase !== "waiting");
       });
 
       socket.on(

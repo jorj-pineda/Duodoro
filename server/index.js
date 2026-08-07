@@ -525,6 +525,10 @@ io.on('connection', (socket) => {
     if (Object.keys(session.players).length < 1) return;
     // Only a player in this session can start it
     if (!session.players[socket.id]) return;
+    // Only from the waiting room. Without this, a duplicate/racing start
+    // silently restarts a running focus phase — resetting phaseStartTime and
+    // discarding the elapsed time instead of recording it.
+    if (session.phase !== 'waiting') return;
 
     const safeFocus = Math.min(Math.max(Number(focusDuration) || 25 * 60, 60), MAX_FOCUS);
     const safeBreak = Math.min(Math.max(Number(breakDuration) || 5 * 60, 30), MAX_BREAK);
