@@ -12,7 +12,20 @@ function createSessionState(world, hostSocketId) {
     world: world || "forest",
     hostId: hostSocketId,
     players: {},
+    // userIds explicitly invited to this session. Knowing the session UUID is
+    // not by itself permission to join — see canJoinSession in index.js.
+    invitedUserIds: new Set(),
   };
+}
+
+function inviteUser(session, userId) {
+  if (!userId) return false;
+  session.invitedUserIds.add(userId);
+  return true;
+}
+
+function isInvited(session, userId) {
+  return Boolean(userId) && session.invitedUserIds.has(userId);
 }
 
 function addPlayer(session, socketId, { avatar, displayName, userId, pet }) {
@@ -85,6 +98,8 @@ module.exports = {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  inviteUser,
+  isInvited,
   findPlayerByUserId,
   markPlayerDisconnected,
   sessionParticipantIds,
