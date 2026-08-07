@@ -37,7 +37,7 @@ Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `N
 
 ### Split of responsibilities
 
-- **Socket.IO server** (`server/index.js`) is the source of truth for live session state: phases, timers, players, presence, invites. All session state is **in-memory** (`sessions`, `userSockets` maps) — it does not survive a server restart, and nothing live is read back from the DB.
+- **Socket.IO server** (`server/index.js`) is the source of truth for live session state: phases, timers, players, presence, invites. All session state is **in-memory** (the `sessions` map plus the presence registry in `server/presence.js`) — it does not survive a server restart, and nothing live is read back from the DB.
 - **Supabase** handles auth (JWT), and persistence: profiles, friendships, tasks/sticky notes, and *completed* session history (`sessions` + `session_participants` rows written by the server with the service-role key, bypassing RLS). The client talks to Supabase directly (anon key + RLS) for friends, tasks, and stats.
 - **Client** never trusts its own clock for the timer: the server broadcasts `phase_change` with `phaseStartTime` and durations; the client renders countdowns from `Date.now() - phaseStartTime`.
 
@@ -54,6 +54,7 @@ Security conventions in the socket layer (preserve these when adding events):
 - `io.use()` middleware verifies the Supabase JWT and sets `socket.userId` — **never trust a client-sent userId**.
 - Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_WORLDS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`).
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
+- Knowing a session id is not permission to use it: `join_session` requires an existing slot, an invite, or friendship with someone already in the session, and `send_invite` is friends-only. Server-side ids are read from `socketToSession`, never taken from the payload.
 
 Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion.
 
@@ -72,7 +73,8 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 ### Database conventions
 
 - `profiles` extends `auth.users`; usernames use Discord-style `username#discriminator` tags via the `claim_username` RPC (one-time change enforced in SQL, migration 005).
-- Live presence is mirrored into `profiles.current_session_id` / `current_world_id` by the server so friends can see "in a session" from the client's Supabase queries.
+- Live presence is mirrored into `profiles.current_session_id` / `current_world_id` by the server so friends can see "in a session" from the client's Supabase queries. Because only the service key can write those columns (migration 010), they're trusted as proof of where a user is — migration 013's `tasks_read` policy relies on that.
+- Socket presence is tracked per *user* with a set of sockets (`server/presence.js`), not one socket per user: extra tabs must not evict each other, and a user only counts as offline once their last socket closes.
 - RLS is on for all tables; the server's service-role key is what allows it to write session history and presence. Later migrations (004, 007, 009) tightened RLS and pinned function search paths — follow that pattern in new SQL.
 - RLS gates which *rows* a client may write, never which *columns*. Anything privileged (`is_premium`, `username`, presence fields) is protected by column privileges instead — migration 010 revokes table-level UPDATE from `authenticated`/`anon` and grants back only the client-writable columns. A table-level UPDATE grant silently outranks column grants, so never re-grant one. Privileged writes go through `SECURITY DEFINER` RPCs or the service key.
 

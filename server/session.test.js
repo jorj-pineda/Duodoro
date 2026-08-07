@@ -82,30 +82,6 @@ describe("buildSyncPayload", () => {
   });
 });
 
-describe("presence maps", () => {
-  it("tracks online users correctly", () => {
-    const userSockets = new Map();
-    const socketToUser = new Map();
-
-    userSockets.set("user-1", "socket-a");
-    socketToUser.set("socket-a", "user-1");
-
-    userSockets.set("user-2", "socket-b");
-    socketToUser.set("socket-b", "user-2");
-
-    expect(userSockets.has("user-1")).toBe(true);
-    expect(userSockets.has("user-3")).toBe(false);
-
-    const friendIds = ["user-1", "user-3", "user-2"];
-    const online = friendIds.filter((id) => userSockets.has(id));
-    expect(online).toEqual(["user-1", "user-2"]);
-
-    userSockets.delete("user-1");
-    socketToUser.delete("socket-a");
-    expect(userSockets.has("user-1")).toBe(false);
-  });
-});
-
 describe("sessionParticipantIds", () => {
   it("collects the authenticated userIds in the session", () => {
     const s = createSessionState("forest", "host");

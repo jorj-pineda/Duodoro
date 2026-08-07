@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
+const { createPresenceRegistry } = require('./presence');
 const {
   createSessionState,
   addPlayer,
@@ -107,9 +108,9 @@ io.use(async (socket, next) => {
 const sessions = {};
 const socketToSession = {};
 
-// Presence: track which users have the app open (userId <-> socketId)
-const userSockets = new Map();   // userId  -> socket.id
-const socketToUser = new Map();  // socket.id -> userId
+// Presence: which users have the app open. Keyed by user with a set of
+// sockets, so extra tabs don't evict each other — see presence.js.
+const presence = createPresenceRegistry();
 
 // ── Simple per-socket rate limiter ───────────────────────────────────────────
 function createRateLimiter(maxPerWindow, windowMs) {
@@ -198,8 +199,8 @@ async function canJoinSession(session, userId) {
 function broadcastPresence(userId, online) {
   getFriendIds(userId).then(friendIds => {
     for (const fid of friendIds) {
-      const fSocketId = userSockets.get(fid);
-      if (fSocketId) {
+      // Every tab the friend has open, not just their most recent one
+      for (const fSocketId of presence.socketsFor(fid)) {
         io.to(fSocketId).emit('presence_update', { userId, online });
       }
     }
@@ -390,14 +391,11 @@ io.on('connection', (socket) => {
   socket.on('register_user', () => {
     const userId = socket.userId;
     if (!userId) return;
-    // If this user already has a socket, clean up the old one
-    const oldSocketId = userSockets.get(userId);
-    if (oldSocketId && oldSocketId !== socket.id) {
-      socketToUser.delete(oldSocketId);
-    }
-    userSockets.set(userId, socket.id);
-    socketToUser.set(socket.id, userId);
-    broadcastPresence(userId, true);
+    // Additive: a second tab joins the user's socket set rather than
+    // replacing the first. Only announce on the offline->online edge, so
+    // opening tabs doesn't spam friends with presence updates.
+    const cameOnline = presence.add(userId, socket.id);
+    if (cameOnline) broadcastPresence(userId, true);
     console.log(`[presence] ${userId} registered (${socket.id})`);
   });
 
@@ -410,7 +408,7 @@ io.on('connection', (socket) => {
     const actualFriendIds = await getFriendIds(userId);
     const friendSet = new Set(actualFriendIds);
     const validIds = (friendIds || []).filter(id => friendSet.has(id));
-    const online = validIds.filter(id => userSockets.has(id));
+    const online = validIds.filter(id => presence.isOnline(id));
     callback(online);
   });
 
@@ -435,8 +433,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const targetSocketId = userSockets.get(targetUserId);
-    if (!targetSocketId) {
+    const targetSocketIds = presence.socketsFor(targetUserId);
+    if (targetSocketIds.length === 0) {
       socket.emit('invite_error', { message: 'Friend is offline' });
       return;
     }
@@ -449,12 +447,16 @@ io.on('connection', (socket) => {
     if (typeof sessionId === 'string' && sessions[sessionId]) {
       inviteUser(sessions[sessionId], targetUserId);
     }
-    io.to(targetSocketId).emit('session_invite', {
-      sessionId: typeof sessionId === 'string' ? sessionId : null,
-      worldId: safeWorld,
-      fromName: safeName,
-      fromUserId,
-    });
+    // Deliver to every tab they have open — otherwise the popup can land in a
+    // background tab they aren't looking at.
+    for (const targetSocketId of targetSocketIds) {
+      io.to(targetSocketId).emit('session_invite', {
+        sessionId: typeof sessionId === 'string' ? sessionId : null,
+        worldId: safeWorld,
+        fromName: safeName,
+        fromUserId,
+      });
+    }
     console.log(`[invite] ${safeName} invited ${targetUserId}`);
   });
 
@@ -737,12 +739,12 @@ io.on('connection', (socket) => {
     Object.values(rateLimits).forEach((limiter) => limiter.clear(socket.id));
 
     // Clean up presence
-    const userId = socketToUser.get(socket.id);
+    const { userId, wentOffline } = presence.remove(socket.id);
     if (userId) {
-      userSockets.delete(userId);
-      socketToUser.delete(socket.id);
-      broadcastPresence(userId, false);
-      console.log(`[presence] ${userId} disconnected`);
+      // Only actually offline once the user's last tab is gone.
+      if (wentOffline) broadcastPresence(userId, false);
+      console.log(`[presence] ${userId} socket ${socket.id} closed` +
+        (wentOffline ? ' (now offline)' : ' (other tabs still open)'));
     }
   });
 });
