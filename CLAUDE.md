@@ -11,8 +11,8 @@ Duodoro is a collaborative pomodoro web app for long-distance couples/friends. U
 Two independent npm packages (each with its own `package.json` and lockfile), plus infra:
 
 - `client/` — Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, framer-motion). Single-page app: `app/page.tsx` just renders `DuoTimer`.
-- `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. All real logic lives in `server/index.js`.
-- `supabase/migrations/` — Numbered SQL migrations (001–009). These are run manually in the Supabase SQL editor, not via a migration tool. Add new ones as the next number in sequence.
+- `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. The transport/handler layer is `server/index.js`; pure session-state helpers live in `server/session.js`.
+- `supabase/migrations/` — Numbered SQL migrations (`001_initial.sql` onward). These are run manually in the Supabase SQL editor, not via a migration tool. Add new ones as the next number in sequence.
 - `docker-compose.yml` — local/self-hosted Docker setup (client + server, no nginx); kept for local dev, not used by the current deploy.
 - The root `package.json` is vestigial — don't add dependencies there; install into `client/` or `server/`.
 
@@ -55,16 +55,18 @@ Security conventions in the socket layer (preserve these when adding events):
 - Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_WORLDS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`).
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 
-Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
+Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion.
+
+Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
 
 ### Client structure
 
 `DuoTimer.tsx` is the top-level orchestrator: it composes two hooks and switches screens on `appStep` (`loading → landing → avatar → home → game`, defined in `lib/sessionTypes.ts`).
 
 - `hooks/useAuth.ts` — Supabase auth, profile load/save, drives `appStep`.
-- `hooks/useGameSession.ts` — owns the Socket.IO connection (auth token in handshake, retries on token expiry), all session/phase/player state, invites, and resume-after-tab-sleep resync (`request_sync`). This is the file to touch for any realtime behavior.
+- `hooks/useGameSession.ts` — owns the Socket.IO connection (auth token in handshake, retries on token expiry), all session/phase/player state, invites, resume-after-tab-sleep resync (`request_sync`), and the `sessionStorage` mirror that drives rejoin-after-reload. This is the file to touch for any realtime behavior. It also exposes `connectionState`, which `ConnectionBanner` renders as a "reconnecting / connection lost" banner while you're in a session.
 - `lib/supabase.ts` — browser Supabase singleton (PKCE flow, localStorage sessions — deliberately not cookie/SSR-based; `app/auth/callback/route.ts` exists for the OAuth redirect).
-- Direct-to-Supabase data hooks: `useFriendsList`, `useFriendSearch`, `useTasks`, `useStickyNotes`, `lib/useStats.ts`.
+- Direct-to-Supabase data hooks: `useFriendsList`, `useFriendSearch`, `useTasks`, `useStickyNotes`, `lib/useStats.ts`. `useOnlineFriends` is a hybrid — the friend list comes from Supabase, the online/offline dots from the socket (`get_online_friends` + `presence_update`).
 - Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts` (avatar options here must stay in sync with the server's `sanitizeAvatar` whitelist and `VALID_WORLDS`).
 
 ### Database conventions
@@ -72,15 +74,24 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 - `profiles` extends `auth.users`; usernames use Discord-style `username#discriminator` tags via the `claim_username` RPC (one-time change enforced in SQL, migration 005).
 - Live presence is mirrored into `profiles.current_session_id` / `current_world_id` by the server so friends can see "in a session" from the client's Supabase queries.
 - RLS is on for all tables; the server's service-role key is what allows it to write session history and presence. Later migrations (004, 007, 009) tightened RLS and pinned function search paths — follow that pattern in new SQL.
+- RLS gates which *rows* a client may write, never which *columns*. Anything privileged (`is_premium`, `username`, presence fields) is protected by column privileges instead — migration 010 revokes table-level UPDATE from `authenticated`/`anon` and grants back only the client-writable columns. A table-level UPDATE grant silently outranks column grants, so never re-grant one. Privileged writes go through `SECURITY DEFINER` RPCs or the service key.
 
 ## Deployment
 
-Push to `main` auto-deploys both halves independently, no GitHub Actions involved:
+Push to `main` auto-deploys both halves independently — each host watches the repo itself,
+there is no deploy workflow in this repo:
 - **Client** (`client/`) → Vercel. `NEXT_PUBLIC_*` env vars are set in the Vercel project
   and baked in at build time — changing one requires a redeploy, not just an env edit.
 - **Server** (`server/`) → Render (Node web service). `ALLOWED_ORIGIN` (comma-separated
   for multiple origins), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` are set in Render's
   Environment tab; the server exits at boot if the Supabase vars are missing.
+
+CI is separate from deploys: `.github/workflows/ci.yml` runs on PRs and pushes to `main` —
+server tests, then client `tsc --noEmit` + tests + `next build` (with dummy `NEXT_PUBLIC_*`
+values, since they're inlined at build time). There is deliberately **no lint job**:
+`npm run lint` currently reports ~28 pre-existing violations, so a blocking job would fail
+every PR and an advisory/`|| true` one would hide the signal. Burn the violations down
+first, then add a blocking lint job — don't add a soft one in the meantime.
 
 See `MIGRATE_TO_VERCEL.md` for the full migration history and gotchas. The old GCP VM /
 Docker-Compose/Nginx/GHCR pipeline has been retired.
