@@ -26,8 +26,24 @@ export function useGameSession(profile: Profile | null) {
   // ── Avatar & world ──────────────────────────────────────────────────────
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
   const [myPet, setMyPetState] = useState<PetType | null>(null);
-  // Ref mirror so reconnect/rejoin (registered once) sees the current pet
+  // Ref mirrors so the socket handlers — registered once with [] deps — read
+  // current values instead of whatever was captured at mount. Without these,
+  // an invite sent before a session exists is relayed by the session_created
+  // handler using profile=null ("Someone") and the default world ("forest").
   const myPetRef = useRef<PetType | null>(null);
+  const myWorldRef = useRef<WorldId>("forest");
+  const profileRef = useRef<Profile | null>(null);
+  useEffect(() => {
+    myWorldRef.current = myWorld;
+  }, [myWorld]);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
+  const inviterName = () =>
+    profileRef.current?.display_name ??
+    profileRef.current?.username ??
+    "Someone";
 
   // ── Session ─────────────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string>("");
@@ -154,9 +170,8 @@ export function useGameSession(profile: Profile | null) {
             socket.emit("send_invite", {
               targetUserId: target,
               sessionId: sid,
-              worldId: myWorld,
-              fromName:
-                profile?.display_name ?? profile?.username ?? "Someone",
+              worldId: myWorldRef.current,
+              fromName: inviterName(),
             });
           }
         },

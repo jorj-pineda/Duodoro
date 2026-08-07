@@ -25,6 +25,9 @@ interface Props {
   activeSessionId?: string;
   socketRef: { current: Socket | null };
   onFocus: (world: WorldId) => void;
+  /** Controlled by DuoTimer so the invite path sees the same choice */
+  selectedWorld: WorldId;
+  onSelectWorld: (world: WorldId) => void;
   onRejoinSession: () => void;
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
@@ -66,6 +69,8 @@ export default function HomeDashboard({
   activeSessionId,
   socketRef,
   onFocus,
+  selectedWorld,
+  onSelectWorld,
   onRejoinSession,
   onJoinSession,
   onInvite,
@@ -76,7 +81,6 @@ export default function HomeDashboard({
   onOpenFriends,
   onOpenStats,
 }: Props) {
-  const [selectedWorld, setSelectedWorld] = useState<WorldId>("forest");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { personalStats, loading, fetchStats } = useStats(profile.id);
 
@@ -290,7 +294,7 @@ export default function HomeDashboard({
               {WORLDS.map((w) => (
                 <button
                   key={w.id}
-                  onClick={() => setSelectedWorld(w.id)}
+                  onClick={() => onSelectWorld(w.id)}
                   className={`rounded-xl border overflow-hidden transition-all text-center ${
                     selectedWorld === w.id
                       ? "border-accent ring-2 ring-accent/40 text-ink shadow-sm"

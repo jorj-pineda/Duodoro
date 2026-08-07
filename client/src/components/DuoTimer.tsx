@@ -256,6 +256,8 @@ export default function DuoTimer() {
           activeSessionId={game.sessionId || undefined}
           socketRef={game.socketRef}
           onFocus={handleCreateSession}
+          selectedWorld={game.myWorld}
+          onSelectWorld={game.setMyWorld}
           onRejoinSession={() => setAppStep("game")}
           onJoinSession={handleJoinSession}
           onInvite={handleSendInvite}
