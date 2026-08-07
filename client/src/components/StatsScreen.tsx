@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
+import type { DailyFocus } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -35,25 +36,25 @@ const WORLD_EMOJI: Record<string, string> = {
 
 // ── Weekly Bar Chart ────────────────────────────────────────────────────────
 
-function WeeklyChart({ sessions }: { sessions: any[] }) {
-  const dailyData = useMemo(() => {
-    const days: { label: string; date: string; minutes: number }[] = [];
-    const now = new Date();
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
-      const label = d.toLocaleDateString("en-US", { weekday: "short" });
-
-      const mins = sessions
-        .filter((s: any) => s.completed && s.ended_at.startsWith(dateStr))
-        .reduce((sum: number, s: any) => sum + s.actual_focus / 60, 0);
-
-      days.push({ label, date: dateStr, minutes: Math.round(mins) });
-    }
-    return days;
-  }, [sessions]);
+function WeeklyChart({ days }: { days: DailyFocus[] }) {
+  // Fed by get_daily_focus, which aggregates server-side over the caller's
+  // whole history in their own timezone. This used to be derived from
+  // recentSessions — capped at 20 rows — so anyone doing more than 20 focus
+  // rounds in a week saw a silently undercounted chart, with the day buckets
+  // computed in UTC against a local "today" on top of that.
+  const dailyData = useMemo(
+    () =>
+      days.map((d) => ({
+        date: d.day,
+        // Parse as local, not UTC: new Date("2026-08-07") is midnight UTC and
+        // renders as the previous weekday for anyone behind it.
+        label: new Date(`${d.day}T00:00:00`).toLocaleDateString("en-US", {
+          weekday: "short",
+        }),
+        minutes: Math.round(d.focusSeconds / 60),
+      })),
+    [days],
+  );
 
   const maxMinutes = Math.max(...dailyData.map((d) => d.minutes), 1);
 
@@ -121,15 +122,12 @@ function BigStatCard({
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function StatsScreen({ open, onClose, userId }: Props) {
-  const { personalStats, duoStats, recentSessions, loading, fetchStats } =
+  const { personalStats, duoStats, recentSessions, dailyFocus, loading, fetchStats } =
     useStats(userId);
 
   useEffect(() => {
     if (open) fetchStats();
   }, [open, fetchStats]);
-
-  // All sessions (including incomplete) for chart data
-  const allSessions = recentSessions;
 
   return (
     <AnimatePresence>
@@ -198,7 +196,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
                 </div>
 
                 {/* Weekly Chart */}
-                <WeeklyChart sessions={allSessions} />
+                <WeeklyChart days={dailyFocus} />
 
                 {/* Duo Stats */}
                 {duoStats.length > 0 && (
