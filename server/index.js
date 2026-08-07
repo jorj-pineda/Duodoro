@@ -637,9 +637,16 @@ io.on('connection', (socket) => {
     socket.to(sessionId).emit('pet_changed', { playerId: socket.id, pet: safePet });
   });
 
-  // leave_session: { sessionId }
-  socket.on('leave_session', ({ sessionId }) => {
-    leaveSession(socket, sessionId);
+  // leave_session: no payload needed — the server knows which session this
+  // socket is in. Trusting a client-sent id let a bogus one orphan the real
+  // slot: leaveSession deletes socketToSession[socket.id] unconditionally,
+  // then finalizePlayerRemoval no-ops on the unknown session. The player stays
+  // in sessions[real].players with no socketToSession entry, so disconnect
+  // skips its removal block too — the slot leaks permanently, the session is
+  // never deleted, and its phase chain keeps recording fabricated focus.
+  socket.on('leave_session', () => {
+    const sessionId = socketToSession[socket.id];
+    if (sessionId) leaveSession(socket, sessionId);
   });
 
   // request_sync: no payload
