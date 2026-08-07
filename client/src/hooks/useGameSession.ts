@@ -80,6 +80,9 @@ export function useGameSession(profile: Profile | null) {
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
+  // Surfaced as a toast by DuoTimer — these used to be console-only, which left
+  // a refused join sitting on an empty game screen with no explanation.
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [inviteSentName, setInviteSentName] = useState<string | null>(null);
 
   // Pending outbound invite
@@ -179,7 +182,11 @@ export function useGameSession(profile: Profile | null) {
 
       socket.on("session_error", ({ message }: { message: string }) => {
         console.error("Session error:", message);
-        if (message === "Session not found") {
+        setSessionError(message);
+        // Both mean "you are not in a session" — drop any local state that
+        // says otherwise, so we don't sit on a screen for a session we
+        // aren't actually in.
+        if (message === "Session not found" || message === "This session is private") {
           // Stale resume attempt or expired invite — the server has already
           // removed us from any previous session, so mirror that here
           sessionStorage.removeItem(RESUME_KEY);
@@ -278,6 +285,7 @@ export function useGameSession(profile: Profile | null) {
       socket.on("invite_error", ({ message }: { message: string }) => {
         setInviteSentName(null);
         console.warn("Invite error:", message);
+        setSessionError(message);
       });
     }
 
@@ -559,6 +567,8 @@ export function useGameSession(profile: Profile | null) {
     // Invite state
     pendingInvite,
     dismissInvite,
+    sessionError,
+    clearSessionError: useCallback(() => setSessionError(null), []),
     inviteSentName,
   };
 }
