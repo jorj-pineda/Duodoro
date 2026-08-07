@@ -125,10 +125,15 @@ export default function FriendsPanel({
   onInviteFriend,
 }: Props) {
   const [tab, setTab] = useState<Tab>("friends");
-  const { friends, requests, acceptRequest, declineRequest } = useFriendsList(myProfile.id, open);
-  const { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest } = useFriendSearch(myProfile.id);
+  const { friends, requests, acceptRequest, declineRequest, error: listError, clearError: clearListError } = useFriendsList(myProfile.id, open);
+  const { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest, error: searchError, clearError: clearSearchError } = useFriendSearch(myProfile.id);
 
   const friendIds = new Set(friends.map((f) => f.id));
+  const error = listError ?? searchError;
+  const dismissError = () => {
+    clearListError();
+    clearSearchError();
+  };
 
   return (
     <AnimatePresence>
@@ -184,6 +189,23 @@ export default function FriendsPanel({
                   </button>
                 ))}
               </div>
+
+              {/* Action errors — these operations used to fail silently */}
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 px-3 py-2.5 bg-danger/10 border-b border-danger/30 text-danger text-xs"
+                >
+                  <span className="flex-1">{error}</span>
+                  <button
+                    onClick={dismissError}
+                    aria-label="Dismiss error"
+                    className="font-bold hover:opacity-70"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-3">

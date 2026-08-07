@@ -11,6 +11,7 @@ const {
   setPlayerPet,
   findPlayerByUserId,
   markPlayerDisconnected,
+  sessionParticipantIds,
   buildSyncPayload,
 } = require('./session');
 require('dotenv').config();
@@ -181,7 +182,10 @@ function broadcastPresence(userId, online) {
 
 // ── Session Recording ──────────────────────────────────────────────────────
 
-async function recordSession(sessionId, session, completed) {
+// participantIds lets callers pass a snapshot taken *before* they mutate
+// session.players — the abandoned-session path records the last player leaving,
+// by which point they're already gone from the live map.
+async function recordSession(sessionId, session, completed, participantIds) {
   if (!supabase) return;
 
   const elapsed = session.phaseStartTime
@@ -189,9 +193,7 @@ async function recordSession(sessionId, session, completed) {
     : 0;
   const actualFocus = completed ? session.focusDuration : Math.min(elapsed, session.focusDuration);
 
-  const userIds = Object.values(session.players)
-    .map(p => p.userId)
-    .filter(Boolean);
+  const userIds = participantIds ?? sessionParticipantIds(session);
 
   if (userIds.length === 0) return;
 
@@ -312,13 +314,17 @@ function finalizePlayerRemoval(sessionId, socketId) {
   const player = session.players[socketId];
   if (player.userId) clearPresence(player.userId);
 
+  // Snapshot participants before the removal — if this is the last player, the
+  // abandoned-focus record below still needs to know who was in the session.
+  const participantIds = sessionParticipantIds(session);
+
   const playerCount = removePlayer(session, socketId);
   console.log(`[${sessionId}] ${socketId} left (${playerCount} remaining)`);
 
   io.to(sessionId).emit('player_left', { playerId: socketId });
 
   if (playerCount === 0) {
-    if (session.phase === 'focus') recordSession(sessionId, session, false);
+    if (session.phase === 'focus') recordSession(sessionId, session, false, participantIds);
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
     delete sessions[sessionId];
     console.log(`[${sessionId}] Session deleted`);

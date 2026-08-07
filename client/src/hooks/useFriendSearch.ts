@@ -7,6 +7,7 @@ export function useFriendSearch(myProfileId: string) {
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const sb = getSupabase();
 
   const handleSearch = async () => {
@@ -37,16 +38,39 @@ export function useFriendSearch(myProfileId: string) {
         .neq("id", myProfileId)
         .limit(10);
     }
+    // Without this, a failed query is indistinguishable from "no such user"
+    if (result.error) setError("Search failed. Check your connection.");
     setSearchResults((result.data as Profile[]) ?? []);
     setLoading(false);
   };
 
   const sendRequest = async (targetId: string) => {
-    await sb
+    setError(null);
+    const { error: err } = await sb
       .from("friendships")
       .insert({ requester_id: myProfileId, addressee_id: targetId });
+    if (err) {
+      // 23505 = friendships_pair_unique. Very common: they already sent *you*
+      // a request, so the pair already exists in the other direction.
+      setError(
+        err.code === "23505"
+          ? "You already have a request or friendship with this person — check the Requests tab."
+          : "Couldn't send that request. Try again.",
+      );
+      return;
+    }
     setSentRequests((prev) => new Set([...prev, targetId]));
   };
 
-  return { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest };
+  return {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    loading,
+    handleSearch,
+    sentRequests,
+    sendRequest,
+    error,
+    clearError: () => setError(null),
+  };
 }

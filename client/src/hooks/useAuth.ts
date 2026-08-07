@@ -132,12 +132,23 @@ export function useAuth() {
         } else {
           const provisional = profileFromSession(session);
           applyProfile(provisional);
+          // Fallback only: the handle_new_user() trigger already creates this
+          // row at signup, and we also land here when the SELECT above merely
+          // timed out on a slow connection. ignoreDuplicates makes this a
+          // pure insert-if-missing (ON CONFLICT DO NOTHING) — without it, the
+          // conflict path would overwrite a real username with this generated
+          // one, and would need UPDATE rights on columns only the
+          // claim_username RPC should touch.
           sb.from("profiles")
-            .upsert({
-              id: provisional.id,
-              username: provisional.username + "_" + provisional.id.slice(0, 4),
-              display_name: provisional.display_name,
-            })
+            .upsert(
+              {
+                id: provisional.id,
+                username:
+                  provisional.username + "_" + provisional.id.slice(0, 4),
+                display_name: provisional.display_name,
+              },
+              { onConflict: "id", ignoreDuplicates: true },
+            )
             .then(() => {});
         }
       } catch {

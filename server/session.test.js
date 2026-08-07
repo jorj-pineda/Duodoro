@@ -6,6 +6,7 @@ import {
   setPlayerPet,
   findPlayerByUserId,
   markPlayerDisconnected,
+  sessionParticipantIds,
   buildSyncPayload,
 } from "./session.js";
 
@@ -100,6 +101,46 @@ describe("presence maps", () => {
     userSockets.delete("user-1");
     socketToUser.delete("socket-a");
     expect(userSockets.has("user-1")).toBe(false);
+  });
+});
+
+describe("sessionParticipantIds", () => {
+  it("collects the authenticated userIds in the session", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    addPlayer(s, "p2", { avatar: {}, displayName: "B", userId: "u2" });
+    expect(sessionParticipantIds(s).sort()).toEqual(["u1", "u2"]);
+  });
+
+  it("skips anonymous players", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    addPlayer(s, "p2", { avatar: {}, displayName: "B", userId: null });
+    expect(sessionParticipantIds(s)).toEqual(["u1"]);
+  });
+
+  // session_participants has a unique (session_id, user_id) index, so a
+  // repeated id would fail the batch insert and lose the whole record
+  it("dedupes a userId holding two slots", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    addPlayer(s, "p2", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(sessionParticipantIds(s)).toEqual(["u1"]);
+  });
+
+  it("returns an empty array for an empty session", () => {
+    expect(sessionParticipantIds(createSessionState("forest", "host"))).toEqual([]);
+  });
+
+  // The abandoned-focus bug: the last player is removed before recording, so
+  // the live map is empty by then and a snapshot is the only source of truth.
+  it("snapshot survives removal of the last player", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    const snapshot = sessionParticipantIds(s);
+    expect(removePlayer(s, "p1")).toBe(0);
+    expect(sessionParticipantIds(s)).toEqual([]);
+    expect(snapshot).toEqual(["u1"]);
   });
 });
 
