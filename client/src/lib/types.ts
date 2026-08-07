@@ -83,6 +83,13 @@ export type PersonalStats = {
   avgSessionLength: number;
 };
 
+/** One day of the activity chart, straight from get_daily_focus. */
+export type DailyFocus = {
+  day: string;          // YYYY-MM-DD in the caller's timezone
+  focusSeconds: number;
+  sessionCount: number;
+};
+
 export type DuoStats = {
   partnerId: string;
   partnerName: string;
