@@ -64,6 +64,18 @@ export default function DuoTimer() {
     if (!game.sessionId) setAppStep("game");
   };
 
+  // ── Socket-reported errors ──────────────────────────────────────────────
+  // A refused or stale join used to be console-only, stranding the user on an
+  // empty game screen reading "Setting up…". Show it and send them home.
+  useEffect(() => {
+    if (!game.sessionError) return;
+    showError(game.sessionError);
+    game.clearSessionError();
+    if (!game.sessionId) setAppStep((step) => (step === "game" ? "home" : step));
+    // showError/setAppStep are stable; re-running on sessionId would re-fire
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.sessionError]);
+
   // ── Resume after a page reload ──────────────────────────────────────────
   // The server holds our spot during its reconnect grace window; once we're
   // back on home with an avatar loaded, silently rejoin the stored session —

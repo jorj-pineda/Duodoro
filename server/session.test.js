@@ -6,6 +6,8 @@ import {
   setPlayerPet,
   findPlayerByUserId,
   markPlayerDisconnected,
+  inviteUser,
+  isInvited,
   sessionParticipantIds,
   buildSyncPayload,
 } from "./session.js";
@@ -141,6 +143,41 @@ describe("sessionParticipantIds", () => {
     expect(removePlayer(s, "p1")).toBe(0);
     expect(sessionParticipantIds(s)).toEqual([]);
     expect(snapshot).toEqual(["u1"]);
+  });
+});
+
+describe("invite allowlist", () => {
+  it("a new session has nobody invited", () => {
+    const s = createSessionState("forest", "host");
+    expect(s.invitedUserIds.size).toBe(0);
+    expect(isInvited(s, "u1")).toBe(false);
+  });
+
+  it("records an invited user", () => {
+    const s = createSessionState("forest", "host");
+    expect(inviteUser(s, "u1")).toBe(true);
+    expect(isInvited(s, "u1")).toBe(true);
+    expect(isInvited(s, "u2")).toBe(false);
+  });
+
+  it("is idempotent", () => {
+    const s = createSessionState("forest", "host");
+    inviteUser(s, "u1");
+    inviteUser(s, "u1");
+    expect(s.invitedUserIds.size).toBe(1);
+  });
+
+  it("ignores a null userId rather than allowlisting everyone", () => {
+    const s = createSessionState("forest", "host");
+    expect(inviteUser(s, null)).toBe(false);
+    expect(isInvited(s, null)).toBe(false);
+    expect(isInvited(s, undefined)).toBe(false);
+  });
+
+  it("stays out of the sync payload", () => {
+    const s = createSessionState("forest", "host");
+    inviteUser(s, "u1");
+    expect(buildSyncPayload(s)).not.toHaveProperty("invitedUserIds");
   });
 });
 

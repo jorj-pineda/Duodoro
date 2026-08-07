@@ -10,37 +10,21 @@ export function useFriendSearch(myProfileId: string) {
   const [error, setError] = useState<string | null>(null);
   const sb = getSupabase();
 
+  // Goes through the search_profiles RPC rather than selecting from profiles
+  // directly: the table's read policy is scoped to people you actually know,
+  // and the RPC returns public identity fields only — never presence. It also
+  // owns the tag-vs-partial split, wildcard escaping and the caller exclusion.
   const handleSearch = async () => {
     const query = searchQuery.trim();
     if (!query || query.length < 3) return;
     setLoading(true);
-    const hashIdx = query.indexOf("#");
+    setError(null);
 
-    let result;
-    if (hashIdx !== -1 && query.length > hashIdx + 1) {
-      // Full tag search: name#XXXX → exact match
-      const name = query.slice(0, hashIdx).toLowerCase();
-      const disc = query.slice(hashIdx + 1);
-      result = await sb
-        .from("profiles")
-        .select("id, username, discriminator, display_name, is_premium, current_room")
-        .eq("username", name)
-        .eq("discriminator", disc)
-        .neq("id", myProfileId)
-        .limit(10);
-    } else {
-      // Partial search: ilike on username — escape SQL wildcards
-      const escaped = query.replace(/%/g, "\\%").replace(/_/g, "\\_");
-      result = await sb
-        .from("profiles")
-        .select("id, username, discriminator, display_name, is_premium, current_room")
-        .ilike("username", `%${escaped}%`)
-        .neq("id", myProfileId)
-        .limit(10);
-    }
+    const { data, error: err } = await sb.rpc("search_profiles", { query });
+
     // Without this, a failed query is indistinguishable from "no such user"
-    if (result.error) setError("Search failed. Check your connection.");
-    setSearchResults((result.data as Profile[]) ?? []);
+    if (err) setError("Search failed. Check your connection.");
+    setSearchResults((data as Profile[]) ?? []);
     setLoading(false);
   };
 
