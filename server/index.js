@@ -181,6 +181,20 @@ async function areFriends(userId, otherUserId) {
   return friendIds.includes(otherUserId);
 }
 
+// Knowing a session UUID must not be enough to walk into it. Session ids leak
+// easily — profiles.current_session_id is readable by anyone the DB lets read
+// the row, and ids travel through invites and client state.
+async function canJoinSession(session, userId) {
+  if (!supabase) return true;                            // dev mode, see areFriends
+  if (!userId) return false;
+  if (findPlayerByUserId(session, userId)) return true;  // reconnecting to own slot
+  if (isInvited(session, userId)) return true;           // explicitly invited
+  // Otherwise you must already know someone in there — this is what keeps the
+  // "join" button on a friend's presence card working without an invite.
+  const friendIds = new Set(await getFriendIds(userId));
+  return sessionParticipantIds(session).some((id) => friendIds.has(id));
+}
+
 function broadcastPresence(userId, online) {
   getFriendIds(userId).then(friendIds => {
     for (const fid of friendIds) {
@@ -490,7 +504,7 @@ io.on('connection', (socket) => {
   // join_session: { sessionId, avatar, displayName, pet }
   // Joins an existing session by its UUID.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('join_session', ({ sessionId, avatar, displayName, pet }) => {
+  socket.on('join_session', async ({ sessionId, avatar, displayName, pet }) => {
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -506,9 +520,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const prevSession = socketToSession[socket.id];
-    if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
-
     const session = getSession(sessionId);
     if (!session) {
       socket.emit('session_error', { message: 'Session not found' });
@@ -516,6 +527,17 @@ io.on('connection', (socket) => {
     }
 
     const userId = socket.userId || null;
+
+    // Authorize *before* touching any existing state — a refused join must not
+    // eject the caller from the session they're already in.
+    if (!(await canJoinSession(session, userId))) {
+      socket.emit('session_error', { message: 'This session is private' });
+      console.log(`[${sessionId}] refused join from ${userId}`);
+      return;
+    }
+
+    const prevSession = socketToSession[socket.id];
+    if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
 
     // Reconnect: this user already has a player slot in the session under an
     // old socket id (grace-pending, or a zombie socket the server hasn't
