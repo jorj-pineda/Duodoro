@@ -9,6 +9,8 @@ const {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  inviteUser,
+  isInvited,
   findPlayerByUserId,
   markPlayerDisconnected,
   sessionParticipantIds,
@@ -167,6 +169,16 @@ async function getFriendIds(userId) {
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
   if (!data) return [];
   return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+}
+
+// Dev mode (no Supabase) has no friendship data at all; treat everyone as
+// friends there so local development isn't blocked by an unanswerable check.
+async function areFriends(userId, otherUserId) {
+  if (!supabase) return true;
+  if (!userId || !otherUserId) return false;
+  if (userId === otherUserId) return true;
+  const friendIds = await getFriendIds(userId);
+  return friendIds.includes(otherUserId);
 }
 
 function broadcastPresence(userId, online) {
@@ -389,7 +401,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Invite relay ────────────────────────────────────────────────────────
-  socket.on('send_invite', ({ targetUserId, sessionId, worldId, fromName }) => {
+  socket.on('send_invite', async ({ targetUserId, sessionId, worldId, fromName }) => {
     if (!rateLimits.sendInvite(socket.id)) {
       socket.emit('invite_error', { message: 'Too many invites, slow down' });
       return;
@@ -400,6 +412,15 @@ io.on('connection', (socket) => {
       socket.emit('invite_error', { message: 'You are not in this session' });
       return;
     }
+
+    // Friends only. get_online_friends already validates friendship; without
+    // the same check here, any online user could be pushed an invite whose
+    // attacker-controlled fromName renders in a full-screen modal.
+    if (!(await areFriends(socket.userId, targetUserId))) {
+      socket.emit('invite_error', { message: 'You can only invite friends' });
+      return;
+    }
+
     const targetSocketId = userSockets.get(targetUserId);
     if (!targetSocketId) {
       socket.emit('invite_error', { message: 'Friend is offline' });
@@ -409,6 +430,11 @@ io.on('connection', (socket) => {
     const fromUserId = socket.userId || null;
     const safeName = (typeof fromName === 'string' ? fromName : 'Someone').slice(0, MAX_DISPLAY_NAME);
     const safeWorld = VALID_WORLDS.includes(worldId) ? worldId : null;
+
+    // Allowlist the invitee so the join gate lets them in
+    if (typeof sessionId === 'string' && sessions[sessionId]) {
+      inviteUser(sessions[sessionId], targetUserId);
+    }
     io.to(targetSocketId).emit('session_invite', {
       sessionId: typeof sessionId === 'string' ? sessionId : null,
       worldId: safeWorld,
