@@ -191,7 +191,11 @@ async function recordSession(sessionId, session, completed, participantIds) {
   const elapsed = session.phaseStartTime
     ? Math.round((Date.now() - session.phaseStartTime) / 1000)
     : 0;
-  const actualFocus = completed ? session.focusDuration : Math.min(elapsed, session.focusDuration);
+  // In flow mode focusDuration is only a safety cap, never the real length —
+  // the elapsed time is the actual focus, whether it completed or not.
+  const actualFocus = (completed && session.mode !== 'flow')
+    ? session.focusDuration
+    : Math.min(elapsed, session.focusDuration);
 
   const userIds = participantIds ?? sessionParticipantIds(session);
 
@@ -282,6 +286,16 @@ function advancePhase(sessionId) {
   });
 
   console.log(`[${sessionId}] Phase: ${nextPhase}`);
+
+  // Flow focus is open-ended and ends only when a player emits
+  // finish_flow_focus — same as the initial start_session, which also skips
+  // the timer for flow. Scheduling one here is what made rounds 2+ silently
+  // auto-complete while the UI still offered a "take break" button.
+  if (session.mode === 'flow' && nextPhase === 'focus') {
+    session.phaseTimer = null;
+    return;
+  }
+
   session.phaseTimer = setTimeout(() => advancePhase(sessionId), delay);
 }
 
@@ -575,8 +589,11 @@ io.on('connection', (socket) => {
     // Limit elapsed time to MAX_FOCUS
     const effectiveFocus = Math.min(elapsedSeconds, session.focusDuration);
 
-    // Save accurate duration for records before advancing
-    session.focusDuration = effectiveFocus;
+    // NB: focusDuration stays at the MAX_FOCUS safety cap here. Overwriting it
+    // with the elapsed time made the *next* flow round no longer open-ended —
+    // it inherited the previous round's length as a hard timer — and also
+    // shrank the denominator the client renders flow progress against.
+    // recordSession derives the real figure from elapsed time in flow mode.
     // Calculate break: ~1/5 of focus time, min 60s, max MAX_BREAK
     session.breakDuration = Math.min(Math.max(60, Math.round(effectiveFocus / 5)), MAX_BREAK);
 
