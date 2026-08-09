@@ -123,4 +123,46 @@ describe("useGameSession connection lifecycle", () => {
     );
   });
 
+  // The core bug: after reconnect_failed nothing ever called socket.connect()
+  // again, so a tab backgrounded past the retry budget was stranded even
+  // though the server still held the slot.
+  it("reconnects when the tab returns after the retry budget is exhausted", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("session_created", { sessionId: "sess-1" }));
+    await waitFor(() => expect(result.current.sessionId).toBe("sess-1"));
+
+    // Drop, then exhaust socket.io's automatic retries.
+    act(() => fakeSocket.disconnect());
+    act(() => fakeSocket.io.fire("reconnect_failed"));
+    await waitFor(() => expect(result.current.connectionState).toBe("offline"));
+
+    const before = fakeSocket.connectCalls;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    await waitFor(() =>
+      expect(fakeSocket.connectCalls).toBeGreaterThan(before),
+    );
+  });
+
+  it("reconnects when the browser reports the network is back", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("session_created", { sessionId: "sess-1" }));
+    await waitFor(() => expect(result.current.sessionId).toBe("sess-1"));
+
+    act(() => fakeSocket.disconnect());
+    act(() => fakeSocket.io.fire("reconnect_failed"));
+    await waitFor(() => expect(result.current.connectionState).toBe("offline"));
+
+    const before = fakeSocket.connectCalls;
+    act(() => window.dispatchEvent(new Event("online")));
+
+    await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
+  });
+
 });

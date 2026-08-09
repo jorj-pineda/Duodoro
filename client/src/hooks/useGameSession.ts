@@ -307,18 +307,43 @@ export function useGameSession(profile: Profile | null) {
         });
       };
 
+      // socket.io stops for good once reconnectionAttempts is exhausted, and
+      // nothing else ever calls connect(). A phone backgrounded for a minute
+      // therefore landed on "connection lost" permanently — while the server
+      // was still holding the player's slot for RECONNECT_GRACE_MS. These are
+      // the two moments worth retrying on: the user looked at the tab again,
+      // or the OS says the network is back.
+      const reconnectNow = async () => {
+        if (socket.connected) return;
+        setConnectionState("reconnecting");
+        // The access token may well have expired while we were away.
+        const {
+          data: { session: fresh },
+        } = await sb.auth.getSession();
+        if (fresh?.access_token) socket.auth = { token: fresh.access_token };
+        socket.connect();
+      };
+
       const onVisibility = () => {
         if (document.visibilityState !== "visible") return;
-        if (sessionIdRef.current && socket.connected) {
-          socket.emit("request_sync");
+        if (!socket.connected) {
+          reconnectNow();
+          return;
         }
+        if (sessionIdRef.current) socket.emit("request_sync");
+      };
+
+      const onOnline = () => {
+        if (!socket.connected) reconnectNow();
       };
 
       socket.io.on("reconnect", rejoinIfNeeded);
       document.addEventListener("visibilitychange", onVisibility);
+      window.addEventListener("online", onOnline);
       detachResume = () => {
         socket.io.off("reconnect", rejoinIfNeeded);
         document.removeEventListener("visibilitychange", onVisibility);
+        window.removeEventListener("online", onOnline);
       };
     }
 
