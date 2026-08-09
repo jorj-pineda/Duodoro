@@ -9,6 +9,7 @@ import {
   inviteUser,
   isInvited,
   sessionParticipantIds,
+  findUserSessions,
   buildSyncPayload,
 } from "./session.js";
 
@@ -223,5 +224,39 @@ describe("setPlayerPet", () => {
   it("returns false for a socket that is not a player", () => {
     const s = createSessionState("forest", "host");
     expect(setPlayerPet(s, "ghost", "cat")).toBe(false);
+  });
+});
+
+describe("findUserSessions", () => {
+  const withPlayers = (...users) => {
+    const s = createSessionState("forest", "host");
+    users.forEach((u, i) =>
+      addPlayer(s, `sock-${u}-${i}`, { avatar: {}, displayName: u, userId: u }),
+    );
+    return s;
+  };
+
+  it("finds the one session a user is in", () => {
+    const sessions = { a: withPlayers("u1"), b: withPlayers("u2") };
+    expect(findUserSessions(sessions, "u1")).toEqual(["a"]);
+  });
+
+  // The multi-tab case: presence must not be cleared while another tab is
+  // still in a live session.
+  it("finds every session a user holds a slot in", () => {
+    const sessions = { a: withPlayers("u1"), b: withPlayers("u1", "u2") };
+    expect(findUserSessions(sessions, "u1").sort()).toEqual(["a", "b"]);
+  });
+
+  it("returns empty for a user who is in none", () => {
+    expect(findUserSessions({ a: withPlayers("u1") }, "u9")).toEqual([]);
+  });
+
+  it("returns empty for a null userId", () => {
+    expect(findUserSessions({ a: withPlayers("u1") }, null)).toEqual([]);
+  });
+
+  it("handles no sessions at all", () => {
+    expect(findUserSessions({}, "u1")).toEqual([]);
   });
 });
