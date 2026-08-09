@@ -130,6 +130,8 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
     toggleTask,
     deleteTask,
     clearCompleted,
+    error,
+    clearError,
   } = useStickyNotes(open, userId, roomCode);
 
   const color = NOTE_COLORS[colorIdx];
@@ -296,6 +298,21 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
               )}
 
               {/* Task list */}
+              {error && (
+                <div
+                  role="alert"
+                  className="mx-4 mb-1 flex items-start gap-2 px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-xs"
+                >
+                  <span className="flex-1">{error}</span>
+                  <button
+                    onClick={clearError}
+                    aria-label="Dismiss error"
+                    className="font-bold hover:opacity-70"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto px-4 py-2">
                 {tab === "shared" && !roomCode ? (
                   <p

@@ -12,6 +12,8 @@ interface Props {
   toggleTask: (id: string, done: boolean) => void;
   deleteTask: (id: string) => void;
   clearCompleted: () => void;
+  error?: string | null;
+  onDismissError?: () => void;
 }
 
 export default function TaskSection({
@@ -24,9 +26,28 @@ export default function TaskSection({
   toggleTask,
   deleteTask,
   clearCompleted,
+  error,
+  onDismissError,
 }: Props) {
   return (
     <div className="bg-surface rounded-2xl border border-line p-4">
+      {error && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-xs"
+        >
+          <span className="flex-1">{error}</span>
+          {onDismissError && (
+            <button
+              onClick={onDismissError}
+              aria-label="Dismiss error"
+              className="font-bold hover:opacity-70"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-faint uppercase tracking-wider">
           Goals

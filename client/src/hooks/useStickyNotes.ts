@@ -13,6 +13,9 @@ export function useStickyNotes(
   const [tab, setTab] = useState<Tab>("mine");
   const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [sharedTasks, setSharedTasks] = useState<Task[]>([]);
+  // Writes can legitimately be refused now that migration 016 scopes shared
+  // notes to the session you're in; these used to update local state blindly.
+  const [error, setError] = useState<string | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [colorIdx, setColorIdx] = useState(0);
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -92,15 +95,38 @@ export function useStickyNotes(
       is_shared: shared,
       room_code: shared ? roomCode : null,
     };
-    const { data } = await sb.from("tasks").insert(row).select().single();
-    if (data) {
-      if (shared) setSharedTasks((p) => [...p, data as Task]);
-      else setMyTasks((p) => [...p, data as Task]);
+    const { data, error: err } = await sb
+      .from("tasks")
+      .insert(row)
+      .select()
+      .single();
+    if (err || !data) {
+      // Shared writes are scoped to the session you're actually in (016), so
+      // this can fail for a real reason rather than a transient one.
+      setError(
+        shared
+          ? "Couldn't add that shared goal. Are you still in the session?"
+          : "Couldn't save that note.",
+      );
+      return;
     }
+    if (shared) setSharedTasks((p) => [...p, data as Task]);
+    else setMyTasks((p) => [...p, data as Task]);
   };
 
   const toggleTask = async (id: string, done: boolean) => {
-    await sb.from("tasks").update({ is_done: done }).eq("id", id);
+    setError(null);
+    // RLS refusing this is not an error — it matches zero rows. Ticking off a
+    // note you don't own silently reverted on the next fetch.
+    const { data, error: err } = await sb
+      .from("tasks")
+      .update({ is_done: done })
+      .eq("id", id)
+      .select("id");
+    if (err || !data || data.length === 0) {
+      setError("Couldn't update that note.");
+      return;
+    }
     const update = (list: Task[]) =>
       list.map((t) => (t.id === id ? { ...t, is_done: done } : t));
     setMyTasks(update);
@@ -108,15 +134,35 @@ export function useStickyNotes(
   };
 
   const deleteTask = async (id: string) => {
-    await sb.from("tasks").delete().eq("id", id);
+    setError(null);
+    const { data, error: err } = await sb
+      .from("tasks")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (err || !data || data.length === 0) {
+      setError("Couldn't delete that note.");
+      return;
+    }
     setMyTasks((p) => p.filter((t) => t.id !== id));
     setSharedTasks((p) => p.filter((t) => t.id !== id));
   };
 
   const clearCompleted = async () => {
     const list = tab === "mine" ? myTasks : sharedTasks;
-    const done = list.filter((t) => t.is_done);
-    for (const t of done) await deleteTask(t.id);
+    const ids = list.filter((t) => t.is_done).map((t) => t.id);
+    if (ids.length > 0) {
+      setError(null);
+      // One round trip, not one per note
+      const { error: err } = await sb.from("tasks").delete().in("id", ids);
+      if (err) {
+        setError("Couldn't clear those notes.");
+        return;
+      }
+      const drop = (l: Task[]) => l.filter((t) => !ids.includes(t.id));
+      setMyTasks(drop);
+      setSharedTasks(drop);
+    }
     setShowOptions(false);
   };
 
@@ -137,5 +183,7 @@ export function useStickyNotes(
     toggleTask,
     deleteTask,
     clearCompleted,
+    error,
+    clearError: () => setError(null),
   };
 }
