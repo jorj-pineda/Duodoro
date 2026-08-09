@@ -94,6 +94,8 @@ export default function HomeDashboard({
     pendingTasks,
     completedTasks,
     clearCompleted,
+    error: taskError,
+    clearError: clearTaskError,
   } = useTasks(profile.id);
 
   const { friends, onlineFriendIds } = useOnlineFriends(profile.id, socketRef);
@@ -277,6 +279,8 @@ export default function HomeDashboard({
             toggleTask={toggleTask}
             deleteTask={deleteTask}
             clearCompleted={clearCompleted}
+            error={taskError}
+            onDismissError={clearTaskError}
           />
 
           <FriendsOnlineSection
