@@ -15,6 +15,7 @@ const {
   findPlayerByUserId,
   markPlayerDisconnected,
   sessionParticipantIds,
+  findUserSessions,
   buildSyncPayload,
 } = require('./session');
 require('dotenv').config();
@@ -353,7 +354,6 @@ function finalizePlayerRemoval(sessionId, socketId) {
   if (!session || !session.players[socketId]) return;
 
   const player = session.players[socketId];
-  if (player.userId) clearPresence(player.userId);
 
   // Snapshot participants before the removal — if this is the last player, the
   // abandoned-focus record below still needs to know who was in the session.
@@ -370,8 +370,27 @@ function finalizePlayerRemoval(sessionId, socketId) {
     delete sessions[sessionId];
     console.log(`[${sessionId}] Session deleted`);
   }
+  // Presence is refreshed *after* the removal, so it reflects where the user
+  // actually is now. Clearing it unconditionally here wiped the row while
+  // another tab was still in a live session — presence.js was made
+  // multi-socket-aware but this DB mirror was left single-writer.
+  if (player.userId) refreshPresence(player.userId);
+
   // If players remain, the session keeps running for them (solo continuation
   // is intentional — sessions can also be started solo).
+}
+
+// Point the profile row at whichever session this user is still in, or clear
+// it when they're in none.
+function refreshPresence(userId) {
+  if (!userId) return;
+  const remaining = findUserSessions(sessions, userId);
+  if (remaining.length === 0) {
+    clearPresence(userId);
+    return;
+  }
+  const sessionId = remaining[0];
+  setPresence(userId, sessionId, sessions[sessionId].world);
 }
 
 function leaveSession(socket, sessionId) {
