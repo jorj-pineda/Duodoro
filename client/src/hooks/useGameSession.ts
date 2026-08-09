@@ -124,6 +124,7 @@ export function useGameSession(profile: Profile | null) {
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+    let detachResume = () => {};
 
     async function connectSocket() {
       const {
@@ -287,12 +288,45 @@ export function useGameSession(profile: Profile | null) {
         console.warn("Invite error:", message);
         setSessionError(message);
       });
+
+      // ── Resume handlers ───────────────────────────────────────────────
+      // These used to live in a separate mount effect that read
+      // socketRef.current — but the socket is created after an await here, so
+      // that ref was still null and the listeners were never attached at all.
+      // Mobile browsers close backgrounded WebSockets aggressively, so this is
+      // the path that gets a player back into their session.
+      const rejoinIfNeeded = () => {
+        const sid = sessionIdRef.current;
+        const avatar = lastAvatarRef.current;
+        if (!sid || !avatar) return;
+        socket.emit("join_session", {
+          sessionId: sid,
+          avatar,
+          displayName: lastDisplayNameRef.current,
+          pet: myPetRef.current,
+        });
+      };
+
+      const onVisibility = () => {
+        if (document.visibilityState !== "visible") return;
+        if (sessionIdRef.current && socket.connected) {
+          socket.emit("request_sync");
+        }
+      };
+
+      socket.io.on("reconnect", rejoinIfNeeded);
+      document.addEventListener("visibilitychange", onVisibility);
+      detachResume = () => {
+        socket.io.off("reconnect", rejoinIfNeeded);
+        document.removeEventListener("visibilitychange", onVisibility);
+      };
     }
 
     connectSocket();
 
     return () => {
       cancelled = true;
+      detachResume();
       socketRef.current?.disconnect();
     };
     // Deliberately mount-only: this owns the single socket connection for the
@@ -316,49 +350,6 @@ export function useGameSession(profile: Profile | null) {
       socket.off("connect", onConnect);
     };
   }, [profile?.id]);
-
-  // ── Resume sync: rejoin on reconnect, request sync on tab wake ──────────
-  // Mobile browsers (esp. iOS Safari) close backgrounded WebSockets after
-  // ~30s. The server removes the player on disconnect, so on reconnect we
-  // re-emit join_session with the cached avatar so the new socket lands
-  // back inside the same session. When the tab just loses focus without
-  // disconnecting, request_sync refreshes phase/state in case we drifted.
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const rejoinIfNeeded = () => {
-      const sid = sessionIdRef.current;
-      const avatar = lastAvatarRef.current;
-      if (!sid || !avatar) return;
-      socket.emit("join_session", {
-        sessionId: sid,
-        avatar,
-        displayName: lastDisplayNameRef.current,
-        pet: myPetRef.current,
-      });
-    };
-
-    const onVisibility = () => {
-      if (typeof document === "undefined") return;
-      if (document.visibilityState !== "visible") return;
-      if (!sessionIdRef.current) return;
-      if (socket.connected) {
-        socket.emit("request_sync");
-      }
-    };
-
-    socket.io.on("reconnect", rejoinIfNeeded);
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
-    return () => {
-      socket.io.off("reconnect", rejoinIfNeeded);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
-    };
-  }, []);
 
   // ── Sound effects on phase transitions ──────────────────────────────────
   useEffect(() => {
