@@ -4,6 +4,14 @@ import { getSupabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/types";
 import type { Socket } from "socket.io-client";
 
+// PostgREST embedded-resource shape; no generated DB types in this repo.
+type FriendshipRow = {
+  requester_id: string;
+  addressee_id: string;
+  requester: Profile | null;
+  addressee: Profile | null;
+};
+
 export function useOnlineFriends(
   userId: string,
   socketRef: { current: Socket | null },
@@ -27,9 +35,9 @@ export function useOnlineFriends(
       .eq("status", "accepted");
     if (data) {
       setFriends(
-        data.map((f: any) =>
-          f.requester_id === userId ? f.addressee : f.requester,
-        ) as Profile[],
+        (data as unknown as FriendshipRow[])
+          .map((f) => (f.requester_id === userId ? f.addressee : f.requester))
+          .filter((p): p is Profile => Boolean(p)),
       );
     }
   }, [sb, userId]);

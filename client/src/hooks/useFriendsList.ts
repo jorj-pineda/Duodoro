@@ -2,6 +2,18 @@ import { useEffect, useState, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/types";
 
+// Shape of the embedded-resource rows PostgREST returns for the two queries
+// below. There are no generated DB types in this repo, so the client can't
+// infer them.
+type FriendshipRow = {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  requester: Profile | null;
+  addressee: Profile | null;
+};
+type RequestRow = { id: string; requester: Profile | null };
+
 export function useFriendsList(myProfileId: string, active: boolean) {
   const [friends, setFriends] = useState<Profile[]>([]);
   const [requests, setRequests] = useState<
@@ -23,10 +35,15 @@ export function useFriendsList(myProfileId: string, active: boolean) {
       .eq("status", "accepted");
 
     if (data) {
+      const rows = data as unknown as FriendshipRow[];
       setFriends(
-        data.map((f: any) =>
-          f.requester_id === myProfileId ? f.addressee : f.requester,
-        ) as Profile[],
+        rows
+          .map((f) =>
+            f.requester_id === myProfileId ? f.addressee : f.requester,
+          )
+          // An unreadable profile embeds as null; dropping those beats
+          // pushing a hole into the list for the UI to dereference.
+          .filter((p): p is Profile => Boolean(p)),
       );
     }
 
@@ -43,7 +60,11 @@ export function useFriendsList(myProfileId: string, active: boolean) {
 
     if (reqs) {
       setRequests(
-        reqs.map((r: any) => ({ id: r.id, requester: r.requester as Profile })),
+        (reqs as unknown as RequestRow[])
+          .filter((r): r is { id: string; requester: Profile } =>
+            Boolean(r.requester),
+          )
+          .map((r) => ({ id: r.id, requester: r.requester })),
       );
     }
   }, [sb, myProfileId]);
