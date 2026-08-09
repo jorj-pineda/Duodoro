@@ -165,4 +165,45 @@ describe("useGameSession connection lifecycle", () => {
     await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
   });
 
+  // Manual reconnects don't emit the manager's "reconnect" event, so rejoin
+  // must hang off plain "connect" or the player silently isn't in the session.
+  it("rejoins the session on a manual reconnect, not just an automatic one", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+
+    act(() => fakeSocket.connect());
+    act(() =>
+      fakeSocket.fire("sync_state", {
+        mode: "pomodoro",
+        phase: "waiting",
+        focusDuration: 1500,
+        breakDuration: 300,
+        phaseStartTime: null,
+        world: "forest",
+        players: {},
+        playerCount: 1,
+        sessionId: "sess-1",
+      }),
+    );
+    await waitFor(() => expect(result.current.sessionId).toBe("sess-1"));
+
+    // joinSession caches the avatar/name the rejoin needs
+    act(() =>
+      result.current.joinSession("sess-1", {
+        skinColor: "#e0ac69",
+        hairStyle: "bob",
+        hairColor: "#222222",
+        eyeStyle: "normal",
+        outfitColor: "#3355aa",
+      }),
+    );
+
+    act(() => fakeSocket.disconnect());
+    fakeSocket.emitted.length = 0;
+    act(() => fakeSocket.connect());
+
+    await waitFor(() =>
+      expect(fakeSocket.emittedNames()).toContain("join_session"),
+    );
+  });
 });

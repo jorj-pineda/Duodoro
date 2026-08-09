@@ -337,11 +337,16 @@ export function useGameSession(profile: Profile | null) {
         if (!socket.connected) reconnectNow();
       };
 
-      socket.io.on("reconnect", rejoinIfNeeded);
+      // Hangs off plain "connect", not the manager's "reconnect": that event
+      // only fires for socket.io's own automatic retries, so a reconnect we
+      // triggered ourselves would land the socket back online without ever
+      // rejoining the session. Safe to run on every connect — join_session
+      // re-keys an existing slot, and this no-ops before there is a session.
+      socket.on("connect", rejoinIfNeeded);
       document.addEventListener("visibilitychange", onVisibility);
       window.addEventListener("online", onOnline);
       detachResume = () => {
-        socket.io.off("reconnect", rejoinIfNeeded);
+        socket.off("connect", rejoinIfNeeded);
         document.removeEventListener("visibilitychange", onVisibility);
         window.removeEventListener("online", onOnline);
       };
