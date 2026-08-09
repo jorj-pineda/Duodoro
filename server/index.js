@@ -768,8 +768,44 @@ io.on('connection', (socket) => {
   });
 });
 
+// Live sessions are in-memory and die with the process, but profiles.
+// current_session_id is in Postgres and doesn't. Render redeploys on every
+// push to main, so without this sweep everyone who was mid-session at that
+// moment keeps a "Join" button forever that always errors with "Session not
+// found" — and migration 013's tasks_read keeps trusting that column as proof
+// of where they are.
+async function clearAllPresence(reason) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('profiles')
+    .update({ current_session_id: null, current_world_id: null, current_room: null })
+    .not('current_session_id', 'is', null);
+  if (error) {
+    console.error(`[presence] ${reason} sweep failed:`, error.message);
+  } else {
+    console.log(`[presence] cleared stale presence (${reason})`);
+  }
+}
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+  await clearAllPresence('boot');
 });
+
+// Render sends SIGTERM before replacing the instance. Clearing on the way out
+// keeps the window where presence is wrong down to the deploy itself rather
+// than lasting until someone happens to rejoin.
+let shuttingDown = false;
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[shutdown] ${signal} received`);
+    await clearAllPresence('shutdown');
+    server.close(() => process.exit(0));
+    // Don't hang forever if sockets refuse to close
+    setTimeout(() => process.exit(0), 5000).unref();
+  });
+}
