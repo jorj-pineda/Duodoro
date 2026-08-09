@@ -79,6 +79,16 @@ function sessionParticipantIds(session) {
   ];
 }
 
+// Every session id this user currently holds a slot in. One user can be in
+// more than one at a time — socketToSession is per socket, so a second tab
+// joins a second session without leaving the first.
+function findUserSessions(sessions, userId) {
+  if (!userId) return [];
+  return Object.entries(sessions)
+    .filter(([, session]) => findPlayerByUserId(session, userId))
+    .map(([sessionId]) => sessionId);
+}
+
 function buildSyncPayload(session) {
   return {
     mode: session.mode,
@@ -103,5 +113,6 @@ module.exports = {
   findPlayerByUserId,
   markPlayerDisconnected,
   sessionParticipantIds,
+  findUserSessions,
   buildSyncPayload,
 };
