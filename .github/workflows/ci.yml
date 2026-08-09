@@ -43,6 +43,9 @@ jobs:
       - run: npx tsc --noEmit
         working-directory: client
 
+      - run: npm run lint
+        working-directory: client
+
       - run: npm run test:run
         working-directory: client
 
@@ -56,10 +59,3 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
           NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
-
-# No lint job yet, deliberately. `npm run lint` currently reports ~28
-# pre-existing violations (mostly no-explicit-any in hooks/ plus a few
-# setState-in-effect) in files unrelated to any current work. Adding it as a
-# failing-but-advisory check would paint every PR red and train us to ignore
-# CI; adding it as `|| true` would paint every PR green and hide the signal.
-# The fix is to burn the violations down, then add a blocking lint job here.
