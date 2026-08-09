@@ -206,4 +206,20 @@ describe("useGameSession connection lifecycle", () => {
       expect(fakeSocket.emittedNames()).toContain("join_session"),
     );
   });
+
+  // The banner's action used to be a full page reload — the only recovery
+  // available when nothing could re-open the socket.
+  it("exposes a reconnect() the connection banner can call", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.disconnect());
+    act(() => fakeSocket.io.fire("reconnect_failed"));
+    await waitFor(() => expect(result.current.connectionState).toBe("offline"));
+
+    const before = fakeSocket.connectCalls;
+    act(() => result.current.reconnect());
+    await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
+  });
 });

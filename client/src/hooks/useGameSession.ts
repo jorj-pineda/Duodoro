@@ -65,6 +65,9 @@ export function useGameSession(profile: Profile | null) {
   // ── Connection ──────────────────────────────────────────────────────────
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
+  // Populated once the socket exists, so the UI can ask for a reconnect
+  // without reaching into the socket itself.
+  const reconnectRef = useRef<() => void>(() => {});
   // "reconnecting" = socket.io is retrying and the server is likely still
   // holding our slot; "offline" = retries exhausted, the session is gone.
   const [connectionState, setConnectionState] = useState<
@@ -330,6 +333,8 @@ export function useGameSession(profile: Profile | null) {
         socket.connect();
       };
 
+      reconnectRef.current = () => void reconnectNow();
+
       const onVisibility = () => {
         if (document.visibilityState !== "visible") return;
         if (!socket.connected) {
@@ -573,6 +578,7 @@ export function useGameSession(profile: Profile | null) {
     myId,
     socketRef,
     connectionState,
+    reconnect: useCallback(() => reconnectRef.current(), []),
     // Derived
     timeLeft,
     flowElapsed,

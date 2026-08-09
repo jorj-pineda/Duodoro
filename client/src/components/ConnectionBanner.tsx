@@ -17,8 +17,11 @@ interface Props {
 /**
  * Tells you when *your own* connection dropped. The countdown on screen is
  * driven by an absolute server timestamp so it stays accurate while offline,
- * but phase changes won't arrive — and if socket.io's retries run out, the
- * server's reconnect grace window will have expired and the session is gone.
+ * but phase changes won't arrive until the socket is back.
+ *
+ * "Retry" reconnects in place. It used to reload the page, which was the only
+ * recovery available when nothing could re-open the socket — a full reload
+ * costs the React tree and re-runs auth for what is usually a brief outage.
  */
 export default function ConnectionBanner({ state, inSession, onRetry }: Props) {
   const visible = inSession && (state === "reconnecting" || state === "offline");
@@ -47,7 +50,7 @@ export default function ConnectionBanner({ state, inSession, onRetry }: Props) {
                 onClick={onRetry}
                 className="underline underline-offset-2 hover:no-underline"
               >
-                Reload
+                Retry
               </button>
             </>
           ) : (
