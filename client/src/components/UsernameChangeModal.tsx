@@ -34,8 +34,8 @@ export default function UsernameChangeModal({
     setError("");
     try {
       await onSubmit(value);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to change username");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to change username");
       setSubmitting(false);
     }
   };

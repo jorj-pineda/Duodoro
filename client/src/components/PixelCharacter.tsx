@@ -176,13 +176,16 @@ export default function PixelCharacter({
   const [walkFrame, setWalkFrame] = useState(0);
 
   useEffect(() => {
-    if (anim !== "walk") {
-      setWalkFrame(0);
-      return;
-    }
+    // Only run the cycle while walking. The not-walking case used to
+    // setWalkFrame(0) synchronously here, which is a cascading render — the
+    // resting frame is derived below instead.
+    if (anim !== "walk") return;
     const id = setInterval(() => setWalkFrame((f) => (f + 1) % 4), 180);
     return () => clearInterval(id);
   }, [anim]);
+
+  // Anything that isn't a walk renders the neutral stance.
+  const frame = anim === "walk" ? walkFrame : 0;
 
   const pantsColor = darken(outfitColor, 0.3);
   const shoeColor = "#2a2a2a";
@@ -200,7 +203,7 @@ export default function PixelCharacter({
 
   const legPos =
     anim === "walk"
-      ? getWalkLegPos(walkFrame)
+      ? getWalkLegPos(frame)
       : { leftLegY: 18, rightLegY: 18, leftFootY: 23, rightFootY: 23 };
 
   // Sit pose offsets — legs come forward, arms go down
@@ -240,7 +243,7 @@ export default function PixelCharacter({
           {/* Left arm */}
           <g
             transform={
-              anim === "walk" && walkFrame % 4 < 2 ? "translate(0,1)" : ""
+              anim === "walk" && frame % 4 < 2 ? "translate(0,1)" : ""
             }
           >
             <rect x={1} y={12} width={3} height={2} fill={outfitColor} />
@@ -249,7 +252,7 @@ export default function PixelCharacter({
           {/* Right arm */}
           <g
             transform={
-              anim === "walk" && walkFrame % 4 >= 2 ? "translate(0,1)" : ""
+              anim === "walk" && frame % 4 >= 2 ? "translate(0,1)" : ""
             }
           >
             <rect x={12} y={12} width={3} height={2} fill={outfitColor} />

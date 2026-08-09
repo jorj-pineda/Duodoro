@@ -44,8 +44,8 @@ export default function DisplayNameChangeModal({
     setError("");
     try {
       await onSubmit(trimmed);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to change display name");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to change display name");
       setSubmitting(false);
     }
   };
