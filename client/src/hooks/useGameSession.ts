@@ -134,8 +134,14 @@ export function useGameSession(profile: Profile | null) {
 
       const socket = io(SOCKET_URL, {
         reconnection: true,
-        reconnectionAttempts: 10,
+        // Ten attempts against socket.io's 5s backoff cap is ~40s, which
+        // expires *inside* the server's 60s reconnect grace — the automatic
+        // retries gave up while the slot was still being held. 20 covers it
+        // with margin. Beyond that the tab-wake / online handlers take over,
+        // so a longer outage still recovers without a reload.
+        reconnectionAttempts: 20,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
         auth: { token: session?.access_token ?? "" },
       });
       socketRef.current = socket;
