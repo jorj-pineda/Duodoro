@@ -145,20 +145,21 @@ export default function PetCharacter({
   const [walkFrame, setWalkFrame] = useState(0);
 
   useEffect(() => {
-    if (anim !== "walk") {
-      setWalkFrame(0);
-      return;
-    }
+    // See PixelCharacter: resetting the frame in the effect body was a
+    // synchronous setState, so the resting frame is derived instead.
+    if (anim !== "walk") return;
     const id = setInterval(() => setWalkFrame((f) => (f + 1) % 2), 250);
     return () => clearInterval(id);
   }, [anim]);
+
+  const frame = anim === "walk" ? walkFrame : 0;
 
   let animClass = "";
   if (anim === "idle") animClass = "pixel-idle";
   if (anim === "jump") animClass = "pixel-jump";
   if (anim === "float") animClass = "pixel-float";
 
-  const legUp = walkFrame === 0;
+  const legUp = frame === 0;
 
   const PetPixels = {
     cat: CatPixels,
