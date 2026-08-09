@@ -295,6 +295,10 @@ export function useGameSession(profile: Profile | null) {
       cancelled = true;
       socketRef.current?.disconnect();
     };
+    // Deliberately mount-only: this owns the single socket connection for the
+    // session's lifetime. sb is a module-level singleton, so sb.auth is stable
+    // and listing it would not change when this runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Register presence ───────────────────────────────────────────────────

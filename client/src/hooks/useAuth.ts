@@ -42,10 +42,8 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true;
     let sessionHandled = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
-
     const hasOAuthCode = window.location.search.includes("code=");
-    timeoutId = setTimeout(
+    const timeoutId = setTimeout(
       () => {
         if (mounted) setAppStep("landing");
       },
