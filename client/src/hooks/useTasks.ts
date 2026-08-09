@@ -19,6 +19,11 @@ export function useTasks(ownerId: string) {
   }, [sb, ownerId]);
 
   useEffect(() => {
+    // The rule can't see through the async boundary: these fetchers await a
+    // network round trip before any setState, so nothing here is a synchronous
+    // cascading render. Suppressed rather than restructured — the alternative
+    // is a data-fetching library, which is a bigger change than this earns.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTasks();
   }, [fetchTasks]);
 
