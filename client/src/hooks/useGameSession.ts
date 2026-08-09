@@ -65,6 +65,9 @@ export function useGameSession(profile: Profile | null) {
   // ── Connection ──────────────────────────────────────────────────────────
   const [myId, setMyId] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
+  // Populated once the socket exists, so the UI can ask for a reconnect
+  // without reaching into the socket itself.
+  const reconnectRef = useRef<() => void>(() => {});
   // "reconnecting" = socket.io is retrying and the server is likely still
   // holding our slot; "offline" = retries exhausted, the session is gone.
   const [connectionState, setConnectionState] = useState<
@@ -124,6 +127,7 @@ export function useGameSession(profile: Profile | null) {
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+    let detachResume = () => {};
 
     async function connectSocket() {
       const {
@@ -133,8 +137,14 @@ export function useGameSession(profile: Profile | null) {
 
       const socket = io(SOCKET_URL, {
         reconnection: true,
-        reconnectionAttempts: 10,
+        // Ten attempts against socket.io's 5s backoff cap is ~40s, which
+        // expires *inside* the server's 60s reconnect grace — the automatic
+        // retries gave up while the slot was still being held. 20 covers it
+        // with margin. Beyond that the tab-wake / online handlers take over,
+        // so a longer outage still recovers without a reload.
+        reconnectionAttempts: 20,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
         auth: { token: session?.access_token ?? "" },
       });
       socketRef.current = socket;
@@ -287,12 +297,77 @@ export function useGameSession(profile: Profile | null) {
         console.warn("Invite error:", message);
         setSessionError(message);
       });
+
+      // ── Resume handlers ───────────────────────────────────────────────
+      // These used to live in a separate mount effect that read
+      // socketRef.current — but the socket is created after an await here, so
+      // that ref was still null and the listeners were never attached at all.
+      // Mobile browsers close backgrounded WebSockets aggressively, so this is
+      // the path that gets a player back into their session.
+      const rejoinIfNeeded = () => {
+        const sid = sessionIdRef.current;
+        const avatar = lastAvatarRef.current;
+        if (!sid || !avatar) return;
+        socket.emit("join_session", {
+          sessionId: sid,
+          avatar,
+          displayName: lastDisplayNameRef.current,
+          pet: myPetRef.current,
+        });
+      };
+
+      // socket.io stops for good once reconnectionAttempts is exhausted, and
+      // nothing else ever calls connect(). A phone backgrounded for a minute
+      // therefore landed on "connection lost" permanently — while the server
+      // was still holding the player's slot for RECONNECT_GRACE_MS. These are
+      // the two moments worth retrying on: the user looked at the tab again,
+      // or the OS says the network is back.
+      const reconnectNow = async () => {
+        if (socket.connected) return;
+        setConnectionState("reconnecting");
+        // The access token may well have expired while we were away.
+        const {
+          data: { session: fresh },
+        } = await sb.auth.getSession();
+        if (fresh?.access_token) socket.auth = { token: fresh.access_token };
+        socket.connect();
+      };
+
+      reconnectRef.current = () => void reconnectNow();
+
+      const onVisibility = () => {
+        if (document.visibilityState !== "visible") return;
+        if (!socket.connected) {
+          reconnectNow();
+          return;
+        }
+        if (sessionIdRef.current) socket.emit("request_sync");
+      };
+
+      const onOnline = () => {
+        if (!socket.connected) reconnectNow();
+      };
+
+      // Hangs off plain "connect", not the manager's "reconnect": that event
+      // only fires for socket.io's own automatic retries, so a reconnect we
+      // triggered ourselves would land the socket back online without ever
+      // rejoining the session. Safe to run on every connect — join_session
+      // re-keys an existing slot, and this no-ops before there is a session.
+      socket.on("connect", rejoinIfNeeded);
+      document.addEventListener("visibilitychange", onVisibility);
+      window.addEventListener("online", onOnline);
+      detachResume = () => {
+        socket.off("connect", rejoinIfNeeded);
+        document.removeEventListener("visibilitychange", onVisibility);
+        window.removeEventListener("online", onOnline);
+      };
     }
 
     connectSocket();
 
     return () => {
       cancelled = true;
+      detachResume();
       socketRef.current?.disconnect();
     };
     // Deliberately mount-only: this owns the single socket connection for the
@@ -316,49 +391,6 @@ export function useGameSession(profile: Profile | null) {
       socket.off("connect", onConnect);
     };
   }, [profile?.id]);
-
-  // ── Resume sync: rejoin on reconnect, request sync on tab wake ──────────
-  // Mobile browsers (esp. iOS Safari) close backgrounded WebSockets after
-  // ~30s. The server removes the player on disconnect, so on reconnect we
-  // re-emit join_session with the cached avatar so the new socket lands
-  // back inside the same session. When the tab just loses focus without
-  // disconnecting, request_sync refreshes phase/state in case we drifted.
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const rejoinIfNeeded = () => {
-      const sid = sessionIdRef.current;
-      const avatar = lastAvatarRef.current;
-      if (!sid || !avatar) return;
-      socket.emit("join_session", {
-        sessionId: sid,
-        avatar,
-        displayName: lastDisplayNameRef.current,
-        pet: myPetRef.current,
-      });
-    };
-
-    const onVisibility = () => {
-      if (typeof document === "undefined") return;
-      if (document.visibilityState !== "visible") return;
-      if (!sessionIdRef.current) return;
-      if (socket.connected) {
-        socket.emit("request_sync");
-      }
-    };
-
-    socket.io.on("reconnect", rejoinIfNeeded);
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
-    return () => {
-      socket.io.off("reconnect", rejoinIfNeeded);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
-    };
-  }, []);
 
   // ── Sound effects on phase transitions ──────────────────────────────────
   useEffect(() => {
@@ -546,6 +578,7 @@ export function useGameSession(profile: Profile | null) {
     myId,
     socketRef,
     connectionState,
+    reconnect: useCallback(() => reconnectRef.current(), []),
     // Derived
     timeLeft,
     flowElapsed,

@@ -118,7 +118,7 @@ export default function DuoTimer() {
       <ConnectionBanner
         state={game.connectionState}
         inSession={Boolean(game.sessionId)}
-        onRetry={() => window.location.reload()}
+        onRetry={game.reconnect}
       />
 
       {game.pendingInvite && (
