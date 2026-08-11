@@ -133,7 +133,7 @@ export default function SessionHUD({
     // controls ("end session" / "leave session") can scroll clear of the home
     // indicator instead of sitting under it.
     <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
-      <div className="bg-surface/85 backdrop-blur border border-line rounded-2xl px-8 py-5 flex flex-col items-center gap-3 shadow-xl mb-4">
+      <div className="hud-card bg-surface/85 backdrop-blur border border-line rounded-2xl px-6 sm:px-8 py-5 flex flex-col items-center gap-3 shadow-xl mb-4">
         <div className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
         </div>
@@ -144,7 +144,7 @@ export default function SessionHUD({
         )}
 
         {showTimer && (
-          <div className="text-6xl font-mono font-bold tabular-nums flex flex-col items-center">
+          <div className="hud-timer text-5xl sm:text-6xl font-mono font-bold tabular-nums flex flex-col items-center">
             {phase === "focus" && serverMode === "flow" && (
               <span className="text-xs text-calm mb-1 tracking-widest font-bold uppercase">
                 Flow elapsed
