@@ -240,12 +240,25 @@ export default function DuoTimer() {
                 return;
               }
             }
-            await auth.saveAvatar(config);
+            // Don't leave the editor on a failed write — the old behaviour
+            // advanced to home either way, so a dropped save looked identical
+            // to a successful one until you opened another device.
+            if (!(await auth.saveAvatar(config))) {
+              showError("Couldn't save your character. Please try again.");
+              return;
+            }
             if (name && profile) {
-              await sb
+              // RLS refusing this matches zero rows rather than erroring, so
+              // .select() is what distinguishes "saved" from "silently declined".
+              const { data, error } = await sb
                 .from("profiles")
                 .update({ display_name: name })
-                .eq("id", profile.id);
+                .eq("id", profile.id)
+                .select("id");
+              if (error || !data || data.length === 0) {
+                showError("Couldn't save your display name. Please try again.");
+                return;
+              }
               auth.updateProfile({
                 display_name: name,
                 avatar_config: config,

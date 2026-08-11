@@ -196,16 +196,31 @@ export function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveAvatar = async (config: AvatarConfig) => {
-    if (!profile) return;
-    await sb
+  /**
+   * Persists the avatar. Returns false if the write didn't land.
+   *
+   * This used to ignore the result entirely and still call setMyAvatar, cache
+   * to localStorage and let the caller advance to home — so a failed write
+   * looked exactly like a success until you opened another device and found the
+   * old character. `.select("id")` is what makes a refusal visible: RLS
+   * declining an UPDATE is not an error, it matches zero rows.
+   */
+  const saveAvatar = async (config: AvatarConfig): Promise<boolean> => {
+    if (!profile) return false;
+    const { data, error } = await sb
       .from("profiles")
       .update({ avatar_config: config })
-      .eq("id", profile.id);
+      .eq("id", profile.id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      console.error("Failed to save avatar:", error);
+      return false;
+    }
     setMyAvatar(config);
     const updated = { ...profile, avatar_config: config };
     setProfile(updated);
     cacheProfile(updated);
+    return true;
   };
 
   const updateProfile = (updates: Partial<Profile>) => {
