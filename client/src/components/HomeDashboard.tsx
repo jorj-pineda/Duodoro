@@ -123,7 +123,7 @@ export default function HomeDashboard({
 
   return (
     <div
-      className="min-h-screen bg-bg texture-dots flex flex-col"
+      className="min-h-dvh bg-bg texture-dots flex flex-col"
       onClick={() => setProfileMenuOpen(false)}
     >
       {/* Top bar */}
