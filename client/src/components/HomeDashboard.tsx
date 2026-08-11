@@ -296,7 +296,9 @@ export default function HomeDashboard({
             <h2 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
               Choose a world
             </h2>
-            <div className="grid grid-cols-4 gap-2">
+            {/* Three across on a phone, not four: at four the thumbnails are 48px
+                  tall and the 10px labels are unreadable. */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {WORLDS.map((w) => (
                 <button
                   key={w.id}
@@ -307,10 +309,10 @@ export default function HomeDashboard({
                       : "border-line bg-surface text-muted hover:border-faint"
                   }`}
                 >
-                  <div className="h-12 w-full">
+                  <div className="h-16 sm:h-12 w-full">
                     <WorldThumbnail worldId={w.id} />
                   </div>
-                  <span className="block py-1 text-[10px] font-medium">
+                  <span className="block py-1.5 sm:py-1 text-[11px] sm:text-[10px] font-medium">
                     {w.label}
                   </span>
                 </button>
