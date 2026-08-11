@@ -161,10 +161,21 @@ SVGs, five of which are untouched Next.js starter files.
   leg drawn at row 10 inside a 10-row viewBox and simply never drew it. Rect counts don't
   catch this; comparing geometry to the declared viewBox does —
   `components/PetCharacter.test.tsx`. All four pets now share one 11-row grid.
-- **Never rotate or non-integer-scale pixel art.** It resamples hard edges into grey
-  fringe, which is why sprites look blurry despite `crispEdges`. `globals.css` still has
-  ±1° rotations and fractional `scaleY` on the character keyframes — outstanding work, see
-  the roadmap.
+- **Never rotate or non-integer-scale pixel art, and never place it on a fractional
+  pixel.** All three resample hard edges into grey fringe, which is why sprites looked
+  blurry *despite* `crispEdges` — the renderer was never the problem. `crispEdges` snaps
+  edges within the SVG's own coordinate space; it cannot help once the whole element is
+  offset by half a device pixel. The rule, enforced by
+  `app/pixelMotion.test.ts`: every keyframe that moves a sprite uses `translateX`/
+  `translateY` by whole pixels only, and holds each pose with `steps(1, end)` rather than
+  easing through the gap — an eased tween between 0 and -3px is on a fraction for most of
+  its cycle even though both endpoints are whole. `decor-shooting-star` is the one
+  documented exemption (a div of light, not a sprite). Where a sprite's position is
+  animated by framer-motion, round the *animated value* (`useTransform(raw, Math.round)`),
+  not just the target — interpolating between two whole pixels still passes through every
+  fraction between them. See `useCharacterPosition`.
+- Squash-and-stretch is not available to this art: `scaleY(1.05)` of a 72px sprite is
+  75.6px. Weight has to come from the arc, in whole pixels.
 - To review sprite changes without a browser, render the component in jsdom and dump the
   SVG to a static HTML page — that is how the pet fix was reviewed. Screenshots and visual
   judgement still need the repo owner; say so instead of guessing.
