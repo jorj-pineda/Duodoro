@@ -14,6 +14,31 @@ import { GROUND } from "@/lib/scene";
 // plus slow ambient motion (drifting clouds, twinkling stars, rising steam).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Scale deviations ────────────────────────────────────────────────────────
+//
+// None of the scenery is on ART_PX yet, and it cannot get there by editing the
+// numbers below: a sprite's apparent pixel size *is* its scale, so a 16-cell
+// map rendered at 3px is a 48px mountain, not a small-pixelled 128px one.
+// Keeping the current on-screen size means redrawing each map at more cells.
+// The cost, so the redraw (roadmap 7b) can be planned rather than discovered:
+//
+//   sprite          map      scale(s)      on-screen        cells @ ART_PX
+//   MOUNTAIN        16x10    5, 6, 7, 8    80..128 wide     27x17 .. 43x27
+//   BOOKSHELF       14x17    4             56x68            19x23
+//   PALM            14x11    4             56x44            19x15
+//   UMBRELLA        12x9     4             48x36            16x12
+//   PINE            12x14    2, 3, 4       24..48 wide      8x9 .. 16x19
+//   SUN             9x9      3, 4, 5       27..45           9x9 .. 15x15
+//   MOON            8x8      4, 5          32..40           11x11 .. 13x13
+//   PLANET          16x9     2, 4          32..64 wide      11x6 .. 21x12
+//   CLOUD           12x4     2, 3          24..36 wide      8x3 .. 12x4
+//   BUILDING_*      -        2, 3          -                already at/near 3
+//   LAMP, TABLE     -        3             -                already at ART_PX
+//
+// MountainDecor alone renders at 5, 6, 7 and 8 in a single frame, with the
+// character beside it at 3. Mismatched pixel density is the clearest tell of
+// amateur pixel art, so this list is the debt, not the design.
+//
 // ── Sprite maps ─────────────────────────────────────────────────────────────
 
 const CLOUD: PixelMap = [

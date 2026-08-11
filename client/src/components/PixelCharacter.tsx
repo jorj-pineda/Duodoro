@@ -1,12 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { AvatarConfig, HairStyle, EyeStyle } from "@/lib/avatarData";
+import { ART_PX } from "@/lib/scene";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PixelCharacter — SVG-based 8-bit character renderer
 //
 // ViewBox: 0 0 16 24  (16 × 24 "pixels")
-// Displayed at: size * 16 × size * 24  (default size=4 → 64×96px)
+// Displayed at: size * 16 × size * 24  (ART_PX → 48×72px)
+//
+// `size` is one art pixel in CSS px. It defaults to ART_PX and every call site
+// passes ART_PX — a character rendering at a different pixel size to the scene
+// around it is the thing ART_PX exists to prevent, not a knob.
 //
 // Layout:
 //   y=0–3   Hair top
@@ -170,7 +175,7 @@ export default function PixelCharacter({
   outfitColor,
   anim = "idle",
   facing = "right",
-  size = 4,
+  size = ART_PX,
   className,
 }: PixelCharacterProps) {
   const [walkFrame, setWalkFrame] = useState(0);
