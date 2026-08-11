@@ -72,7 +72,7 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 - `useOnlineFriends` is a hybrid — the friend list comes from Supabase, the online/offline dots from the socket (`get_online_friends` + `presence_update`).
 - `public/sw.js` caches **nothing about the app** — only `/offline.html`, served as a fallback for failed *navigations*. Timer state is server-authoritative, so a stale socket.io or Supabase reply is worse than no reply; the fetch handler returns early for anything that isn't a navigation. Keep it that way. `offline.html` is standalone by necessity (no network means no hashed CSS bundle, no Google Fonts), so its theme tokens are a copy of `globals.css` — update both together.
 - `lib/sounds.ts` owns audio *and* the mute flag. The flag is a module-level variable with its own listener set, not React state, because `playSound` is called from `useGameSession`'s socket handlers — outside the component tree, sometimes while nothing is mounted. `useSound` subscribes to it via `useSyncExternalStore`, so any number of `SoundToggle`s stay in agreement. Add new sounds to `FILES`; don't add a second playback path that bypasses the mute check.
-- Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts`. Note what the server actually validates: `sanitizeAvatar` whitelists `hairStyle` and `eyeStyle`, but checks colours with a plain `/^#[0-9a-fA-F]{6}$/` regex — so recolouring the palette is client-only, while adding a *style* also needs `VALID_HAIR_STYLES`/`VALID_EYE_STYLES`, and adding a *world* needs both `VALID_WORLDS` and the SQL `sessions_world_check` (migration 008).
+- Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts`. `lib/scene.ts` holds the two numbers the scene has to agree on — `GROUND` (the ground plane's height, which everything standing is anchored to) and `ART_PX` (one art pixel in CSS px). Both were duplicated literals; `GROUND` appeared six times across three files. Note what the server actually validates: `sanitizeAvatar` whitelists `hairStyle` and `eyeStyle`, but checks colours with a plain `/^#[0-9a-fA-F]{6}$/` regex — so recolouring the palette is client-only, while adding a *style* also needs `VALID_HAIR_STYLES`/`VALID_EYE_STYLES`, and adding a *world* needs both `VALID_WORLDS` and the SQL `sessions_world_check` (migration 008).
 
 ### Mobile / viewport conventions
 
@@ -83,7 +83,7 @@ The game screen is a fixed app shell (`h-dvh` + `overflow-hidden`) with an inter
 - **Landscape phones need height queries, not width breakpoints.** A landscape phone is *wide*, so `sm:` fires exactly when vertical space has run out and makes things bigger. `globals.css` keys the HUD's compact form off `max-height: 520px`.
 - Overlay panels go `inset-x-2 sm:inset-x-auto` + `w-full sm:w-80` — `FriendsPanel`, `StatsPanel` and `StickyNote` all follow this; a bare `w-80` is 320px of a 360px screen.
 - Touch targets follow the `w-11 h-11 sm:w-7 sm:h-7` / `px-4 py-2.5 sm:px-0 sm:py-0` pattern already in `Button` and `AvatarCreator`.
-- Still outstanding: `GameWorld` has no responsive sprite scaling — characters are the same fixed CSS px on a 360px phone as on a desktop. That wants a single canonical pixel unit first (see the art notes), since scaling sprites by non-integer factors is what makes pixel art blur.
+- Still outstanding: `GameWorld` has no responsive sprite scaling — characters are the same fixed CSS px on a 360px phone as on a desktop. `ART_PX` is now the single knob for it, but it can only move in whole numbers: scaling sprites by non-integer factors is what makes pixel art blur, so the phone size is `ART_PX = 2`, not `ART_PX * 0.75`.
 
 ### Database conventions
 
@@ -176,6 +176,17 @@ SVGs, five of which are untouched Next.js starter files.
   fraction between them. See `useCharacterPosition`.
 - Squash-and-stretch is not available to this art: `scaleY(1.05)` of a 72px sprite is
   75.6px. Weight has to come from the arc, in whole pixels.
+- **One art pixel per scene.** `ART_PX` (`lib/scene.ts`) is it; the characters and pets
+  are on it. The scenery is not, and cannot be moved by editing its `scale` props: a
+  sprite's apparent pixel size *is* its scale, so a 16-cell map at `ART_PX` is a 48px
+  mountain, not a small-pixelled 128px one. Keeping current sizes at one density means
+  redrawing each map at more cells — `MOUNTAIN` needs 43×27 instead of 16×10. The full
+  cost is tabulated at the top of `WorldDecorations.tsx`. Never "fix" a density mismatch
+  by rescaling a small map up; that is the same picture with bigger pixels.
+- Anything that stands in the world anchors to `GROUND`, and its wrapper's bottom edge
+  must be the sprite's feet. A name tag or caption inside the wrapper silently becomes
+  the bottom edge and lifts the sprite off the ground — that is what `calc(19% - 4px)`
+  was compensating for.
 - To review sprite changes without a browser, render the component in jsdom and dump the
   SVG to a static HTML page — that is how the pet fix was reviewed. Screenshots and visual
   judgement still need the repo owner; say so instead of guessing.
