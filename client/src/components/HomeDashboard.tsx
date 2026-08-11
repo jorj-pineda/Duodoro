@@ -8,6 +8,7 @@ import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
+import SoundToggle from "./SoundToggle";
 import { WorldThumbnail } from "./WorldDecorations";
 import Button from "./Button";
 import {
@@ -158,6 +159,7 @@ export default function HomeDashboard({
           >
             <ChartIcon /> <span className="hidden sm:inline">Stats</span>
           </button>
+          <SoundToggle />
           <ThemeToggle />
           <div className="relative ml-1">
             <button
