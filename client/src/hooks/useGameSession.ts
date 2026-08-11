@@ -437,6 +437,7 @@ export function useGameSession(profile: Profile | null) {
     ? { id: partnerEntry[0], avatar: partnerEntry[1].avatar }
     : null;
   const partnerName = partnerEntry?.[1].displayName;
+  const partnerUserId = partnerEntry?.[1].userId ?? null;
   const partnerPet = partnerEntry?.[1].pet ?? null;
   const partnerDisconnected = partnerEntry?.[1].disconnected ?? false;
 
@@ -587,6 +588,7 @@ export function useGameSession(profile: Profile | null) {
     phaseProgress,
     partner,
     partnerName,
+    partnerUserId,
     partnerPet,
     partnerDisconnected,
     playerCount,

@@ -9,6 +9,10 @@ interface Props {
   onClose: () => void;
   userId: string;
   roomCode: string | null;
+  /** The other player in the session, for attributing shared goals. Both come
+   *  straight from the sync payload, so no extra lookup is needed. */
+  partnerUserId?: string | null;
+  partnerName?: string;
 }
 
 const NOTE_COLORS = [
@@ -36,13 +40,21 @@ const NOTE_COLORS = [
 
 function TaskRow({
   task,
+  isOwn,
+  nameFor,
   onToggle,
   onDelete,
 }: {
   task: Task;
+  /** Deletion stays owner-only in the database (migration 017), so the ✕ is
+   *  only drawn for notes where it can actually succeed. Ticking is open to
+   *  both partners, so the checkbox is always live. */
+  isOwn: boolean;
+  nameFor: (userId: string) => string;
   onToggle: (id: string, done: boolean) => void;
   onDelete: (id: string) => void;
 }) {
+  const credit = task.completed_by ? nameFor(task.completed_by) : null;
   return (
     <motion.div
       layout
@@ -53,6 +65,7 @@ function TaskRow({
     >
       <button
         onClick={() => onToggle(task.id, !task.is_done)}
+        aria-label={task.is_done ? "Mark as not done" : "Mark as done"}
         className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
           task.is_done
             ? "bg-emerald-600 border-emerald-600"
@@ -61,19 +74,34 @@ function TaskRow({
       >
         {task.is_done && <span className="text-white text-xs">✓</span>}
       </button>
-      <p
-        className={`flex-1 text-sm leading-snug font-mono transition-colors ${
-          task.is_done ? "line-through text-amber-500" : "text-amber-900"
-        }`}
-      >
-        {task.content}
-      </p>
-      <button
-        onClick={() => onDelete(task.id)}
-        className="text-amber-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 text-xs mt-0.5 flex-shrink-0"
-      >
-        ✕
-      </button>
+      <div className="flex-1 min-w-0">
+        <p
+          className={`text-sm leading-snug font-mono transition-colors ${
+            task.is_done ? "line-through text-amber-500" : "text-amber-900"
+          }`}
+        >
+          {task.content}
+        </p>
+        {credit && (
+          <p className="text-[10px] font-mono text-amber-600/80 mt-0.5">
+            ✓ by {credit}
+          </p>
+        )}
+        {!isOwn && !credit && (
+          <p className="text-[10px] font-mono text-amber-600/70 mt-0.5">
+            added by {nameFor(task.owner_id)}
+          </p>
+        )}
+      </div>
+      {isOwn && (
+        <button
+          onClick={() => onDelete(task.id)}
+          aria-label="Delete note"
+          className="text-amber-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 text-xs mt-0.5 flex-shrink-0"
+        >
+          ✕
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -115,7 +143,14 @@ function AddTaskInput({
   );
 }
 
-export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
+export default function StickyNote({
+  open,
+  onClose,
+  userId,
+  roomCode,
+  partnerUserId,
+  partnerName,
+}: Props) {
   const {
     tab,
     setTab,
@@ -135,6 +170,15 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
   } = useStickyNotes(open, userId, roomCode);
 
   const color = NOTE_COLORS[colorIdx];
+
+  // Everyone in a session is either you or the one other player, so this covers
+  // every owner_id the shared board can show. The fallback matters for the
+  // invited-non-friend case, where the partner's profile isn't readable.
+  const nameFor = (id: string) => {
+    if (id === userId) return "you";
+    if (partnerUserId && id === partnerUserId) return partnerName || "partner";
+    return "partner";
+  };
 
   return (
     <AnimatePresence>
@@ -340,6 +384,8 @@ export default function StickyNote({ open, onClose, userId, roomCode }: Props) {
                       <TaskRow
                         key={task.id}
                         task={task}
+                        isOwn={task.owner_id === userId}
+                        nameFor={nameFor}
                         onToggle={toggleTask}
                         onDelete={deleteTask}
                       />

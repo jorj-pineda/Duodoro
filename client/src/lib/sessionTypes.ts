@@ -7,6 +7,10 @@ export type AppStep = "loading" | "landing" | "avatar" | "home" | "game";
 export interface PlayerData {
   avatar: AvatarConfig;
   displayName?: string;
+  /** Supabase user id. The server has always put this in the slot and shipped
+   *  it in the sync payload; declaring it lets the shared-goals board map a
+   *  task's owner_id to a name without a second round trip. */
+  userId?: string | null;
   pet?: PetType | null;
   /** True while the player's socket dropped and the server is holding their
    *  spot during the reconnect grace window. */
