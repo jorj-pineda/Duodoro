@@ -4,7 +4,7 @@ import type { AnimState } from "./PixelCharacter";
 import type { PetType } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PetCharacter — tiny SVG pixel art pets (10×10 viewBox)
+// PetCharacter — tiny SVG pixel art pets (10×11 viewBox)
 // All pets match their owner's animation state.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ interface PetCharacterProps {
   size?: number;
 }
 
-// Cat pixel art (10×10)
+// Cat pixel art (10×11)
 function CatPixels({ legUp }: { legUp: boolean }) {
   return (
     <>
@@ -45,7 +45,7 @@ function CatPixels({ legUp }: { legUp: boolean }) {
   );
 }
 
-// Dog pixel art (10×10)
+// Dog pixel art (10×11)
 function DogPixels({ legUp }: { legUp: boolean }) {
   return (
     <>
@@ -64,18 +64,18 @@ function DogPixels({ legUp }: { legUp: boolean }) {
       {/* Nose */}
       <rect x={4} y={4} width={2} height={1} fill="#2a1800" />
       {/* Body */}
-      <rect x={2} y={6} width={6} height={3} fill="#e8c99a" />
+      <rect x={2} y={6} width={6} height={4} fill="#e8c99a" />
       {/* Tail */}
       <rect x={8} y={5} width={1} height={2} fill="#c9a46e" />
       <rect x={9} y={4} width={1} height={2} fill="#c9a46e" />
       {/* Legs */}
-      <rect x={2} y={legUp ? 8 : 9} width={2} height={1} fill="#c9a46e" />
-      <rect x={6} y={legUp ? 9 : 8} width={2} height={1} fill="#c9a46e" />
+      <rect x={2} y={legUp ? 9 : 10} width={2} height={1} fill="#c9a46e" />
+      <rect x={6} y={legUp ? 10 : 9} width={2} height={1} fill="#c9a46e" />
     </>
   );
 }
 
-// Dragon pixel art (10×10) — premium
+// Dragon pixel art (10×11) — premium
 function DragonPixels({ legUp }: { legUp: boolean }) {
   return (
     <>
@@ -95,17 +95,17 @@ function DragonPixels({ legUp }: { legUp: boolean }) {
       <rect x={0} y={6} width={2} height={2} fill="#7c3aed" />
       <rect x={8} y={6} width={2} height={2} fill="#7c3aed" />
       {/* Body */}
-      <rect x={2} y={6} width={6} height={3} fill="#a78bfa" />
+      <rect x={2} y={6} width={6} height={4} fill="#a78bfa" />
       {/* Tail */}
       <rect x={8} y={8} width={2} height={1} fill="#7c3aed" />
       {/* Legs */}
-      <rect x={2} y={legUp ? 8 : 9} width={2} height={1} fill="#8b5cf6" />
-      <rect x={6} y={legUp ? 9 : 8} width={2} height={1} fill="#8b5cf6" />
+      <rect x={2} y={legUp ? 9 : 10} width={2} height={1} fill="#8b5cf6" />
+      <rect x={6} y={legUp ? 10 : 9} width={2} height={1} fill="#8b5cf6" />
     </>
   );
 }
 
-// Rabbit pixel art (10×10)
+// Rabbit pixel art (10×11)
 function RabbitPixels({ legUp }: { legUp: boolean }) {
   return (
     <>
@@ -169,10 +169,12 @@ export default function PetCharacter({
   }[type];
 
   return (
+    // 11 rows, not 10: the planted foot lives on row 10. Every pet shares the
+    // grid so they stay the same scale as each other.
     <svg
-      viewBox="0 0 10 10"
+      viewBox="0 0 10 11"
       width={10 * size}
-      height={10 * size}
+      height={11 * size}
       className={animClass}
       style={{
         shapeRendering: "crispEdges",
