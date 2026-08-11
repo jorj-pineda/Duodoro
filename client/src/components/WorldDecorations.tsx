@@ -257,7 +257,10 @@ const CUP: PixelMap = [
 const CUP_PALETTE: PixelPalette = {
   C: "#fdf6ec",
   k: "#6b4226",
-  H: "#fdf6ec",
+  // The handle had the same value as the cup wall, so defining a separate key
+  // for it achieved nothing — it just read as one column of extra width. Reuses
+  // the saucer's shade rather than introducing a colour.
+  H: "#d9c8a8",
   D: "#d9c8a8",
 };
 
