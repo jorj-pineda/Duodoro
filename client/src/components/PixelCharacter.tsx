@@ -216,8 +216,9 @@ export default function PixelCharacter({
       height={h}
       className={`${animClass} ${className ?? ""}`}
       style={{
+        // shapeRendering is the vector control; image-rendering only affects
+        // raster scaling and does nothing to <rect>s.
         shapeRendering: "crispEdges",
-        imageRendering: "pixelated",
         transform: facing === "left" ? "scaleX(-1)" : undefined,
         display: "block",
       }}

@@ -177,8 +177,9 @@ export default function PetCharacter({
       height={11 * size}
       className={animClass}
       style={{
+        // See PixelCharacter: image-rendering is a raster hint, inert on
+        // vector geometry. shapeRendering is the one that does the work.
         shapeRendering: "crispEdges",
-        imageRendering: "pixelated",
         transform: facing === "left" ? "scaleX(-1)" : undefined,
         display: "block",
       }}
