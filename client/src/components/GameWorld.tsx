@@ -1,10 +1,14 @@
 "use client";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
 import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
 import type { PetType } from "@/lib/types";
-import { useCharacterPosition } from "@/hooks/useCharacterPosition";
+import {
+  useCharacterPosition,
+  useSceneWidth,
+} from "@/hooks/useCharacterPosition";
 import PixelSprite from "./PixelSprite";
 import {
   HEART,
@@ -105,16 +109,23 @@ export default function GameWorld({
   partnerDisconnected,
 }: Props) {
   const world = getWorld(worldId);
-  const { myLeft, partnerRight, myAnim, partnerAnim } = useCharacterPosition(
+  // Characters are placed in whole pixels off the scene's own width, so the
+  // scene has to be measured. GameWorld only ever mounts client-side (DuoTimer
+  // starts on the loading screen), so the layout effect inside runs before the
+  // first paint of this component and there is no unmeasured frame.
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const sceneWidth = useSceneWidth(sceneRef);
+  const { myX, partnerX, myAnim, partnerAnim } = useCharacterPosition(
     phase,
     focusProgress,
     returningProgress,
+    sceneWidth,
   );
 
   const GROUND_HEIGHT = "19%";
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={sceneRef} className="relative w-full h-full">
       {/* Sky */}
       <div
         className="absolute inset-0 overflow-hidden"
@@ -211,10 +222,7 @@ export default function GameWorld({
       {/* Me (left side, walks right) */}
       <motion.div
         className="absolute z-20"
-        style={{ bottom: "calc(19% - 4px)" }}
-        initial={{ left: myLeft }}
-        animate={{ left: myLeft }}
-        transition={{ type: "tween", ease: "linear", duration: 0.8 }}
+        style={{ bottom: "calc(19% - 4px)", left: 0, x: myX }}
       >
         <div className="flex items-end gap-1">
           {myPet && (
@@ -244,10 +252,7 @@ export default function GameWorld({
         <motion.div
           key={partner.id}
           className="absolute z-20"
-          style={{ bottom: "calc(19% - 4px)" }}
-          initial={{ right: partnerRight }}
-          animate={{ right: partnerRight }}
-          transition={{ type: "tween", ease: "linear", duration: 0.8 }}
+          style={{ bottom: "calc(19% - 4px)", right: 0, x: partnerX }}
         >
           <div
             className={`flex items-end gap-1 transition-opacity duration-500 ${
