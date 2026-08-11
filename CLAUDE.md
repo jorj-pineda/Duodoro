@@ -108,11 +108,63 @@ there is no deploy workflow in this repo:
   Environment tab; the server exits at boot if the Supabase vars are missing.
 
 CI is separate from deploys: `.github/workflows/ci.yml` runs on PRs and pushes to `main` —
-server tests, then client `tsc --noEmit` + tests + `next build` (with dummy `NEXT_PUBLIC_*`
-values, since they're inlined at build time). There is deliberately **no lint job**:
-`npm run lint` currently reports ~28 pre-existing violations, so a blocking job would fail
-every PR and an advisory/`|| true` one would hide the signal. Burn the violations down
-first, then add a blocking lint job — don't add a soft one in the meantime.
+server tests, then client `tsc --noEmit` + **blocking** `npm run lint` + tests +
+`next build` (with dummy `NEXT_PUBLIC_*` values, since they're inlined at build time).
+Lint is at zero violations and the job is hard-failing; keep it that way rather than
+adding suppressions in bulk.
 
 See `MIGRATE_TO_VERCEL.md` for the full migration history and gotchas. The old GCP VM /
 Docker-Compose/Nginx/GHCR pipeline has been retired.
+
+## How work gets done here
+
+The repo owner has settled on these; follow them without being asked.
+
+- **Never commit to `main`.** Every change goes on a feature branch, then a PR. `main` is
+  auto-deployed, so a commit there is a production deploy.
+- **Many small commits, not one big one.** Each commit should be one coherent change with a
+  message explaining *why*, not what. A PR of 4–8 focused commits is the target shape; PR
+  size itself stays moderate.
+- **Merge with `--rebase`, never `--squash`.** Squashing collapses the whole PR into one
+  commit on `main` and throws away exactly the granular history the small commits existed
+  for.
+- **A/B every fix.** A test for a bug must *fail against the previous commit* and pass with
+  the fix — and say so in the PR. Tests that pass both ways are guards; label them as such
+  rather than presenting them as evidence. For SQL, run the whole migration chain against
+  Postgres 17 in Docker and show the before/after output.
+- **Report honestly.** State what was not verified. Nothing in this repo has been
+  browser-tested by an agent; say so rather than implying it works.
+- **Verify claims before acting on them.** Findings handed over from an audit or a previous
+  session are frequently wrong on specifics. Three reported sprite defects (eye centring,
+  duplicate `long` hair, palm misalignment) turned out not to exist on inspection. Check
+  the source, then fix.
+
+`ROADMAP.local.md` in the repo root is the prioritised backlog — gitignored via
+`*.local.md`, so it is local-only and safe to edit freely. It carries file:line references,
+a corrections section for debunked findings, and the recommended order of work. Read it
+before proposing what to do next, and tick items off as they ship.
+
+## Pixel art conventions
+
+The art is generated at runtime — there are no image assets. `client/public/` holds six
+SVGs, five of which are untouched Next.js starter files.
+
+- `PixelSprite` (string map + palette → merged `<rect>`s, `shapeRendering: crispEdges`) is
+  the right primitive. `PixelCharacter` and `PetCharacter` do **not** use it — they are ~90
+  hand-placed `<rect x= y=>` elements, which is why they can't be palette-swapped,
+  outlined or given a blink frame without editing coordinates by hand.
+- **`PixelSprite` fails silently in three ways**, all covered by `lib/uiSprites.test.ts`:
+  a short row is padded rather than rejected (the viewBox takes the *longest* row), a
+  character with no palette entry is skipped, and two palette keys with the same colour
+  render as one shape. The last was a real bug — the coffee cup's handle.
+- **SVG clips out-of-bounds geometry without warning.** The cat and rabbit shipped with a
+  leg drawn at row 10 inside a 10-row viewBox and simply never drew it. Rect counts don't
+  catch this; comparing geometry to the declared viewBox does —
+  `components/PetCharacter.test.tsx`. All four pets now share one 11-row grid.
+- **Never rotate or non-integer-scale pixel art.** It resamples hard edges into grey
+  fringe, which is why sprites look blurry despite `crispEdges`. `globals.css` still has
+  ±1° rotations and fractional `scaleY` on the character keyframes — outstanding work, see
+  the roadmap.
+- To review sprite changes without a browser, render the component in jsdom and dump the
+  SVG to a static HTML page — that is how the pet fix was reviewed. Screenshots and visual
+  judgement still need the repo owner; say so instead of guessing.
