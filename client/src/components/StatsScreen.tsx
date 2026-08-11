@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
+import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
 
 interface Props {
@@ -122,8 +123,10 @@ function BigStatCard({
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function StatsScreen({ open, onClose, userId }: Props) {
-  const { personalStats, duoStats, recentSessions, dailyFocus, loading, fetchStats } =
-    useStats(userId);
+  const {
+    personalStats, duoStats, recentSessions, dailyFocus, loading, fetchStats,
+    error: statsError, loaded, retry,
+  } = useStats(userId);
 
   useEffect(() => {
     if (open) fetchStats();
@@ -286,7 +289,11 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
               </>
             )}
 
-            {!loading && !personalStats && (
+            {!loading && statsError && <StatsErrorState onRetry={retry} />}
+
+            {/* Requires `loaded`: "no stats yet" is only true once a fetch has
+                actually succeeded. */}
+            {!loading && !personalStats && loaded && !statsError && (
               <div className="text-center py-16">
                 <p className="text-muted text-lg font-display mb-2">
                   No stats yet

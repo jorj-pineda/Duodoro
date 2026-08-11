@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
+import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
 
 interface Props {
@@ -119,8 +120,10 @@ export default function StatsPanel({
   onViewFullStats,
 }: Props) {
   const [tab, setTab] = useState<Tab>("personal");
-  const { personalStats, duoStats, recentSessions, loading, fetchStats } =
-    useStats(userId);
+  const {
+    personalStats, duoStats, recentSessions, loading, fetchStats,
+    error: statsError, retry,
+  } = useStats(userId);
 
   useEffect(() => {
     if (open) fetchStats();
@@ -184,7 +187,11 @@ export default function StatsPanel({
                 )}
 
                 {/* Personal tab */}
-                {!loading && tab === "personal" && (
+                {!loading && statsError && (
+                  <StatsErrorState onRetry={retry} className="py-10" />
+                )}
+
+                {!loading && !statsError && tab === "personal" && (
                   <div>
                     {personalStats ? (
                       <div className="grid grid-cols-2 gap-2">
@@ -224,7 +231,7 @@ export default function StatsPanel({
                 )}
 
                 {/* Duo tab */}
-                {!loading && tab === "duo" && (
+                {!loading && !statsError && tab === "duo" && (
                   <div>
                     {duoStats.length === 0 ? (
                       <p className="text-faint text-sm text-center py-8">
@@ -247,7 +254,7 @@ export default function StatsPanel({
                 )}
 
                 {/* History tab */}
-                {!loading && tab === "history" && (
+                {!loading && !statsError && tab === "history" && (
                   <div>
                     {recentSessions.length === 0 ? (
                       <p className="text-faint text-sm text-center py-8">
