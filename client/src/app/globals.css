@@ -184,31 +184,38 @@ body {
   animation: pixel-shuffle 1.2s steps(1, end) infinite;
 }
 
-/* Sparkle — for celebration hearts floating up */
+/* Sparkle — for celebration hearts floating up.
+   Currently unused, kept whole-pixel so wiring it up can't reintroduce the
+   fractional scale it used to carry. */
 @keyframes sparkle-rise {
-  0%   { opacity: 0; transform: translateY(0) scale(0.5); }
-  20%  { opacity: 1; transform: translateY(-12px) scale(1); }
-  80%  { opacity: 0.8; transform: translateY(-40px) scale(1.1); }
-  100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+  0%   { opacity: 0;   transform: translateY(0px);   animation-timing-function: steps(12, end); }
+  20%  { opacity: 1;   transform: translateY(-12px); animation-timing-function: steps(28, end); }
+  80%  { opacity: 0.8; transform: translateY(-40px); animation-timing-function: steps(20, end); }
+  100% { opacity: 0;   transform: translateY(-60px); }
 }
 .sparkle {
-  animation: sparkle-rise 2s ease-out infinite;
+  animation: sparkle-rise 2s linear infinite;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Ambient World Motion — slow, low-key loops for scenery decorations
 ───────────────────────────────────────────────────────────────────────────── */
 
-/* Clouds — gentle horizontal sway */
+/* Clouds — gentle horizontal sway.
+   Stepped into 28 one-pixel moves each way. A cloud eased across 28px over 26
+   seconds is on a fractional pixel for all but a few frames of its cycle, so
+   the softest sprite on the screen was also the one on screen permanently.
+   The step count matches the travel distance, so every stop is a whole px. */
 @keyframes decor-drift {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(28px); }
+  0%   { transform: translateX(0px);  animation-timing-function: steps(28, end); }
+  50%  { transform: translateX(28px); animation-timing-function: steps(28, end); }
+  100% { transform: translateX(0px); }
 }
 .decor-drift {
-  animation: decor-drift 26s ease-in-out infinite;
+  animation: decor-drift 26s linear infinite;
 }
 .decor-drift-slow {
-  animation: decor-drift 44s ease-in-out infinite;
+  animation: decor-drift 44s linear infinite;
 }
 
 /* Stars & string lights — soft brightness pulse */
@@ -220,11 +227,11 @@ body {
   animation: decor-twinkle 3.2s ease-in-out infinite;
 }
 
-/* Coffee steam — pixel puffs rising and fading */
+/* Coffee steam — pixel puffs rising and fading, one pixel at a time */
 @keyframes decor-steam {
-  0%   { opacity: 0; transform: translateY(0); }
-  25%  { opacity: 0.8; }
-  100% { opacity: 0; transform: translateY(-14px); }
+  0%   { opacity: 0;   transform: translateY(0px);   animation-timing-function: steps(4, end); }
+  25%  { opacity: 0.8; transform: translateY(-4px);  animation-timing-function: steps(10, end); }
+  100% { opacity: 0;   transform: translateY(-14px); }
 }
 .decor-steam {
   animation: decor-steam 2.8s ease-out infinite;
