@@ -83,7 +83,14 @@ export default function HomeDashboard({
   onOpenStats,
 }: Props) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const { personalStats, loading, fetchStats } = useStats(profile.id);
+  const {
+    personalStats,
+    loading,
+    fetchStats,
+    error: statsError,
+    loaded,
+    retry: retryStats,
+  } = useStats(profile.id);
 
   const {
     tasks,
@@ -263,11 +270,34 @@ export default function HomeDashboard({
             </div>
           )}
 
-          {!loading && !personalStats && (
+          {/* Zeros are only shown once a fetch has actually succeeded. Before,
+              a failed load rendered "0m / 0m / 0d" — identical to a brand-new
+              account — so someone with a 40-day streak and one bad request was
+              told their history was gone. */}
+          {!loading && !personalStats && loaded && !statsError && (
             <div className="flex gap-2">
               <QuickStat label="Total" value="0m" />
               <QuickStat label="This Week" value="0m" />
               <QuickStat label="Streak" value="0d" />
+            </div>
+          )}
+
+          {!loading && statsError && (
+            <div
+              role="alert"
+              className="flex items-center gap-3 bg-surface border border-danger/30 rounded-xl px-4 py-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-danger text-xs font-semibold">
+                  Couldn&apos;t load your stats
+                </p>
+                <p className="text-faint text-[11px] mt-0.5">
+                  Your history is safe — this was a connection problem.
+                </p>
+              </div>
+              <Button variant="surface" size="sm" onClick={retryStats}>
+                Retry
+              </Button>
             </div>
           )}
 
