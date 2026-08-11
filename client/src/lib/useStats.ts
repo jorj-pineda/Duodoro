@@ -94,6 +94,13 @@ async function loadSnapshot(): Promise<Snapshot> {
 export function useStats(userId: string | undefined) {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [loading, setLoading] = useState(false);
+  // A failed load used to be console.error only, leaving the snapshot at EMPTY.
+  // Callers then rendered "Total 0m / Streak 0d" — indistinguishable from a
+  // brand-new account, so one failed request looked like the user's entire
+  // history had been erased. `loaded` exists to tell those two apart: zeros are
+  // only the truth once a fetch has actually succeeded.
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchStats = useCallback(
     async (force = false) => {
@@ -102,10 +109,13 @@ export function useStats(userId: string | undefined) {
       const fresh = cache.get(userId);
       if (!force && fresh && Date.now() - fresh.at < CACHE_TTL_MS) {
         setSnapshot(fresh.data);
+        setError(null);
+        setLoaded(true);
         return;
       }
 
       setLoading(true);
+      setError(null);
       try {
         let pending = inFlight.get(userId);
         if (!pending || force) {
@@ -115,8 +125,15 @@ export function useStats(userId: string | undefined) {
         const data = await pending;
         cache.set(userId, { at: Date.now(), data });
         setSnapshot(data);
+        setLoaded(true);
       } catch (err) {
+        // PostgrestError extends Error, so this keeps the real message.
         console.error("Failed to fetch stats:", err);
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Couldn't load your stats.",
+        );
       } finally {
         setLoading(false);
       }
@@ -124,12 +141,19 @@ export function useStats(userId: string | undefined) {
     [userId],
   );
 
+  const retry = useCallback(() => fetchStats(true), [fetchStats]);
+
   return {
     personalStats: snapshot.personalStats,
     duoStats: snapshot.duoStats,
     recentSessions: snapshot.recentSessions,
     dailyFocus: snapshot.dailyFocus,
     loading,
+    /** Non-null when the last attempt failed. Zeros are not trustworthy. */
+    error,
+    /** True once a fetch has succeeded — only then do zeros mean "no data". */
+    loaded,
+    retry,
     fetchStats,
   };
 }
