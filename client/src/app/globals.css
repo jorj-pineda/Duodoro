@@ -179,6 +179,20 @@ body {
   animation: float-anim 2.5s steps(1, end) infinite;
 }
 
+/* Shuffle — a two-frame side-to-side wiggle for a held prop.
+   Rotation is the one transform pixel art cannot survive: there is no angle
+   that maps a square grid onto the device grid, so a ±10° swing resamples
+   every edge of the sprite into grey for the entire break phase. Two whole-
+   pixel poses read as the same fidget and stay sharp. */
+@keyframes pixel-shuffle {
+  0%   { transform: translateX(-2px); }
+  50%  { transform: translateX(2px); }
+  100% { transform: translateX(-2px); }
+}
+.pixel-shuffle {
+  animation: pixel-shuffle 1.2s steps(1, end) infinite;
+}
+
 /* Sparkle — for celebration hearts floating up */
 @keyframes sparkle-rise {
   0%   { opacity: 0; transform: translateY(0) scale(0.5); }
@@ -244,6 +258,7 @@ body {
   .pixel-idle,
   .pixel-jump,
   .pixel-float,
+  .pixel-shuffle,
   .sparkle,
   .decor-drift,
   .decor-drift-slow,

@@ -82,13 +82,11 @@ function CelebrationOverlay() {
 function BreakOverlay() {
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-      <motion.div
-        className="mt-4"
-        animate={{ rotate: [-10, 10, -10] }}
-        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-      >
+      {/* .pixel-shuffle, not a rotation: the controller used to swing ±10°,
+          which resampled every edge of the sprite for the whole break. */}
+      <div className="mt-4 pixel-shuffle">
         <PixelSprite map={CONTROLLER} palette={CONTROLLER_PALETTE} scale={4} />
-      </motion.div>
+      </div>
     </div>
   );
 }
