@@ -179,7 +179,7 @@ export default function DuoTimer() {
   // ── Loading ─────────────────────────────────────────────────────────────
   if (appStep === "loading") {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="min-h-dvh bg-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
           <div className="font-display text-4xl text-ink tracking-wide">
             Duodoro
@@ -213,7 +213,7 @@ export default function DuoTimer() {
   if (appStep === "avatar") {
     const isEditing = !!profile?.avatar_config;
     return (
-      <div className="min-h-screen bg-bg texture-dots flex items-center justify-center p-6">
+      <div className="min-h-dvh bg-bg texture-dots flex items-center justify-center p-6">
         <AvatarCreator
           initialConfig={myAvatar}
           initialDisplayName={profile?.display_name ?? ""}
@@ -336,7 +336,7 @@ export default function DuoTimer() {
   // ── Game Screen ─────────────────────────────────────────────────────────
   return (
     <div
-      className="h-screen bg-bg text-white relative overflow-hidden"
+      className="h-dvh bg-bg text-white relative overflow-hidden"
       onClick={() => setProfileMenuOpen(false)}
     >
       {/* ── Game World (full-screen background) ── */}

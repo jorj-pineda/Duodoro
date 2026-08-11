@@ -161,7 +161,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg texture-dots flex flex-col">
+    <div className="min-h-dvh bg-bg texture-dots flex flex-col">
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 py-4 max-w-2xl w-full mx-auto">
         <span className="font-display text-xl text-ink tracking-wide">
