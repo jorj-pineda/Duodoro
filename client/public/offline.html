@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Duodoro — offline</title>
+    <style>
+      /* Self-contained on purpose: this page has to render with no network, so
+         it can't reference the app's hashed CSS bundle or the Google fonts the
+         rest of the UI uses. Theme tokens are copied from globals.css. */
+      :root {
+        --bg: #f3ede1;
+        --surface: #fbf7ee;
+        --ink: #332d24;
+        --muted: #847862;
+        --faint: #aca18a;
+        --line: #ddd3bd;
+        --accent: #d96c57;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #171411;
+          --surface: #211d18;
+          --ink: #ede4d3;
+          --muted: #a2967e;
+          --faint: #6b614f;
+          --line: #363026;
+          --accent: #e6876f;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background-color: var(--bg);
+        background-image: radial-gradient(var(--line) 1px, transparent 1px);
+        background-size: 22px 22px;
+        color: var(--ink);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        padding: 2rem 1.75rem;
+        max-width: 22rem;
+        width: 100%;
+        text-align: center;
+      }
+      h1 { font-size: 1.25rem; margin: 0 0 .5rem; letter-spacing: .02em; }
+      p { color: var(--muted); font-size: .8125rem; line-height: 1.6; margin: 0 0 1.5rem; }
+      .note { color: var(--faint); font-size: .6875rem; margin: 1.25rem 0 0; }
+      button {
+        font: inherit;
+        font-weight: 700;
+        font-size: .8125rem;
+        color: #fff;
+        background: var(--accent);
+        border: 0;
+        border-radius: .625rem;
+        padding: .75rem 1.5rem;
+        cursor: pointer;
+        min-height: 44px;
+      }
+      button:active { transform: translateY(1px); }
+      /* Pixel-art dots, echoing the app's sprite grid */
+      .dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 1.25rem; }
+      .dots i { width: 8px; height: 8px; background: var(--accent); opacity: .35; }
+      .dots i:nth-child(2) { opacity: .6; }
+      .dots i:nth-child(3) { opacity: .85; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h1>You're offline</h1>
+      <p>
+        Duodoro needs a connection to sync your session with your partner.
+        Reconnect and try again.
+      </p>
+      <button type="button" onclick="location.reload()">Retry</button>
+      <p class="note">
+        Nothing was lost — completed focus time is recorded on the server.
+      </p>
+    </div>
+    <script>
+      // Reload automatically the moment the connection comes back.
+      addEventListener("online", function () { location.reload(); });
+    </script>
+  </body>
+</html>
