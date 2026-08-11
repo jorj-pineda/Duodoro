@@ -120,37 +120,63 @@ body {
    Character Animation Classes (applied to the outer <svg> element)
 ───────────────────────────────────────────────────────────────────────────── */
 
-/* Idle — gentle floating bob */
+/* Every keyframe below moves sprites by a whole number of CSS pixels and holds
+   each pose with steps(1, end) — no rotation, no fractional scale, and no
+   eased tween through the gaps.
+   A sprite parked half a pixel off the device grid has every hard edge in it
+   resampled across two pixels; an eased tween between 0 and -3px spends most
+   of its cycle exactly there. That is the grey fringe `shapeRendering:
+   crispEdges` appears not to prevent — the renderer was never the problem, the
+   transforms were. Discrete pose-holds are also how hand-animated pixel art
+   actually moves. */
+
+/* Idle — gentle floating bob, four held poses */
 @keyframes idle-bounce {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-3px); }
+  0%   { transform: translateY(0px); }
+  25%  { transform: translateY(-1px); }
+  50%  { transform: translateY(-3px); }
+  75%  { transform: translateY(-1px); }
+  100% { transform: translateY(0px); }
 }
 .pixel-idle {
-  animation: idle-bounce 2s ease-in-out infinite;
+  animation: idle-bounce 2s steps(1, end) infinite;
 }
 
-/* Jump — bouncy up-and-down for celebration */
+/* Jump — bouncy up-and-down for celebration.
+   The old squash-and-stretch was scaleY(1.05/0.92/0.96): on a 72px-tall
+   character that is 75.6 / 66.24 / 69.12px, so every row of the sprite lands
+   between device pixels for the whole animation. The arc carries the weight
+   instead — a held hang at the top and a smaller second hop on landing. */
 @keyframes jump-anim {
-  0%   { transform: translateY(0px) scaleY(1); }
-  20%  { transform: translateY(-18px) scaleY(1.05); }
-  45%  { transform: translateY(0px) scaleY(0.92); }
-  60%  { transform: translateY(-10px) scaleY(1); }
-  80%  { transform: translateY(0px) scaleY(0.96); }
-  100% { transform: translateY(0px) scaleY(1); }
+  0%   { transform: translateY(0px); }
+  10%  { transform: translateY(-9px); }
+  20%  { transform: translateY(-15px); }
+  30%  { transform: translateY(-18px); }
+  40%  { transform: translateY(-18px); }
+  50%  { transform: translateY(-15px); }
+  60%  { transform: translateY(-9px); }
+  70%  { transform: translateY(0px); }
+  80%  { transform: translateY(-6px); }
+  90%  { transform: translateY(-3px); }
+  100% { transform: translateY(0px); }
 }
 .pixel-jump {
-  animation: jump-anim 0.9s ease-in-out infinite;
-  transform-origin: bottom center;
+  animation: jump-anim 0.9s steps(1, end) infinite;
 }
 
-/* Float — slow sinusoidal drift for returning phase */
+/* Float — slow drift for the returning phase. The ±1° tilt is gone: one degree
+   across a 48px-wide sprite is a sub-pixel shear, so it never rendered as a
+   tilt, only as softened edges. */
 @keyframes float-anim {
-  0%, 100% { transform: translateY(0px) rotate(-1deg); }
-  33%       { transform: translateY(-6px) rotate(0deg); }
-  66%       { transform: translateY(-3px) rotate(1deg); }
+  0%   { transform: translateY(0px); }
+  20%  { transform: translateY(-3px); }
+  40%  { transform: translateY(-6px); }
+  60%  { transform: translateY(-5px); }
+  80%  { transform: translateY(-3px); }
+  100% { transform: translateY(0px); }
 }
 .pixel-float {
-  animation: float-anim 2.5s ease-in-out infinite;
+  animation: float-anim 2.5s steps(1, end) infinite;
 }
 
 /* Sparkle — for celebration hearts floating up */
