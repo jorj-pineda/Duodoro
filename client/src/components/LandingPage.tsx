@@ -8,7 +8,7 @@ import { WorldDecor } from "./WorldDecorations";
 import { signInWithProvider } from "@/lib/supabase";
 import { DEFAULT_AVATAR, WORLDS } from "@/lib/avatarData";
 import { HEART, HEART_PALETTE } from "@/lib/uiSprites";
-import { GROUND } from "@/lib/scene";
+import { ART_PX, GROUND } from "@/lib/scene";
 
 // Two sample characters walking toward each other on the landing page
 const LEFT_CHAR = { ...DEFAULT_AVATAR, outfitColor: "#3B5BDB" };
@@ -128,7 +128,7 @@ function HeroScene() {
           ease: "linear",
         }}
       >
-        <PixelCharacter {...LEFT_CHAR} anim="walk" facing="right" size={3} />
+        <PixelCharacter {...LEFT_CHAR} anim="walk" facing="right" size={ART_PX} />
       </motion.div>
       <motion.div
         className="absolute bottom-[17%]"
@@ -140,7 +140,7 @@ function HeroScene() {
           ease: "linear",
         }}
       >
-        <PixelCharacter {...RIGHT_CHAR} anim="walk" facing="left" size={3} />
+        <PixelCharacter {...RIGHT_CHAR} anim="walk" facing="left" size={ART_PX} />
       </motion.div>
     </div>
   );

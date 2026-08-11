@@ -20,7 +20,7 @@ import {
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
 import { WorldDecor } from "./WorldDecorations";
-import { GROUND } from "@/lib/scene";
+import { ART_PX, GROUND } from "@/lib/scene";
 
 export type GamePhase =
   | "waiting"
@@ -229,13 +229,18 @@ export default function GameWorld({
       >
         <div className="flex items-end gap-1">
           {myPet && (
-            <PetCharacter type={myPet} anim={myAnim} facing="right" size={2} />
+            <PetCharacter
+              type={myPet}
+              anim={myAnim}
+              facing="right"
+              size={ART_PX}
+            />
           )}
           <PixelCharacter
             {...me.avatar}
             anim={myAnim}
             facing="right"
-            size={3}
+            size={ART_PX}
           />
         </div>
         <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
@@ -259,14 +264,14 @@ export default function GameWorld({
               {...partner.avatar}
               anim={partnerDisconnected ? "idle" : partnerAnim}
               facing="left"
-              size={3}
+              size={ART_PX}
             />
             {partnerPet && (
               <PetCharacter
                 type={partnerPet}
                 anim={partnerDisconnected ? "idle" : partnerAnim}
                 facing="left"
-                size={2}
+                size={ART_PX}
               />
             )}
           </div>

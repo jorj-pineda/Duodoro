@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import PixelCharacter from "./PixelCharacter";
+import { ART_PX } from "@/lib/scene";
 import {
   SKIN_COLORS,
   HAIR_COLORS,
@@ -139,7 +140,7 @@ export default function AvatarCreator({
               paddingBottom: 12,
             }}
           >
-            <PixelCharacter {...config} anim="idle" facing="right" size={3} />
+            <PixelCharacter {...config} anim="idle" facing="right" size={ART_PX} />
           </div>
         </div>
 

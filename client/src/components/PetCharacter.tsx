@@ -2,10 +2,18 @@
 import { useEffect, useState } from "react";
 import type { AnimState } from "./PixelCharacter";
 import type { PetType } from "@/lib/types";
+import { ART_PX } from "@/lib/scene";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PetCharacter — tiny SVG pixel art pets (10×11 viewBox)
 // All pets match their owner's animation state.
+//
+// `size` is one art pixel in CSS px, the same unit the character uses. Pets
+// used to render at 2 while the character rendered at 3, which is a different
+// pixel grid in the same frame. On ART_PX they are 30×33 rather than 20×22 —
+// correct density, but large next to a 48×72 person. Keeping the old apparent
+// size at one density means redrawing the maps at roughly 7×7 cells, which is
+// the item 7b redraw.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface PetCharacterProps {
@@ -140,7 +148,7 @@ export default function PetCharacter({
   type,
   anim = "idle",
   facing = "right",
-  size = 3,
+  size = ART_PX,
 }: PetCharacterProps) {
   const [walkFrame, setWalkFrame] = useState(0);
 
