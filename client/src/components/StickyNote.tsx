@@ -191,10 +191,13 @@ export default function StickyNote({
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          {/* Vertically-centered panel on the right */}
-          <div className="fixed right-4 top-0 bottom-0 z-40 flex items-center pointer-events-none">
+          {/* Vertically-centered panel on the right. FriendsPanel and StatsPanel
+              already went full-width-with-side-inset below sm; this one was left
+              on a fixed w-80, which is 320px of a 360px screen pinned 16px from
+              the right edge. */}
+          <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-center pointer-events-none">
             <motion.div
-              className="pointer-events-auto w-80 flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+              className="pointer-events-auto w-full sm:w-80 flex flex-col rounded-2xl shadow-2xl overflow-hidden"
               style={{
                 background: color.gradient,
                 maxHeight: "min(600px, 85vh)",
