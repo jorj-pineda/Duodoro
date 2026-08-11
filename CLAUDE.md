@@ -71,6 +71,17 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 - `lib/sounds.ts` owns audio *and* the mute flag. The flag is a module-level variable with its own listener set, not React state, because `playSound` is called from `useGameSession`'s socket handlers — outside the component tree, sometimes while nothing is mounted. `useSound` subscribes to it via `useSyncExternalStore`, so any number of `SoundToggle`s stay in agreement. Add new sounds to `FILES`; don't add a second playback path that bypasses the mute check.
 - Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts`. Note what the server actually validates: `sanitizeAvatar` whitelists `hairStyle` and `eyeStyle`, but checks colours with a plain `/^#[0-9a-fA-F]{6}$/` regex — so recolouring the palette is client-only, while adding a *style* also needs `VALID_HAIR_STYLES`/`VALID_EYE_STYLES`, and adding a *world* needs both `VALID_WORLDS` and the SQL `sessions_world_check` (migration 008).
 
+### Mobile / viewport conventions
+
+The game screen is a fixed app shell (`h-dvh` + `overflow-hidden`) with an internal scroll region, so layout mistakes there strand controls off-screen with no gesture to reach them rather than just looking cramped.
+
+- **Use `dvh`, never `vh`/`h-screen`.** On iOS Safari `100vh` is the *large* viewport — the height the page would have with the toolbar hidden — so a `vh`-sized shell is taller than what's visible, and anything at the bottom of an inner scroll region falls below the fold inside an `overflow-hidden` parent.
+- `layout.tsx` sets `viewportFit: "cover"`, so any element flush to a screen edge must account for `env(safe-area-inset-*)`. **Fold the inset into the element's existing padding** (`pt-[calc(0.625rem+env(safe-area-inset-top))]`) rather than adding a `.pt-safe` helper class — a plain CSS class declaring `padding-top` lands later in the cascade than Tailwind's `py-*` and replaces it instead of adding to it.
+- **Landscape phones need height queries, not width breakpoints.** A landscape phone is *wide*, so `sm:` fires exactly when vertical space has run out and makes things bigger. `globals.css` keys the HUD's compact form off `max-height: 520px`.
+- Overlay panels go `inset-x-2 sm:inset-x-auto` + `w-full sm:w-80` — `FriendsPanel`, `StatsPanel` and `StickyNote` all follow this; a bare `w-80` is 320px of a 360px screen.
+- Touch targets follow the `w-11 h-11 sm:w-7 sm:h-7` / `px-4 py-2.5 sm:px-0 sm:py-0` pattern already in `Button` and `AvatarCreator`.
+- Still outstanding: `GameWorld` has no responsive sprite scaling — characters are the same fixed CSS px on a 360px phone as on a desktop. That wants a single canonical pixel unit first (see the art notes), since scaling sprites by non-integer factors is what makes pixel art blur.
+
 ### Database conventions
 
 - `profiles` extends `auth.users`; usernames use Discord-style `username#discriminator` tags via the `claim_username` RPC (one-time change enforced in SQL, migration 005).
