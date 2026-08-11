@@ -13,12 +13,21 @@ export function useTasks(ownerId: string) {
   const sb = getSupabase();
 
   const fetchTasks = useCallback(async () => {
-    const { data } = await sb
+    const { data, error: err } = await sb
       .from("tasks")
       .select("*")
       .eq("owner_id", ownerId)
       .is("room_code", null)
       .order("created_at", { ascending: true });
+    // A failed read used to fall through to `if (data)` and leave the list
+    // empty, so a broken query was indistinguishable from having no tasks.
+    // That is exactly how the 42P17 policy recursion fixed in migration 018
+    // stayed invisible: every read was erroring and the UI said "No tasks yet".
+    if (err) {
+      setError("Couldn't load your tasks.");
+      return;
+    }
+    setError(null);
     if (data) setTasks(data as Task[]);
   }, [sb, ownerId]);
 

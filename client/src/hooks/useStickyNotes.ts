@@ -21,24 +21,36 @@ export function useStickyNotes(
   const optionsRef = useRef<HTMLDivElement>(null);
   const sb = getSupabase();
 
+  // A failed read used to fall through to `if (data)` and leave the list empty,
+  // making a broken query indistinguishable from an empty board. That is how
+  // the 42P17 policy recursion fixed in migration 018 stayed invisible for so
+  // long: every read was erroring and the panel just said "No tasks yet".
   const fetchMine = useCallback(async () => {
-    const { data } = await sb
+    const { data, error: err } = await sb
       .from("tasks")
       .select("*")
       .eq("owner_id", userId)
       .is("room_code", null)
       .order("created_at", { ascending: true });
+    if (err) {
+      setError("Couldn't load your notes.");
+      return;
+    }
     if (data) setMyTasks(data as Task[]);
   }, [sb, userId]);
 
   const fetchShared = useCallback(async () => {
     if (!roomCode) return;
-    const { data } = await sb
+    const { data, error: err } = await sb
       .from("tasks")
       .select("*")
       .eq("room_code", roomCode)
       .eq("is_shared", true)
       .order("created_at", { ascending: true });
+    if (err) {
+      setError("Couldn't load your shared goals.");
+      return;
+    }
     if (data) setSharedTasks(data as Task[]);
   }, [sb, roomCode]);
 
