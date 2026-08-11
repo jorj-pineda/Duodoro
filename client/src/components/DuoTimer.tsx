@@ -433,6 +433,8 @@ export default function DuoTimer() {
           onClose={() => setNotesOpen(false)}
           userId={profile.id}
           roomCode={game.sessionId || null}
+          partnerUserId={game.partnerUserId}
+          partnerName={game.partnerName}
         />
       )}
     </div>

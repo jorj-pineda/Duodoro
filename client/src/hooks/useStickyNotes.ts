@@ -21,24 +21,36 @@ export function useStickyNotes(
   const optionsRef = useRef<HTMLDivElement>(null);
   const sb = getSupabase();
 
+  // A failed read used to fall through to `if (data)` and leave the list empty,
+  // making a broken query indistinguishable from an empty board. That is how
+  // the 42P17 policy recursion fixed in migration 018 stayed invisible for so
+  // long: every read was erroring and the panel just said "No tasks yet".
   const fetchMine = useCallback(async () => {
-    const { data } = await sb
+    const { data, error: err } = await sb
       .from("tasks")
       .select("*")
       .eq("owner_id", userId)
       .is("room_code", null)
       .order("created_at", { ascending: true });
+    if (err) {
+      setError("Couldn't load your notes.");
+      return;
+    }
     if (data) setMyTasks(data as Task[]);
   }, [sb, userId]);
 
   const fetchShared = useCallback(async () => {
     if (!roomCode) return;
-    const { data } = await sb
+    const { data, error: err } = await sb
       .from("tasks")
       .select("*")
       .eq("room_code", roomCode)
       .eq("is_shared", true)
       .order("created_at", { ascending: true });
+    if (err) {
+      setError("Couldn't load your shared goals.");
+      return;
+    }
     if (data) setSharedTasks(data as Task[]);
   }, [sb, roomCode]);
 
@@ -116,8 +128,32 @@ export function useStickyNotes(
 
   const toggleTask = async (id: string, done: boolean) => {
     setError(null);
-    // RLS refusing this is not an error — it matches zero rows. Ticking off a
-    // note you don't own silently reverted on the next fetch.
+    const shared = sharedTasks.some((t) => t.id === id);
+
+    // Shared goals go through the RPC (migration 017), because a *shared* goal
+    // has to be completable by either partner and tasks_update is owner-only.
+    // A direct UPDATE here matched zero rows whenever the note wasn't yours.
+    if (shared) {
+      const { data, error: err } = await sb.rpc("toggle_shared_task", {
+        p_task_id: id,
+        p_done: done,
+      });
+      // The function is declared RETURNS tasks, so PostgREST sends the row as a
+      // bare object; unwrap an array too rather than depend on that.
+      const row = (Array.isArray(data) ? data[0] : data) as Task | null;
+      if (err || !row) {
+        setError(
+          "Couldn't update that shared goal. Are you both still in the session?",
+        );
+        return;
+      }
+      // Trust the returned row rather than patching optimistically — the RPC
+      // owns completed_by, so it's the only thing that knows who gets credit.
+      setSharedTasks((p) => p.map((t) => (t.id === id ? row : t)));
+      return;
+    }
+
+    // RLS refusing this is not an error — it matches zero rows.
     const { data, error: err } = await sb
       .from("tasks")
       .update({ is_done: done })
@@ -127,10 +163,9 @@ export function useStickyNotes(
       setError("Couldn't update that note.");
       return;
     }
-    const update = (list: Task[]) =>
-      list.map((t) => (t.id === id ? { ...t, is_done: done } : t));
-    setMyTasks(update);
-    setSharedTasks(update);
+    setMyTasks((p) =>
+      p.map((t) => (t.id === id ? { ...t, is_done: done } : t)),
+    );
   };
 
   const deleteTask = async (id: string) => {

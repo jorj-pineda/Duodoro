@@ -37,6 +37,9 @@ export type Task = {
   is_done: boolean;
   is_shared: boolean;
   created_at: string;
+  /** Who ticked it off. Only ever set on shared goals, and only by the
+   *  toggle_shared_task RPC — migration 017 revokes the column from clients. */
+  completed_by: string | null;
 };
 
 export type PetType = "cat" | "dog" | "dragon" | "rabbit";
