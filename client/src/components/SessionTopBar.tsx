@@ -1,5 +1,6 @@
 import type { GamePhase } from "./GameWorld";
 import ThemeToggle from "./ThemeToggle";
+import SoundToggle from "./SoundToggle";
 import {
   UsersIcon,
   ChartIcon,
@@ -100,7 +101,7 @@ export default function SessionTopBar({
         <SessionStatusDot phase={phase} />
       </button>
 
-      {/* Right: Notes, Stats, Theme, Account */}
+      {/* Right: Notes, Stats, Sound, Theme, Account */}
       <div className="flex items-center gap-1.5 pl-2">
         <button
           onClick={(e) => {
@@ -120,6 +121,7 @@ export default function SessionTopBar({
         >
           <ChartIcon /> <span className="hidden sm:inline">Stats</span>
         </button>
+        <SoundToggle />
         <ThemeToggle />
         <div className="flex-1" />
         <div className="relative">
