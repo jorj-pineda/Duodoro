@@ -126,8 +126,8 @@ export default function HomeDashboard({
       className="min-h-dvh bg-bg texture-dots flex flex-col"
       onClick={() => setProfileMenuOpen(false)}
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-surface/80 backdrop-blur border-b border-line">
+      {/* Top bar — safe-area insets folded into the padding, see SessionTopBar */}
+      <div className="flex items-center justify-between pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] bg-surface/80 backdrop-blur border-b border-line">
         <div className="flex items-center gap-2">
           <span className="font-display text-lg text-ink tracking-wide">
             Duodoro

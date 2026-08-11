@@ -73,7 +73,11 @@ export default function SessionTopBar({
     }`;
 
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-surface/85 backdrop-blur border-b border-line z-10">
+    // Safe-area insets are folded into the base padding rather than added by a
+    // separate utility: layout.tsx sets viewportFit "cover", so without them the
+    // bar's contents sit under the notch in portrait and under the rounded
+    // corner in landscape. The bar's own background still extends underneath.
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] bg-surface/85 backdrop-blur border-b border-line z-10">
       {/* Left: Friends */}
       <div className="flex items-center justify-end pr-2">
         <button
