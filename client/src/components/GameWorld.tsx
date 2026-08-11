@@ -219,20 +219,17 @@ export default function GameWorld({
       </div>
 
       {/* Me (left side, walks right) */}
+      {/* The name tag is out of flow on purpose: as an ordinary child it was
+          the wrapper's bottom edge, so anchoring the wrapper to the ground put
+          the label on the ground and held the character a label's height above
+          it. That is what the `- 4px` was nudging at. */}
       <motion.div
         className="absolute z-20"
-        style={{ bottom: "calc(19% - 4px)", left: 0, x: myX }}
+        style={{ bottom: GROUND, left: 0, x: myX }}
       >
         <div className="flex items-end gap-1">
           {myPet && (
-            <div className="mb-1">
-              <PetCharacter
-                type={myPet}
-                anim={myAnim}
-                facing="right"
-                size={2}
-              />
-            </div>
+            <PetCharacter type={myPet} anim={myAnim} facing="right" size={2} />
           )}
           <PixelCharacter
             {...me.avatar}
@@ -241,7 +238,7 @@ export default function GameWorld({
             size={3}
           />
         </div>
-        <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
+        <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
           {myName ?? "YOU"}
         </div>
       </motion.div>
@@ -251,7 +248,7 @@ export default function GameWorld({
         <motion.div
           key={partner.id}
           className="absolute z-20"
-          style={{ bottom: "calc(19% - 4px)", right: 0, x: partnerX }}
+          style={{ bottom: GROUND, right: 0, x: partnerX }}
         >
           <div
             className={`flex items-end gap-1 transition-opacity duration-500 ${
@@ -265,17 +262,15 @@ export default function GameWorld({
               size={3}
             />
             {partnerPet && (
-              <div className="mb-1">
-                <PetCharacter
-                  type={partnerPet}
-                  anim={partnerDisconnected ? "idle" : partnerAnim}
-                  facing="left"
-                  size={2}
-                />
-              </div>
+              <PetCharacter
+                type={partnerPet}
+                anim={partnerDisconnected ? "idle" : partnerAnim}
+                facing="left"
+                size={2}
+              />
             )}
           </div>
-          <div className="text-[10px] text-center mt-1 font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
+          <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
             {partnerDisconnected ? (
               <span className="animate-pulse">RECONNECTING…</span>
             ) : (
