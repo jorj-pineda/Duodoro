@@ -269,17 +269,21 @@ export default function SessionHUD({
               Take break
             </Button>
           )}
+          {/* These are the two most consequential controls in the app and were
+              bare 12px text. Padded to a thumb-sized target on touch, back to
+              the tight original from sm up. Matches Button/AvatarCreator's
+              existing `w-11 h-11 sm:w-7 sm:h-7` pattern. */}
           {canStop && (
             <button
               onClick={onStop}
-              className="text-muted hover:text-danger text-xs transition-colors mt-2"
+              className="text-muted hover:text-danger text-xs transition-colors mt-2 px-4 py-2.5 sm:px-0 sm:py-0 rounded-lg"
             >
               end session
             </button>
           )}
           <button
             onClick={onLeave}
-            className="text-xs text-danger/60 hover:text-danger transition-colors mt-2"
+            className="text-xs text-danger/60 hover:text-danger transition-colors mt-2 px-4 py-2.5 sm:px-0 sm:py-0 rounded-lg"
           >
             {"←"} leave session
           </button>
