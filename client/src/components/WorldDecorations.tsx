@@ -2,18 +2,17 @@
 import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
 import { getWorld, type WorldId } from "@/lib/avatarData";
+import { GROUND } from "@/lib/scene";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // World Decorations — pixel-art scenery for each world.
 //
 // Every prop-less component here renders inside GameWorld's sky container
-// (absolute inset-0, overflow-hidden). The ground plane starts at bottom: 19%,
-// so anything "standing" is anchored there. Scenes are built from three
-// layers for depth: far silhouettes → mid sprites → near sprites, plus slow
-// ambient motion (drifting clouds, twinkling stars, rising steam).
+// (absolute inset-0, overflow-hidden). The ground plane is GROUND tall
+// (lib/scene.ts), so anything "standing" is anchored there. Scenes are built
+// from three layers for depth: far silhouettes → mid sprites → near sprites,
+// plus slow ambient motion (drifting clouds, twinkling stars, rising steam).
 // ─────────────────────────────────────────────────────────────────────────────
-
-const GROUND = "19%";
 
 // ── Sprite maps ─────────────────────────────────────────────────────────────
 

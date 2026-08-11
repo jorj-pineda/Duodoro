@@ -20,6 +20,7 @@ import {
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
 import { WorldDecor } from "./WorldDecorations";
+import { GROUND } from "@/lib/scene";
 
 export type GamePhase =
   | "waiting"
@@ -122,8 +123,6 @@ export default function GameWorld({
     sceneWidth,
   );
 
-  const GROUND_HEIGHT = "19%";
-
   return (
     <div ref={sceneRef} className="relative w-full h-full">
       {/* Sky */}
@@ -138,7 +137,7 @@ export default function GameWorld({
       <div
         className="absolute bottom-0 left-0 right-0"
         style={{
-          height: GROUND_HEIGHT,
+          height: GROUND,
           backgroundColor: world.groundColor,
         }}
       >
@@ -314,7 +313,10 @@ export default function GameWorld({
 
       {/* Waiting state — partner slot empty */}
       {!partner && phase === "waiting" && (
-        <div className="absolute right-4 bottom-[19%] flex flex-col items-center opacity-40">
+        <div
+          className="absolute right-4 flex flex-col items-center opacity-40"
+          style={{ bottom: GROUND }}
+        >
           <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center text-white text-lg">
             ?
           </div>

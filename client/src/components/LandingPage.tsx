@@ -8,6 +8,7 @@ import { WorldDecor } from "./WorldDecorations";
 import { signInWithProvider } from "@/lib/supabase";
 import { DEFAULT_AVATAR, WORLDS } from "@/lib/avatarData";
 import { HEART, HEART_PALETTE } from "@/lib/uiSprites";
+import { GROUND } from "@/lib/scene";
 
 // Two sample characters walking toward each other on the landing page
 const LEFT_CHAR = { ...DEFAULT_AVATAR, outfitColor: "#3B5BDB" };
@@ -92,7 +93,7 @@ function HeroScene() {
           </div>
           <div
             className="absolute bottom-0 left-0 right-0"
-            style={{ height: "19%", backgroundColor: world.groundColor }}
+            style={{ height: GROUND, backgroundColor: world.groundColor }}
           >
             <div
               className="absolute top-0 left-0 right-0 h-1.5"
