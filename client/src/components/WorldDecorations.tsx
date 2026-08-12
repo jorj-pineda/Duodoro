@@ -5,6 +5,7 @@ import { getWorld, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
 import Ridge from "./Ridge";
 import Skyline from "./Skyline";
+import Shelving from "./Shelving";
 import {
   BARK,
   EMBER,
@@ -993,35 +994,89 @@ export function MountainDecor({ sceneWidth }: DecorProps) {
 
 // ── Library — shelves, hanging reading lamps, warm glow ─────────────────────
 
+/** Book spine colours — deep, slightly desaturated, so a wall of them reads as
+ *  leather and cloth rather than a sweet shop. */
+const BOOK_TONES = [
+  "#7c2f2a",
+  "#8a5a25",
+  "#2f5340",
+  "#2b3f63",
+  "#5a2f52",
+  "#6d6a3a",
+  "#a8875c",
+  "#3d3a36",
+];
+
 export function LibraryDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.library;
   return (
     <>
+      {/* Warm pool of light from the hanging lamps. */}
       <div
-        className="absolute top-[4%] left-1/2 -translate-x-1/2 pointer-events-none"
+        className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
         style={{
-          width: 260,
-          height: 140,
+          width: 420,
+          height: 260,
           background:
-            "radial-gradient(ellipse at center, #ff8f0033, transparent 70%)",
+            "radial-gradient(ellipse at top center, #ffb74d33, transparent 72%)",
         }}
       />
-      <div
-        className="absolute left-[30%] top-0"
-        style={{ filter: "drop-shadow(0 4px 10px #ffe08266)" }}
-      >
-        <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={3} />
-      </div>
-      <div
-        className="absolute right-[30%] top-0"
-        style={{ filter: "drop-shadow(0 4px 10px #ffe08266)" }}
-      >
-        <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={3} />
-      </div>
-      <Grounded sceneWidth={sceneWidth} left={4}>
-        <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
-      </Grounded>
-      <Grounded sceneWidth={sceneWidth} right={4}>
-        <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
+
+      {/* A full wall of shelving, 66 art pixels — 198px, near three times the
+          character — with the middle left clear so the pair aren't lost in it. */}
+      <Shelving
+        sceneWidth={sceneWidth}
+        rows={66}
+        spacing={11}
+        seed={17}
+        frame={BARK}
+        tones={BOOK_TONES}
+        sky={sky}
+        depth="mid"
+        bayWidth={34}
+      />
+      {/* A nearer run in front, shorter, so the room has depth rather than
+          being one flat backdrop. */}
+      <Shelving
+        sceneWidth={sceneWidth}
+        rows={40}
+        spacing={10}
+        seed={53}
+        frame={BARK}
+        tones={BOOK_TONES}
+        sky={sky}
+        depth="near"
+        bayWidth={26}
+        zIndex={2}
+        clearFrom={Math.round(sceneWidth / ART_PX / 2) - 34}
+        clearTo={Math.round(sceneWidth / ART_PX / 2) + 34}
+      />
+
+      {/* Hanging lamps, on their own flexes so they read as suspended. */}
+      {[18, 38, 62, 82].map((left, i) => (
+        <div
+          key={i}
+          className="absolute top-0"
+          style={{
+            left:
+              sceneWidth > 0
+                ? `${Math.round((sceneWidth * left) / 100)}px`
+                : `${left}%`,
+            filter: "drop-shadow(0 6px 14px #ffe08277)",
+          }}
+        >
+          <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={ART_PX} />
+        </div>
+      ))}
+
+      {/* Reading table under the middle gap. */}
+      <Grounded left={40} z={3} sceneWidth={sceneWidth} shadow={20}>
+        <div className="relative">
+          <div className="absolute" style={{ bottom: "100%", left: 4 * ART_PX }}>
+            <PixelSprite map={CUP} palette={CUP_PALETTE} scale={ART_PX} />
+          </div>
+          <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={ART_PX} />
+        </div>
       </Grounded>
     </>
   );
