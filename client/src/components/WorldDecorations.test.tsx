@@ -65,6 +65,7 @@ describe("one art pixel per scene", () => {
     "library",
     "cafe",
     "space",
+    "beach",
   ] as const) {
     it(`${worldId} renders everything at ART_PX`, () => {
       const found = new Set(densities(scene(worldId)));
@@ -78,7 +79,7 @@ describe("one art pixel per scene", () => {
     const mixed = worldIds.filter(
       (id) => new Set(densities(scene(id))).size > 1,
     );
-    expect(mixed.sort()).toEqual(["beach", "lofi"]);
+    expect(mixed.sort()).toEqual(["lofi"]);
   });
 });
 
