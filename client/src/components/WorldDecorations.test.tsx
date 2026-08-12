@@ -55,32 +55,15 @@ describe("scenery geometry", () => {
 });
 
 describe("one art pixel per scene", () => {
-  // Only the worlds whose sprites have actually been redrawn. The rest still
-  // mix densities and are listed as outstanding in WorldDecorations' own
-  // deviation table — asserting on them now would just encode the bug.
-  for (const worldId of [
-    "forest",
-    "mountain",
-    "city",
-    "library",
-    "cafe",
-    "space",
-    "beach",
-  ] as const) {
+  // This used to carry a list of worlds that were still allowed to mix pixel
+  // sizes. The list is empty now, so the weaker form is gone: every world, one
+  // density, no exceptions. Mountain alone used to render at 2, 3, 5, 6, 7 and
+  // 8 in a single frame.
+  for (const worldId of worldIds) {
     it(`${worldId} renders everything at ART_PX`, () => {
-      const found = new Set(densities(scene(worldId)));
-      expect(found).toEqual(new Set([ART_PX]));
+      expect(new Set(densities(scene(worldId)))).toEqual(new Set([ART_PX]));
     });
   }
-
-  it("the remaining worlds are the known backlog, not a surprise", () => {
-    // A guard on the size of the debt: if a redraw lands, this list shrinks and
-    // the test says so rather than silently passing.
-    const mixed = worldIds.filter(
-      (id) => new Set(densities(scene(id))).size > 1,
-    );
-    expect(mixed.sort()).toEqual(["lofi"]);
-  });
 });
 
 describe("terrain covers the scene", () => {

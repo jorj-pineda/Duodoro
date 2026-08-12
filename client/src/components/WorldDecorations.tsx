@@ -384,6 +384,97 @@ const CRATER_PALETTE: PixelPalette = {
   D: "#43485200",
 };
 
+
+// ── Grocery ────────────────────────────────────────────────────────────────
+
+/** Chest freezer with a lit glass front. */
+const FRIDGE: PixelMap = [
+  "CCCCCCCCCCCCCCCC",
+  "CggggggCCggggggC",
+  "CgllllgCCgllllgC",
+  "CgllllgCCgllllgC",
+  "CgbbbbgCCgbbbbgC",
+  "CgllllgCCgllllgC",
+  "CgllllgCCgllllgC",
+  "CgbbbbgCCgbbbbgC",
+  "CgllllgCCgllllgC",
+  "CggggggCCggggggC",
+  "CCCCCCCCCCCCCCCC",
+  "DDDDDDDDDDDDDDDD",
+];
+const FRIDGE_PALETTE: PixelPalette = {
+  C: "#b9c2c6",
+  D: "#7f888c",
+  g: "#8fa3ab",
+  l: "#dff0f6",
+  b: "#9ec8de",
+};
+
+/** Produce crate — angled front, fruit heaped above the rim. */
+const CRATE: PixelMap = [
+  "..rrrrrrrrrr..",
+  ".rrggrrggrrgr.",
+  "rrggrrggrrggrr",
+  "WWWWWWWWWWWWWW",
+  "WwwWwwWwwWwwWW",
+  "WWWWWWWWWWWWWW",
+  "wwwwwwwwwwwwww",
+];
+const CRATE_PALETTE: PixelPalette = {
+  r: "#c4463a",
+  g: "#5c9a3f",
+  W: "#c9a36a",
+  w: "#a07f4d",
+};
+
+/** Checkout: conveyor, register, and the little divider rail. */
+const CHECKOUT: PixelMap = [
+  "..........RRRR......",
+  "..........RkkR......",
+  "..........RRRR......",
+  "CCCCCCCCCCCCCCCCCCCC",
+  "CbbbbbbbbCCCCCCCCCCC",
+  "CCCCCCCCCCCCCCCCCCCC",
+  "DDDDDDDDDDDDDDDDDDDD",
+  "DDDDDDDDDDDDDDDDDDDD",
+];
+const CHECKOUT_PALETTE: PixelPalette = {
+  C: "#cfd5d0",
+  D: "#8d948e",
+  b: "#3f4a44",
+  R: "#5e6a63",
+  k: "#9fd6a0",
+};
+
+/** Hanging aisle sign. */
+const AISLE_SIGN: PixelMap = [
+  "....ss....",
+  "SSSSSSSSSS",
+  "SttSttSttS",
+  "SSSSSSSSSS",
+];
+const AISLE_SIGN_PALETTE: PixelPalette = {
+  S: "#3f7a5a",
+  t: "#eef4ee",
+  s: "#9aa39c",
+};
+
+/** Fluorescent ceiling batten. */
+const BATTEN: PixelMap = ["ffffffffffff", "FFFFFFFFFFFF"];
+const BATTEN_PALETTE: PixelPalette = { f: "#ffffff", F: "#cfd8d2" };
+
+/** Grocery packaging: bright, high-contrast, deliberately unlike book spines. */
+const PRODUCT_TONES = [
+  "#d24b3f",
+  "#e0912f",
+  "#f0c948",
+  "#4f9e56",
+  "#3f7fae",
+  "#8a5fa8",
+  "#e2e6e1",
+  "#b5563f",
+];
+
 const CAKE_TONES = ["#c9a227", "#b5651d", "#8d5a2b", "#d9c8a8", "#7c4a3a"];
 
 
@@ -531,7 +622,7 @@ const HORIZON: Record<WorldId, string> = {
   mountain: "#E0F0FF",
   library: "#5d4037",
   cafe: "#e8d5b7",
-  lofi: "#11063a",
+  grocery: "#dfe4dd",
 };
 
 /** Every decor scene needs the measured scene width: terrain is generated to
@@ -1421,8 +1512,8 @@ export function WorldDecor({
       return <LibraryDecor sceneWidth={sceneWidth} />;
     case "cafe":
       return <CafeDecor sceneWidth={sceneWidth} />;
-    case "lofi":
-      return <LofiDecor sceneWidth={sceneWidth} />;
+    case "grocery":
+      return <GroceryDecor sceneWidth={sceneWidth} />;
   }
 }
 
@@ -1439,7 +1530,7 @@ const THUMB_SPRITES: Record<
   mountain: { map: MOUNTAIN, palette: MOUNTAIN_FRONT, scale: 2 },
   library: { map: BOOKSHELF, palette: BOOKSHELF_PALETTE, scale: 2 },
   cafe: { map: CUP, palette: CUP_PALETTE, scale: 3 },
-  lofi: { map: MOON, palette: { M: "#e0c3fc", m: "#b794f4" }, scale: 2 },
+  grocery: { map: CRATE, palette: CRATE_PALETTE, scale: 2 },
 };
 
 /** Tiny sky + ground + signature sprite; size it via the parent element. */
@@ -1472,44 +1563,106 @@ export function WorldThumbnail({ worldId }: { worldId: WorldId }) {
 
 // ── Lo-fi — purple night, twin skylines, big moon ───────────────────────────
 
-export function LofiDecor({ sceneWidth }: DecorProps) {
+export function GroceryDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.grocery;
+  const px = (pct: number) =>
+    sceneWidth > 0 ? `${Math.round((sceneWidth * pct) / 100)}px` : `${pct}%`;
+  const mid = Math.round(sceneWidth / ART_PX / 2);
   return (
     <>
-      <Stars
-        count={25}
-        color="#c084fc"
-        maxY={55}
-        baseOpacity={0.45}
+      {/* Ceiling battens. Fluorescent strips are what a supermarket actually
+          looks like from the inside, and they set the whole colour of the room. */}
+      {[6, 20, 34, 48, 62, 76, 90].map((left, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: px(left), top: "4%", filter: "drop-shadow(0 4px 18px #ffffff66)" }}
+        >
+          <PixelSprite map={BATTEN} palette={BATTEN_PALETTE} scale={ART_PX} />
+        </div>
+      ))}
+
+      {/* Back wall: a long run of grocery shelving, floor to near the ceiling. */}
+      <Shelving
         sceneWidth={sceneWidth}
-      />
-      <div
-        className="absolute right-[8%] top-[7%]"
-        style={{ filter: "drop-shadow(0 0 18px #8b5cf688)" }}
-      >
-        <PixelSprite
-          map={MOON}
-          palette={{ M: "#e0c3fc", m: "#b794f4" }}
-          scale={5}
-        />
-      </div>
-      <div className="absolute left-[10%] top-[32%] opacity-60">
-        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={2} />
-      </div>
-      <Ridge
-        spec={{ seed: 101, base: 32, amplitude: 24, wavelength: 11, detail: 1 }}
-        sceneWidth={sceneWidth}
-        ramp={STONE}
-        sky={HORIZON.lofi}
-        depth="far"
-      />
-      <Ridge
-        spec={{ seed: 113, base: 20, amplitude: 17, wavelength: 7, detail: 1 }}
-        sceneWidth={sceneWidth}
-        ramp={STONE}
-        sky={HORIZON.lofi}
+        rows={58}
+        spacing={9}
+        seed={7}
+        frame={STONE}
+        tones={PRODUCT_TONES}
+        sky={sky}
         depth="mid"
-        zIndex={1}
+        bayWidth={28}
       />
+
+      {/* Freezer run on the left of the back wall. */}
+      {[3, 14].map((left, i) => (
+        <Grounded key={i} left={left} z={1} sceneWidth={sceneWidth}>
+          <PixelSprite
+            map={FRIDGE}
+            palette={hazedPalette(FRIDGE_PALETTE, sky, "mid")}
+            scale={ART_PX}
+          />
+        </Grounded>
+      ))}
+
+      {/* Aisle signs hanging over the gondolas. */}
+      {[22, 44, 66, 86].map((left, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: px(left), top: "17%" }}
+        >
+          <PixelSprite
+            map={AISLE_SIGN}
+            palette={AISLE_SIGN_PALETTE}
+            scale={ART_PX}
+          />
+        </div>
+      ))}
+
+      {/* Gondolas: double-sided island shelving, the aisles you walk between.
+          The middle is left open so the pair have somewhere to meet. */}
+      <Shelving
+        sceneWidth={sceneWidth}
+        rows={26}
+        spacing={8}
+        seed={41}
+        frame={STONE}
+        tones={PRODUCT_TONES}
+        sky={sky}
+        depth="near"
+        bayWidth={24}
+        zIndex={2}
+        clearFrom={mid - 30}
+        clearTo={mid + 30}
+      />
+
+      {/* Produce crates in the open middle, low enough to see over. */}
+      <Grounded left={40} z={3} sceneWidth={sceneWidth} shadow={16}>
+        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={ART_PX} />
+      </Grounded>
+      <Grounded right={40} z={3} sceneWidth={sceneWidth} shadow={16}>
+        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={ART_PX} />
+      </Grounded>
+
+      {/* Checkout lanes at the near right, where you'd walk out. */}
+      <Grounded right={2} z={4} sceneWidth={sceneWidth} shadow={22}>
+        <PixelSprite
+          map={CHECKOUT}
+          palette={CHECKOUT_PALETTE}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
+      </Grounded>
+      <Grounded right={16} z={4} sceneWidth={sceneWidth} shadow={22}>
+        <PixelSprite
+          map={CHECKOUT}
+          palette={CHECKOUT_PALETTE}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
+      </Grounded>
     </>
   );
 }
