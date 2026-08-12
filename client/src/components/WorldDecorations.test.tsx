@@ -58,7 +58,13 @@ describe("one art pixel per scene", () => {
   // Only the worlds whose sprites have actually been redrawn. The rest still
   // mix densities and are listed as outstanding in WorldDecorations' own
   // deviation table — asserting on them now would just encode the bug.
-  for (const worldId of ["forest", "mountain", "city", "library"] as const) {
+  for (const worldId of [
+    "forest",
+    "mountain",
+    "city",
+    "library",
+    "cafe",
+  ] as const) {
     it(`${worldId} renders everything at ART_PX`, () => {
       const found = new Set(densities(scene(worldId)));
       expect(found).toEqual(new Set([ART_PX]));
@@ -71,7 +77,7 @@ describe("one art pixel per scene", () => {
     const mixed = worldIds.filter(
       (id) => new Set(densities(scene(id))).size > 1,
     );
-    expect(mixed.sort()).toEqual(["beach", "cafe", "lofi", "space"]);
+    expect(mixed.sort()).toEqual(["beach", "lofi", "space"]);
   });
 });
 

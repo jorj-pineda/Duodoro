@@ -19,7 +19,8 @@ import {
   CONTROLLER,
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
-import { WorldDecor } from "./WorldDecorations";
+import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
+import type { PixelMap, PixelPalette } from "./PixelSprite";
 import { ART_PX, GROUND } from "@/lib/scene";
 
 export type GamePhase =
@@ -84,13 +85,30 @@ function CelebrationOverlay() {
   );
 }
 
-function BreakOverlay() {
+/** What the pair do on their break. A game controller in a coffee shop was
+ *  always a bit odd; indoors worlds get something that belongs in the room. */
+const BREAK_PROP: Record<
+  WorldId,
+  { map: PixelMap; palette: PixelPalette }
+> = {
+  forest: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  space: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  beach: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  city: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  mountain: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  library: { map: CUP, palette: CUP_PALETTE },
+  cafe: { map: CUP, palette: CUP_PALETTE },
+  lofi: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+};
+
+function BreakOverlay({ worldId }: { worldId: WorldId }) {
+  const prop = BREAK_PROP[worldId] ?? BREAK_PROP.forest;
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
       {/* .pixel-shuffle, not a rotation: the controller used to swing ±10°,
           which resampled every edge of the sprite for the whole break. */}
       <div className="mt-4 pixel-shuffle">
-        <PixelSprite map={CONTROLLER} palette={CONTROLLER_PALETTE} scale={4} />
+        <PixelSprite map={prop.map} palette={prop.palette} scale={4} />
       </div>
     </div>
   );
@@ -306,7 +324,7 @@ export default function GameWorld({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <BreakOverlay />
+            <BreakOverlay worldId={worldId} />
           </motion.div>
         )}
       </AnimatePresence>
