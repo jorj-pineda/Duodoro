@@ -4,8 +4,10 @@ import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
 import { getWorld, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
 import Ridge from "./Ridge";
+import Skyline from "./Skyline";
 import {
   BARK,
+  EMBER,
   FOLIAGE,
   GRASS,
   SNOW,
@@ -194,24 +196,6 @@ const UMBRELLA_PALETTE: PixelPalette = {
   P: "#8d5a2b",
 };
 
-const BUILDING_TALL: PixelMap = [
-  "....A....",
-  "....A....",
-  "BBBBBBBBB",
-  "ByBuByBuB",
-  "BBBBBBBBB",
-  "BuByBuByB",
-  "BBBBBBBBB",
-  "ByBuBuByB",
-  "BBBBBBBBB",
-  "BuByByBuB",
-  "BBBBBBBBB",
-  "ByBuByBuB",
-  "BBBBBBBBB",
-  "BuBuByBuB",
-  "BBBBBBBBB",
-  "BBBBBBBBB",
-];
 const BUILDING_SHORT: PixelMap = [
   "BBBBBBB",
   "ByBuByB",
@@ -750,48 +734,92 @@ export function BeachDecor({ sceneWidth }: DecorProps) {
 // ── City — far skyline, lit pixel towers, moon and sparse stars ─────────────
 
 export function CityDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.city;
   return (
     <>
-      <Stars count={14} maxY={40} baseOpacity={0.4} sceneWidth={sceneWidth} />
+      <Stars count={14} maxY={34} baseOpacity={0.4} sceneWidth={sceneWidth} />
       <div
         className="absolute left-[10%] top-[6%]"
         style={{ filter: "drop-shadow(0 0 12px #fde68a66)" }}
       >
         <PixelSprite
           map={MOON}
-          palette={{ M: "#fde68a", m: "#e8c96a" }}
-          scale={4}
+          palette={{ M: SNOW[3], m: SNOW[2] }}
+          scale={ART_PX}
         />
       </div>
-      {/* The far skyline was 32 columns stretched across the viewport. Same
-          idea, drawn on the grid: a high-detail ridge is a skyline. */}
-      <Ridge
-        spec={{ seed: 71, base: 30, amplitude: 22, wavelength: 12, detail: 1 }}
+
+      {/* Four bands of Manhattan. The near towers are 96–140 art pixels — four
+          to six times the 24-pixel character — because the old city's tallest
+          building was 48px against a 72px person. */}
+      <Skyline
+        spec={{
+          seed: 5,
+          minHeight: 34,
+          maxHeight: 62,
+          minWidth: 7,
+          maxWidth: 14,
+          gap: 1,
+        }}
         sceneWidth={sceneWidth}
         ramp={STONE}
-        sky={HORIZON.city}
+        glow={EMBER[2]}
+        sky={sky}
         depth="far"
+        showWindows={false}
       />
-      <Ridge
-        spec={{ seed: 89, base: 18, amplitude: 16, wavelength: 8, detail: 1 }}
+      <Skyline
+        spec={{
+          seed: 23,
+          minHeight: 52,
+          maxHeight: 92,
+          minWidth: 9,
+          maxWidth: 17,
+          gap: 1,
+          roofs: ["flat", "flat", "tank", "antenna"],
+        }}
         sceneWidth={sceneWidth}
         ramp={STONE}
-        sky={HORIZON.city}
+        glow={EMBER[2]}
+        sky={sky}
         depth="mid"
         zIndex={1}
       />
-      <Grounded sceneWidth={sceneWidth} z={2} left={4}>
-        <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
-      </Grounded>
-      <Grounded sceneWidth={sceneWidth} z={2} left={13}>
-        <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
-      </Grounded>
-      <Grounded sceneWidth={sceneWidth} z={2} right={13}>
-        <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
-      </Grounded>
-      <Grounded sceneWidth={sceneWidth} z={2} right={4}>
-        <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
-      </Grounded>
+      <Skyline
+        spec={{
+          seed: 41,
+          minHeight: 78,
+          maxHeight: 124,
+          minWidth: 11,
+          maxWidth: 20,
+          gap: 2,
+          roofs: ["flat", "tank", "antenna", "setback", "spire"],
+        }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        glow={EMBER[1]}
+        sky={sky}
+        depth="near"
+        zIndex={2}
+      />
+      {/* Street level: low blocks the characters walk in front of. */}
+      <Skyline
+        spec={{
+          seed: 67,
+          minHeight: 26,
+          maxHeight: 44,
+          minWidth: 13,
+          maxWidth: 24,
+          gap: 3,
+          roofs: ["flat", "tank"],
+        }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        glow={EMBER[0]}
+        sky={sky}
+        depth="front"
+        zIndex={3}
+      />
     </>
   );
 }
