@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useStats } from "@/lib/useStats";
-import { WORLDS, type WorldId } from "@/lib/avatarData";
 import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
 import { useOnlineFriends } from "@/hooks/useOnlineFriends";
@@ -9,7 +8,7 @@ import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
-import { WorldThumbnail } from "./WorldDecorations";
+import WorldNowCard from "./WorldNowCard";
 import Button from "./Button";
 import {
   UsersIcon,
@@ -25,10 +24,8 @@ interface Props {
   profile: Profile;
   activeSessionId?: string;
   socketRef: { current: Socket | null };
-  onFocus: (world: WorldId) => void;
-  /** Controlled by DuoTimer so the invite path sees the same choice */
-  selectedWorld: WorldId;
-  onSelectWorld: (world: WorldId) => void;
+  /** Starts a session in whatever world the rotation is on — see WorldNowCard. */
+  onFocus: () => void;
   onRejoinSession: () => void;
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
@@ -70,8 +67,6 @@ export default function HomeDashboard({
   activeSessionId,
   socketRef,
   onFocus,
-  selectedWorld,
-  onSelectWorld,
   onRejoinSession,
   onJoinSession,
   onInvite,
@@ -322,33 +317,7 @@ export default function HomeDashboard({
             onInvite={onInvite}
           />
 
-          <div>
-            <h2 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
-              Choose a world
-            </h2>
-            {/* Three across on a phone, not four: at four the thumbnails are 48px
-                  tall and the 10px labels are unreadable. */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {WORLDS.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={() => onSelectWorld(w.id)}
-                  className={`rounded-xl border overflow-hidden transition-all text-center ${
-                    selectedWorld === w.id
-                      ? "border-accent ring-2 ring-accent/40 text-ink shadow-sm"
-                      : "border-line bg-surface text-muted hover:border-faint"
-                  }`}
-                >
-                  <div className="h-16 sm:h-12 w-full">
-                    <WorldThumbnail worldId={w.id} />
-                  </div>
-                  <span className="block py-1.5 sm:py-1 text-[11px] sm:text-[10px] font-medium">
-                    {w.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <WorldNowCard />
 
           <div className="space-y-2 pt-2">
             {activeSessionId && (
@@ -360,7 +329,7 @@ export default function HomeDashboard({
               variant={activeSessionId ? "surface" : "accent"}
               size={activeSessionId ? "md" : "lg"}
               fullWidth
-              onClick={() => onFocus(selectedWorld)}
+              onClick={() => onFocus()}
             >
               {activeSessionId ? "New session" : "Focus"}
             </Button>

@@ -44,8 +44,8 @@ export default function DuoTimer() {
   const initial = displayName.charAt(0).toUpperCase();
 
   // ── Wrappers that bridge auth + game ────────────────────────────────────
-  const handleCreateSession = (world: Parameters<typeof game.createSession>[0]) => {
-    game.createSession(world, myAvatar);
+  const handleCreateSession = () => {
+    game.createSession(myAvatar);
     setAppStep("game");
   };
 
@@ -281,8 +281,6 @@ export default function DuoTimer() {
           activeSessionId={game.sessionId || undefined}
           socketRef={game.socketRef}
           onFocus={handleCreateSession}
-          selectedWorld={game.myWorld}
-          onSelectWorld={game.setMyWorld}
           onRejoinSession={() => setAppStep("game")}
           onJoinSession={handleJoinSession}
           onInvite={handleSendInvite}
