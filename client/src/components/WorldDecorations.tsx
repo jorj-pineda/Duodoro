@@ -460,7 +460,7 @@ function Stars({
 function DriftingCloud({
   left,
   top,
-  scale = 2,
+  scale = ART_PX,
   delay = 0,
   slow = false,
   opacity = 0.95,
