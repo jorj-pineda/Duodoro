@@ -11,6 +11,7 @@ import type {
   InviteData,
 } from "@/lib/sessionTypes";
 import { playSound } from "@/lib/sounds";
+import { worldAt } from "@/lib/rotation";
 import { getSupabase } from "@/lib/supabase";
 
 const SOCKET_URL =
@@ -24,18 +25,20 @@ export type { InviteData };
 
 export function useGameSession(profile: Profile | null) {
   // ── Avatar & world ──────────────────────────────────────────────────────
+  // myWorld is a mirror of the server's answer, not a choice: createSession
+  // seeds it from the rotation so the scene doesn't flash forest, and
+  // sync_state overwrites it with the authoritative value. Kept as a plain
+  // literal rather than worldAt() so nothing reads the clock during render —
+  // Next renders this component on the server too, where "now" is a different
+  // number.
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
   const [myPet, setMyPetState] = useState<PetType | null>(null);
   // Ref mirrors so the socket handlers — registered once with [] deps — read
-  // current values instead of whatever was captured at mount. Without these,
-  // an invite sent before a session exists is relayed by the session_created
-  // handler using profile=null ("Someone") and the default world ("forest").
+  // current values instead of whatever was captured at mount. Without this, an
+  // invite sent before a session exists is relayed by the session_created
+  // handler using profile=null, i.e. from "Someone".
   const myPetRef = useRef<PetType | null>(null);
-  const myWorldRef = useRef<WorldId>("forest");
   const profileRef = useRef<Profile | null>(null);
-  useEffect(() => {
-    myWorldRef.current = myWorld;
-  }, [myWorld]);
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
@@ -183,7 +186,6 @@ export function useGameSession(profile: Profile | null) {
             socket.emit("send_invite", {
               targetUserId: target,
               sessionId: sid,
-              worldId: myWorldRef.current,
               fromName: inviterName(),
             });
           }
@@ -445,7 +447,7 @@ export function useGameSession(profile: Profile | null) {
 
   // ── Session actions ─────────────────────────────────────────────────────
   const createSession = useCallback(
-    (world: WorldId, avatar: AvatarConfig) => {
+    (avatar: AvatarConfig) => {
       const socket = socketRef.current;
       if (!socket) return;
       if (sessionId) {
@@ -455,13 +457,16 @@ export function useGameSession(profile: Profile | null) {
         setPlayers({});
         setSessionId("");
       }
-      setMyWorld(world);
+      // Optimistic, so the scene doesn't flash forest while sync_state is in
+      // flight. The server assigns the real one from the same clock and it
+      // arrives moments later; the only way the two disagree is a create that
+      // straddles a rotation boundary, and then the server's answer wins.
+      setMyWorld(worldAt());
       const displayName = profile?.display_name ?? profile?.username ?? "Player";
       lastAvatarRef.current = avatar;
       lastDisplayNameRef.current = displayName;
       socket.emit("create_session", {
         avatar,
-        world,
         displayName,
         pet: myPetRef.current,
       });
@@ -538,23 +543,23 @@ export function useGameSession(profile: Profile | null) {
       setTimeout(() => setInviteSentName(null), 2500);
 
       if (sessionId) {
+        // No worldId: the server reads it off the session it's inviting to.
         socket.emit("send_invite", {
           targetUserId,
           sessionId,
-          worldId: myWorld,
           fromName: profile?.display_name ?? profile?.username ?? "Someone",
         });
       } else {
         pendingOutboundInvite.current = targetUserId;
+        setMyWorld(worldAt());
         socket.emit("create_session", {
           avatar,
-          world: myWorld,
           displayName: profile?.display_name ?? profile?.username ?? "Player",
           pet: myPetRef.current,
         });
       }
     },
-    [sessionId, myWorld, profile],
+    [sessionId, profile],
   );
 
   const dismissInvite = useCallback(() => setPendingInvite(null), []);
