@@ -8,11 +8,15 @@ interface Props {
   onClose: () => void;
 }
 
+// "Unlock all world themes" was here. It was already untrue — everyone could
+// pick all eight — and the rotation makes it unsellable: there is no per-user
+// world choice left to gate. The rest of this list is still ahead of the
+// product (stats and history are open to all, and nothing in the codebase
+// sends a notification); that is roadmap item 2's to settle, not this PR's.
 const FEATURES = [
   { icon: "🐾", label: "Companion pets that walk with you" },
   { icon: "🎨", label: "Exclusive premium character skins" },
   { icon: "📊", label: "Focus stats & session history" },
-  { icon: "🌍", label: "Unlock all world themes" },
   { icon: "🔔", label: "Friend session notifications" },
 ];
 
