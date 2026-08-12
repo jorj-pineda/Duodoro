@@ -93,9 +93,10 @@ export const WORLDS: WorldConfig[] = [
     id: 'space',
     label: 'Space',
     emoji: '🚀',
+    // Standing on the moon, so the ground is regolith rather than purple.
     skyGradient: 'linear-gradient(180deg, #04001A 0%, #130840 100%)',
-    groundColor: '#1e0f4a',
-    groundPatternColor: '#2a1660',
+    groundColor: '#6d727c',
+    groundPatternColor: '#565b64',
   },
   {
     id: 'beach',
