@@ -18,6 +18,7 @@ const {
   findUserSessions,
   buildSyncPayload,
 } = require('./session');
+const { worldAt } = require('./rotation');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -51,10 +52,6 @@ const io = new Server(server, {
 });
 
 // ── Auth middleware — verify Supabase JWT on every connection ─────────────
-// 'lofi' was retired in favour of 'grocery'. It stays out of this list so no
-// new session can be created in it, but migration 019 keeps it legal in the
-// sessions CHECK so existing history rows remain valid.
-const VALID_WORLDS = ['forest', 'space', 'beach', 'city', 'mountain', 'library', 'cafe', 'grocery'];
 const MAX_DISPLAY_NAME = 50;
 const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
 const MAX_BREAK = 60 * 60;    // 1 hour in seconds
@@ -435,7 +432,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Invite relay ────────────────────────────────────────────────────────
-  socket.on('send_invite', async ({ targetUserId, sessionId, worldId, fromName }) => {
+  socket.on('send_invite', async ({ targetUserId, sessionId, fromName }) => {
     if (!rateLimits.sendInvite(socket.id)) {
       socket.emit('invite_error', { message: 'Too many invites, slow down' });
       return;
@@ -463,7 +460,13 @@ io.on('connection', (socket) => {
     // Use verified userId, not client-sent
     const fromUserId = socket.userId || null;
     const safeName = (typeof fromName === 'string' ? fromName : 'Someone').slice(0, MAX_DISPLAY_NAME);
-    const safeWorld = VALID_WORLDS.includes(worldId) ? worldId : null;
+    // The world a session is in is server state, so read it from there rather
+    // than validating a client-sent copy. The invite popup shows this; taking
+    // the sender's word for it let them advertise a session as somewhere it
+    // isn't. It also can't go stale now that the rotation moves.
+    const safeWorld = (typeof sessionId === 'string' && sessions[sessionId])
+      ? sessions[sessionId].world
+      : null;
 
     // Allowlist the invitee so the join gate lets them in
     if (typeof sessionId === 'string' && sessions[sessionId]) {
@@ -482,17 +485,23 @@ io.on('connection', (socket) => {
     console.log(`[invite] ${safeName} invited ${targetUserId}`);
   });
 
-  // create_session: { avatar, world, displayName, pet }
+  // create_session: { avatar, displayName, pet }
   // Creates a new session with a UUID, user becomes host.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('create_session', ({ avatar, world, displayName, pet }) => {
+  //
+  // The world is NOT a parameter. It is whatever the rotation is on right now
+  // (server/rotation.js) — one world, everybody, changing on the :30. A `world`
+  // field in the payload is ignored rather than rejected, so an older client
+  // still gets a session instead of an error. There is nothing left to validate
+  // here because there is nothing left to trust.
+  socket.on('create_session', ({ avatar, displayName, pet }) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
     }
     // Input validation
     const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
-    const safeWorld = VALID_WORLDS.includes(world) ? world : 'forest';
+    const safeWorld = worldAt();
     const safeAvatar = sanitizeAvatar(avatar);
     if (!safeAvatar) {
       socket.emit('session_error', { message: 'Invalid avatar' });
@@ -792,7 +801,10 @@ async function clearAllPresence(reason) {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+  // The bound port, not the requested one — PORT=0 means "pick a free one",
+  // which is how createSession.test.js gets an instance without fighting a dev
+  // server for 3001.
+  console.log(`Server running on port ${server.address().port}`);
   console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
   await clearAllPresence('boot');
 });
