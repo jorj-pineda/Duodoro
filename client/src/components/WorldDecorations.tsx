@@ -262,14 +262,14 @@ const LAMP_PALETTE: PixelPalette = {
   Y: "#ffe082",
 };
 
-const CUP: PixelMap = [
+export const CUP: PixelMap = [
   ".CCCCC..",
   ".CkkkCH.",
   ".CkkkCH.",
   ".CCCCC..",
   "..DDDD..",
 ];
-const CUP_PALETTE: PixelPalette = {
+export const CUP_PALETTE: PixelPalette = {
   C: "#fdf6ec",
   k: "#6b4226",
   // The handle had the same value as the cup wall, so defining a separate key
@@ -287,6 +287,40 @@ const TABLE: PixelMap = [
   ".tt..........tt.",
 ];
 const TABLE_PALETTE: PixelPalette = { T: "#8d5a2b", t: "#6e441f" };
+
+// Espresso machine — the thing that makes a room read as a café rather than a
+// brown wall with tables in it.
+const MACHINE: PixelMap = [
+  "MMMMMMMMMMMM",
+  "MggMMggMMkkM",
+  "MMMMMMMMMMMM",
+  "MnnMMnnMMMMM",
+  "MMMMMMMMMMMM",
+  "DDDDDDDDDDDD",
+];
+const MACHINE_PALETTE: PixelPalette = {
+  M: "#8d9299",
+  D: "#5c6167",
+  g: "#2f3438",
+  k: "#c9c2b4",
+  n: "#3f4449",
+};
+
+// Menu board over the counter.
+const MENU: PixelMap = [
+  "FFFFFFFFFFFFFF",
+  "F.cc..cccc...F",
+  "F.cc..cc.....F",
+  "F.cccc.ccc...F",
+  "F............F",
+  "F.cc.cc..cc..F",
+  "F.cccccc.....F",
+  "FFFFFFFFFFFFFF",
+];
+const MENU_PALETTE: PixelPalette = { F: "#4a3a2c", c: "#d9cdb6" };
+
+const CAKE_TONES = ["#c9a227", "#b5651d", "#8d5a2b", "#d9c8a8", "#7c4a3a"];
+
 
 // A conifer at ART_PX is 60x111px against a 48x72 person — 1.54x human height.
 // The old PINE was 48x56: shorter than the people standing under it, and with
@@ -1120,30 +1154,95 @@ function CafeTable({
   sceneWidth: number;
 }) {
   return (
-    <Grounded left={left} right={right} sceneWidth={sceneWidth}>
+    <Grounded left={left} right={right} sceneWidth={sceneWidth} shadow={18}>
       <div className="relative">
-        <div className="absolute" style={{ bottom: "100%", left: 10 }}>
-          <PixelSprite map={CUP} palette={CUP_PALETTE} scale={2} />
+        <div
+          className="absolute"
+          style={{ bottom: "100%", left: 4 * ART_PX }}
+        >
+          <PixelSprite map={CUP} palette={CUP_PALETTE} scale={ART_PX} />
         </div>
-        <SteamPuffs left="16px" bottom="calc(100% + 12px)" />
-        <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={3} />
+        <SteamPuffs
+          left={`${6 * ART_PX}px`}
+          bottom={`calc(100% + ${5 * ART_PX}px)`}
+        />
+        <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={ART_PX} />
       </div>
     </Grounded>
   );
 }
 
 export function CafeDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.cafe;
+  const px = (pct: number) =>
+    sceneWidth > 0
+      ? `${Math.round((sceneWidth * pct) / 100)}px`
+      : `${pct}%`;
   return (
     <>
+      {/* We are indoors. The old scene had the sun in it. */}
       <div
-        className="absolute right-[10%] top-[10%] opacity-80"
-        style={{ filter: "drop-shadow(0 0 14px #ffd16655)" }}
-      >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={3} />
-      </div>
+        className="absolute inset-x-0 top-0 pointer-events-none"
+        style={{
+          height: "46%",
+          background:
+            "linear-gradient(180deg, #d8c3a0 0%, #e8d5b7 70%, #e8d5b7 100%)",
+        }}
+      />
+      {/* Wall panelling: boards and a rail, so the back isn't a flat wash. */}
+      <div
+        className="absolute inset-x-0 pointer-events-none"
+        style={{
+          bottom: GROUND,
+          height: 13 * ART_PX,
+          backgroundColor: "#c2a884",
+          backgroundImage:
+            "repeating-linear-gradient(90deg, #b0977512 0 " +
+            3 * ART_PX +
+            "px, transparent " +
+            3 * ART_PX +
+            "px " +
+            6 * ART_PX +
+            "px)",
+        }}
+      />
+      <div
+        className="absolute inset-x-0 pointer-events-none"
+        style={{
+          bottom: `calc(${GROUND} + ${13 * ART_PX}px)`,
+          height: ART_PX,
+          backgroundColor: "#8d6e4f",
+        }}
+      />
+
       <StringLights />
-      <CafeTable sceneWidth={sceneWidth} left={6} />
-      <CafeTable sceneWidth={sceneWidth} right={6} />
+
+      {/* Back bar: shelves of cups and beans, the machine, and a menu board. */}
+      <Shelving
+        sceneWidth={sceneWidth}
+        rows={26}
+        spacing={9}
+        seed={91}
+        frame={BARK}
+        tones={CAKE_TONES}
+        sky={sky}
+        depth="mid"
+        bayWidth={22}
+        bottom={`calc(${GROUND} + ${16 * ART_PX}px)`}
+      />
+      <div className="absolute" style={{ left: px(38), bottom: `calc(${GROUND} + ${16 * ART_PX}px)` }}>
+        <PixelSprite map={MACHINE} palette={MACHINE_PALETTE} scale={ART_PX} />
+      </div>
+      <div className="absolute" style={{ left: px(56), bottom: `calc(${GROUND} + ${26 * ART_PX}px)` }}>
+        <PixelSprite map={MENU} palette={MENU_PALETTE} scale={ART_PX} />
+      </div>
+
+      {/* Tables. Five of them, so it reads as a room with other people's
+          seats in it rather than two props. */}
+      <CafeTable sceneWidth={sceneWidth} left={4} />
+      <CafeTable sceneWidth={sceneWidth} left={20} />
+      <CafeTable sceneWidth={sceneWidth} right={20} />
+      <CafeTable sceneWidth={sceneWidth} right={4} />
     </>
   );
 }
