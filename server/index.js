@@ -51,7 +51,10 @@ const io = new Server(server, {
 });
 
 // ── Auth middleware — verify Supabase JWT on every connection ─────────────
-const VALID_WORLDS = ['forest', 'space', 'beach', 'city', 'mountain', 'library', 'cafe', 'lofi'];
+// 'lofi' was retired in favour of 'grocery'. It stays out of this list so no
+// new session can be created in it, but migration 019 keeps it legal in the
+// sessions CHECK so existing history rows remain valid.
+const VALID_WORLDS = ['forest', 'space', 'beach', 'city', 'mountain', 'library', 'cafe', 'grocery'];
 const MAX_DISPLAY_NAME = 50;
 const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
 const MAX_BREAK = 60 * 60;    // 1 hour in seconds

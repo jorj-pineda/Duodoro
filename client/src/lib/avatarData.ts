@@ -5,7 +5,7 @@
 
 export type HairStyle = 'bob' | 'mohawk' | 'long' | 'spiky' | 'bald';
 export type EyeStyle = 'normal' | 'anime' | 'sleepy';
-export type WorldId = 'forest' | 'space' | 'beach' | 'city' | 'mountain' | 'library' | 'cafe' | 'lofi';
+export type WorldId = 'forest' | 'space' | 'beach' | 'city' | 'mountain' | 'library' | 'cafe' | 'grocery';
 
 export type AvatarConfig = {
   skinColor: string;
@@ -140,12 +140,13 @@ export const WORLDS: WorldConfig[] = [
     groundPatternColor: '#795548',
   },
   {
-    id: 'lofi',
-    label: 'Lo-fi',
-    emoji: '🎧',
-    skyGradient: 'linear-gradient(180deg, #2d1b69 0%, #1a0a3e 60%, #11063a 100%)',
-    groundColor: '#1a1040',
-    groundPatternColor: '#231550',
+    id: 'grocery',
+    label: 'Grocery',
+    emoji: '🛒',
+    // An interior: the "sky" is a lit ceiling, the ground is vinyl tile.
+    skyGradient: 'linear-gradient(180deg, #f2f4f0 0%, #dfe4dd 55%, #cdd4cc 100%)',
+    groundColor: '#c8ccc6',
+    groundPatternColor: '#aab0a9',
   },
 ];
 

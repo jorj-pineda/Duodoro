@@ -98,7 +98,7 @@ const BREAK_PROP: Record<
   mountain: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
   library: { map: CUP, palette: CUP_PALETTE },
   cafe: { map: CUP, palette: CUP_PALETTE },
-  lofi: { map: CONTROLLER, palette: CONTROLLER_PALETTE },
+  grocery: { map: CUP, palette: CUP_PALETTE },
 };
 
 function BreakOverlay({ worldId }: { worldId: WorldId }) {
@@ -210,12 +210,12 @@ export default function GameWorld({
             }}
           />
         )}
-        {worldId === "lofi" && (
+        {worldId === "grocery" && (
+          /* Vinyl tile, which is the one floor everybody recognises. */
           <div
-            className="absolute inset-0 opacity-25"
+            className="absolute inset-0 opacity-45"
             style={{
-              backgroundImage: `radial-gradient(circle, #7c3aed33 1px, transparent 1px)`,
-              backgroundSize: "12px 12px",
+              backgroundImage: `repeating-linear-gradient(90deg, ${world.groundPatternColor} 0 1px, transparent 1px 24px), repeating-linear-gradient(0deg, ${world.groundPatternColor} 0 1px, transparent 1px 18px)`,
             }}
           />
         )}
