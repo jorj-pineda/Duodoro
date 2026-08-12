@@ -114,21 +114,36 @@ const MOON: PixelMap = [
   "..MMMM..",
 ];
 
+// A ringed planet at ART_PX: 102x48px, where the old 16x9 map needed scale 4
+// to reach 64x36 — i.e. it was only ever big by having bigger pixels. Lit limb
+// upper right, terminator, banding, and the ring passing behind at the top and
+// in front along the bottom, which is what sells it as a sphere.
 const PLANET: PixelMap = [
-  "......PPPP......",
-  "....PPPPPPPP....",
-  "...PPPddPPPPP...",
-  "...PPPPPPPPPP...",
-  "RRR.PPPPPPPP.RRR",
-  ".RRRRRRRRRRRRRR.",
-  "...PPPPPPPPPP...",
-  "....PPddPPPP....",
-  "......PPPP......",
+  "................HH................",
+  ".............PPPPHHHH.............",
+  "............dpppppHHHH............",
+  "...........ddpppppHHHHH...........",
+  "..........ddddPPPPPHHHHH..........",
+  ".......rrrdddddPPPPPHHHHrrr.......",
+  "...rrrr...dddddpppppHHHH...rrrr...",
+  ".rrrr....DDdddddpppppHHHH....rrrr.",
+  ".RRRR....DDDdddddPPPPPHHH....RRRR.",
+  "...RRRR...DDddddddPPPPHH...RRRR...",
+  ".......RRRRRRRRdddpRRRRRRRR.......",
+  "..........DDDDdddddppppp..........",
+  "...........DDDddddddPPP...........",
+  "............DDDdddddPP............",
+  ".............DDDddddd.............",
+  "................dd................",
 ];
 const PLANET_PALETTE: PixelPalette = {
+  H: "#e9d5ff",
   P: "#c084fc",
-  d: "#9f5ff0",
-  R: "#e9d5ff",
+  p: "#a855f7",
+  d: "#7c3aed",
+  D: "#4c1d95",
+  r: "#8b6fd0",
+  R: "#d9c2f5",
 };
 
 const MINI_PLANET: PixelMap = [
@@ -318,6 +333,23 @@ const MENU: PixelMap = [
   "FFFFFFFFFFFFFF",
 ];
 const MENU_PALETTE: PixelPalette = { F: "#4a3a2c", c: "#d9cdb6" };
+
+
+// Crater rim — lit on the far side, shadowed on the near, which is what makes
+// a ring of pixels read as a hole rather than a disc.
+const CRATER: PixelMap = [
+  "..LLLLLL..",
+  ".LddddddL.",
+  "LdDDDDDDdL",
+  "LdDDDDDDdL",
+  ".LddddddL.",
+  "..LLLLLL..",
+];
+const CRATER_PALETTE: PixelPalette = {
+  L: "#9aa0aa",
+  d: "#5f6570",
+  D: "#43485200",
+};
 
 const CAKE_TONES = ["#c9a227", "#b5651d", "#8d5a2b", "#d9c8a8", "#7c4a3a"];
 
@@ -677,55 +709,62 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
         zIndex={2}
       />
 
-      {/* Trees at two depths, so the treeline has front and back. */}
-      <Grounded left={6} z={3} sceneWidth={sceneWidth}>
-        <PixelSprite
-          map={PINE_TALL}
-          palette={tree("mid")}
-          scale={ART_PX}
-          outline={keyline(sky, "mid")}
-        />
-      </Grounded>
-      <Grounded left={19} z={3} sceneWidth={sceneWidth}>
-        <PixelSprite
-          map={PINE_TALL}
-          palette={tree("mid")}
-          scale={ART_PX}
-          outline={keyline(sky, "mid")}
-        />
-      </Grounded>
-      <Grounded right={9} z={3} sceneWidth={sceneWidth}>
-        <PixelSprite
-          map={PINE_TALL}
-          palette={tree("mid")}
-          scale={ART_PX}
-          outline={keyline(sky, "mid")}
-        />
-      </Grounded>
-      <Grounded left={1} z={4} shadow={16} sceneWidth={sceneWidth}>
-        <PixelSprite
-          map={PINE_TALL}
-          palette={tree("near")}
-          scale={ART_PX}
-          outline={keyline(sky, "near")}
-        />
-      </Grounded>
-      <Grounded right={2} z={4} shadow={16} sceneWidth={sceneWidth}>
-        <PixelSprite
-          map={PINE_TALL}
-          palette={tree("near")}
-          scale={ART_PX}
-          outline={keyline(sky, "near")}
-        />
-      </Grounded>
+      {/* A treeline, not four trees. Mid-depth trunks fill the band behind,
+          near ones frame the edges where the characters don't walk. */}
+      {[4, 11, 18, 25, 32].map((left) => (
+        <Grounded key={`lm${left}`} left={left} z={3} sceneWidth={sceneWidth}>
+          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={ART_PX} />
+        </Grounded>
+      ))}
+      {[6, 13, 20, 27].map((right) => (
+        <Grounded key={`rm${right}`} right={right} z={3} sceneWidth={sceneWidth}>
+          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={ART_PX} />
+        </Grounded>
+      ))}
+      {[-3, 8].map((left) => (
+        <Grounded
+          key={`ln${left}`}
+          left={left}
+          z={4}
+          shadow={16}
+          sceneWidth={sceneWidth}
+        >
+          <PixelSprite
+            map={PINE_TALL}
+            palette={tree("near")}
+            scale={ART_PX}
+            outline={keyline(sky, "near")}
+          />
+        </Grounded>
+      ))}
+      {[-2, 10].map((right) => (
+        <Grounded
+          key={`rn${right}`}
+          right={right}
+          z={4}
+          shadow={16}
+          sceneWidth={sceneWidth}
+        >
+          <PixelSprite
+            map={PINE_TALL}
+            palette={tree("near")}
+            scale={ART_PX}
+            outline={keyline(sky, "near")}
+          />
+        </Grounded>
+      ))}
 
       {/* Undergrowth, to break the line where the trunks meet the ground. */}
-      <Grounded left={13} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
-      </Grounded>
-      <Grounded right={17} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
-      </Grounded>
+      {[16, 29, 44].map((left) => (
+        <Grounded key={`b${left}`} left={left} z={4} sceneWidth={sceneWidth}>
+          <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
+        </Grounded>
+      ))}
+      {[22, 36].map((right) => (
+        <Grounded key={`br${right}`} right={right} z={4} sceneWidth={sceneWidth}>
+          <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
+        </Grounded>
+      ))}
     </>
   );
 }
@@ -733,44 +772,70 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
 // ── Space — nebulas, twinkling stars, ringed planet, shooting star ──────────
 
 export function SpaceDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.space;
+  const px = (pct: number) =>
+    sceneWidth > 0 ? `${Math.round((sceneWidth * pct) / 100)}px` : `${pct}%`;
   return (
     <>
       <div
         className="absolute pointer-events-none"
         style={{
-          left: "8%",
-          top: "10%",
-          width: 220,
-          height: 160,
-          background:
-            "radial-gradient(ellipse at center, #7c3aed33, transparent 70%)",
-        }}
-      />
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          right: "12%",
-          bottom: "30%",
+          left: "6%",
+          top: "12%",
           width: 260,
-          height: 180,
+          height: 190,
           background:
-            "radial-gradient(ellipse at center, #2563eb22, transparent 70%)",
+            "radial-gradient(ellipse at center, #7c3aed2e, transparent 70%)",
         }}
       />
-      <Stars count={40} maxY={70} sceneWidth={sceneWidth} />
+      <Stars count={54} maxY={78} sceneWidth={sceneWidth} />
+
+      {/* The ringed planet used to sit at right-8% / top-8%, jammed into the
+          corner. It hangs over the scene now, and it is twice the size. */}
       <div
-        className="absolute right-[8%] top-[8%]"
-        style={{ filter: "drop-shadow(0 0 16px #7c3aed88)" }}
+        className="absolute"
+        style={{
+          left: px(58),
+          top: "16%",
+          filter: "drop-shadow(0 0 22px #7c3aed88)",
+        }}
       >
-        <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={4} />
+        <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={ART_PX} />
       </div>
-      <div className="absolute left-[14%] top-[30%] opacity-80">
-        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={2} />
+      <div className="absolute left-[16%] top-[34%] opacity-80">
+        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={ART_PX} />
       </div>
       <div
-        className="decor-shooting-star absolute left-[70%] top-[14%] bg-white"
+        className="decor-shooting-star absolute left-[74%] top-[12%] bg-white"
         style={{ width: 10, height: 2 }}
       />
+
+      {/* We are standing on the moon: a low regolith horizon with craters,
+          rather than a purple field. */}
+      <Ridge
+        spec={{ seed: 13, base: 14, amplitude: 9, wavelength: 46, detail: 2 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={sky}
+        depth="mid"
+      />
+      <Ridge
+        spec={{ seed: 29, base: 6, amplitude: 4, wavelength: 22, detail: 3 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={sky}
+        depth="near"
+        zIndex={1}
+      />
+      {[9, 27, 46, 63, 82].map((left, i) => (
+        <Grounded key={i} left={left} z={2} sceneWidth={sceneWidth}>
+          <PixelSprite
+            map={CRATER}
+            palette={hazedPalette(CRATER_PALETTE, sky, i % 2 ? "near" : "mid")}
+            scale={ART_PX}
+          />
+        </Grounded>
+      ))}
     </>
   );
 }

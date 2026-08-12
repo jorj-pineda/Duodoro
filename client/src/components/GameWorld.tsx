@@ -175,11 +175,12 @@ export default function GameWorld({
           />
         )}
         {worldId === "space" && (
+          /* Regolith, not a grid: scattered dust rather than scan lines. */
           <div
-            className="absolute inset-0 opacity-30"
+            className="absolute inset-0 opacity-40"
             style={{
-              backgroundImage: `linear-gradient(${world.groundPatternColor} 1px, transparent 1px)`,
-              backgroundSize: "100% 8px",
+              backgroundImage: `radial-gradient(circle, ${world.groundPatternColor} 1px, transparent 1px)`,
+              backgroundSize: "9px 7px",
             }}
           />
         )}
@@ -192,8 +193,9 @@ export default function GameWorld({
           />
         )}
         {worldId === "mountain" && (
+          /* Rock showing through snow. */
           <div
-            className="absolute inset-0 opacity-20"
+            className="absolute inset-0 opacity-30"
             style={{
               backgroundImage: `radial-gradient(circle, ${world.groundPatternColor} 1px, transparent 1px)`,
               backgroundSize: "16px 12px",
