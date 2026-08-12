@@ -155,6 +155,14 @@ export const FOLIAGE = ramp(6, { hue: 148, sat: 0.42, dark: 0.14, light: 0.7 });
 export const GRASS = ramp(5, { hue: 108, sat: 0.38, dark: 0.2, light: 0.72 });
 /** Trunks, branches, timber. */
 export const BARK = ramp(5, { hue: 26, sat: 0.4, dark: 0.13, light: 0.56 });
+/** Dry sand and dune. */
+export const SAND = ramp(5, {
+  hue: 44,
+  sat: 0.34,
+  dark: 0.34,
+  light: 0.86,
+  shadowPull: 0.18,
+});
 /** Rock, cliff, road, anything mineral. */
 export const STONE = ramp(6, { hue: 224, sat: 0.13, dark: 0.16, light: 0.72 });
 /** Snow and cloud — barely saturated, but not grey. */

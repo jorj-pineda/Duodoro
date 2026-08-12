@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
 import { getWorld, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
+import { columnsFor, ridgeHeights } from "@/lib/terrain";
 import Ridge from "./Ridge";
 import Skyline from "./Skyline";
 import Shelving from "./Shelving";
@@ -10,6 +11,7 @@ import {
   BARK,
   EMBER,
   FOLIAGE,
+  SAND,
   GRASS,
   SNOW,
   STONE,
@@ -174,25 +176,56 @@ const MOUNTAIN_FRONT: PixelPalette = {
   S: "#f1f5f9",
 };
 
+// A palm at ART_PX: 78x114px against a 48x72 person, where the old 14x11 map
+// at scale 4 was 56x44 — a palm tree two thirds the height of the person under
+// it. Fronds are arcs that stop before their tips trail off into single
+// pixels, which is what a drooping frond does if you let the curve run.
 const PALM: PixelMap = [
-  ".GGGG....GGGG.",
-  "GGGGGGLLGGGGGG",
-  ".GGG.LLLL.GGG.",
-  ".....CTTC.....",
-  "......TT......",
-  "......TTt.....",
-  "......TTt.....",
-  ".......TTt....",
-  ".......TTt....",
-  "........TTt...",
-  "........TTt...",
+  ".......FFFF.......FFFF....",
+  ".....ffFFFFFF...FFFFFFff..",
+  "....ffff...FFF.FFF...ffff.",
+  "...ff....FFFFFFFFFFF....ff",
+  "...f....FFFFctTcFFFFF....f",
+  ".......FFFFFFcT.FFFFFF....",
+  ".......FFFFFtT...FFFFF....",
+  "......ff.FF.tT....FF.ff...",
+  "......f..F..tT.....F..f...",
+  "............tT............",
+  "............tT............",
+  "............tT............",
+  "...........tT.............",
+  "...........tT.............",
+  "...........tT.............",
+  "...........tT.............",
+  "...........tT.............",
+  "...........tT.............",
+  "..........tT..............",
+  "..........tT..............",
+  "..........tT..............",
+  "..........tT..............",
+  "..........tTT.............",
+  "..........tTT.............",
+  "..........tTT.............",
+  "..........tTT.............",
+  "..........tTT.............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
+  ".........tTT..............",
 ];
 const PALM_PALETTE: PixelPalette = {
-  G: "#40916c",
-  L: "#52b788",
-  C: "#6b4226",
-  T: "#a16207",
-  t: "#78350f",
+  F: "#2f7d52",
+  f: "#46a06a",
+  c: "#7a4a24",
+  t: "#8a6236",
+  T: "#5f4223",
 };
 
 const UMBRELLA: PixelMap = [
@@ -842,50 +875,102 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
 
 // ── Beach — sunset sun, ocean horizon bands, palm + umbrella ────────────────
 
-function WaveBand({
-  bottom,
-  height,
-  color,
-}: {
-  bottom: string;
-  height: string;
-  color: string;
-}) {
+/**
+ * The sea, filling the right of the ground plane.
+ *
+ * Drawn above the ground band rather than behind it (GameWorld paints the band
+ * after the decor), with a stepped shoreline so the waterline is pixel art
+ * rather than a CSS diagonal. The partner spawns on this side and walks up out
+ * of it, which needs no animation — the scene does the work.
+ */
+function Shore({ sceneWidth }: DecorProps) {
+  const columns = columnsFor(sceneWidth, ART_PX);
+  const rows = 34;
+  // Waterline x per row, wobbling as it comes toward the viewer.
+  const edge = ridgeHeights({
+    columns: rows,
+    seed: 61,
+    base: Math.round(columns * 0.42),
+    amplitude: 7,
+    wavelength: 9,
+    detail: 2,
+  });
   return (
-    <div className="absolute left-0 right-0" style={{ bottom, height }}>
-      <div
-        className="absolute left-0 right-0 top-0"
-        style={{
-          height: 4,
-          backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 8px, transparent 8px 16px)`,
-        }}
-      />
-      <div
-        className="absolute left-0 right-0"
-        style={{ top: 4, bottom: 0, backgroundColor: color }}
-      />
-    </div>
+    <svg
+      viewBox={`0 0 ${columns} ${rows}`}
+      width={columns * ART_PX}
+      height={rows * ART_PX}
+      className="absolute left-0 bottom-0 pointer-events-none"
+      style={{ zIndex: 5, shapeRendering: "crispEdges", display: "block" }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: rows }, (_, y) => {
+        const x = edge[y];
+        return (
+          <g key={y}>
+            <rect x={x} y={y} width={columns - x} height={1} fill="#2f7fae" />
+            {/* Foam at the waterline, and a second line of it further out. */}
+            <rect x={x} y={y} width={2} height={1} fill="#eaf4f7" />
+            {y % 5 === 2 && (
+              <rect x={x + 6} y={y} width={9} height={1} fill="#63a8cd" />
+            )}
+            {y % 7 === 4 && (
+              <rect x={x + 18} y={y} width={13} height={1} fill="#63a8cd" />
+            )}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
 export function BeachDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.beach;
+  const palm = (depth: Depth) => hazedPalette(PALM_PALETTE, sky, depth);
   return (
     <>
       <div
         className="absolute left-[8%] top-[6%]"
         style={{ filter: "drop-shadow(0 0 18px #ffd166aa)" }}
       >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={5} />
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
       </div>
-      <DriftingCloud left={40} top={10} scale={2} slow opacity={0.8} />
-      <DriftingCloud left={70} top={20} scale={3} delay={6} slow opacity={0.7} />
-      <WaveBand bottom={GROUND} height="12%" color="rgba(59,130,199,0.45)" />
-      <WaveBand bottom={GROUND} height="7%" color="rgba(37,99,168,0.5)" />
-      <Grounded sceneWidth={sceneWidth} right={7}>
-        <PixelSprite map={PALM} palette={PALM_PALETTE} scale={4} />
+      <DriftingCloud left={40} top={10} slow opacity={0.8} />
+      <DriftingCloud left={70} top={20} delay={6} slow opacity={0.7} />
+
+      {/* No ocean on the horizon any more — the water is beside you, not
+          behind you. A low dune band gives the sand somewhere to start. */}
+      <Ridge
+        spec={{ seed: 77, base: 9, amplitude: 5, wavelength: 34, detail: 2 }}
+        sceneWidth={sceneWidth}
+        ramp={SAND}
+        sky={sky}
+        depth="mid"
+      />
+
+      <Shore sceneWidth={sceneWidth} />
+
+      {/* Palms on the dry side, where the player starts. */}
+      <Grounded left={2} z={6} shadow={14} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PALM}
+          palette={palm("near")}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
       </Grounded>
-      <Grounded sceneWidth={sceneWidth} left={8}>
-        <PixelSprite map={UMBRELLA} palette={UMBRELLA_PALETTE} scale={4} />
+      <Grounded left={14} z={6} sceneWidth={sceneWidth}>
+        <PixelSprite map={PALM} palette={palm("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded left={26} z={6} sceneWidth={sceneWidth}>
+        <PixelSprite map={PALM} palette={palm("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded left={8} z={6} shadow={16} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={UMBRELLA}
+          palette={UMBRELLA_PALETTE}
+          scale={ART_PX}
+        />
       </Grounded>
     </>
   );
