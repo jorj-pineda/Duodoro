@@ -565,9 +565,9 @@ export function useGameSession(profile: Profile | null) {
   const dismissInvite = useCallback(() => setPendingInvite(null), []);
 
   return {
-    // World & pet
+    // World & pet. myWorld is read-only to callers: the world is the server's,
+    // and a setter here is a way to put the client back in charge of it.
     myWorld,
-    setMyWorld,
     myPet,
     setMyPet,
     // Session config
