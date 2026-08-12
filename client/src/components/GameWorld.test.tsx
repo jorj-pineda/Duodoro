@@ -96,13 +96,17 @@ describe("break overlay", () => {
 describe("ground line", () => {
   it("stands everything in the scene on the same line", () => {
     const { container } = renderScene("waiting");
-    // Trees, hills and both characters are all anchored with an inline
-    // `bottom`. Any value that isn't GROUND is something standing off the
-    // horizon — which is what `calc(19% - 4px)` was.
+    // Trees, hills and both characters anchor to the scene with a percentage
+    // `bottom`. Any percentage that isn't GROUND is something standing off the
+    // horizon — which is exactly what `calc(19% - 4px)` was.
+    //
+    // Pixel offsets are excluded on purpose: those are local nudges inside a
+    // sprite's own wrapper (a contact shadow sitting one art pixel below its
+    // owner), not claims about where the ground is.
     const anchors = new Set(
       Array.from(container.querySelectorAll<HTMLElement>("[style*='bottom']"))
         .map((el) => el.style.bottom)
-        .filter(Boolean),
+        .filter((v) => v.includes("%")),
     );
     expect(anchors).toEqual(new Set([GROUND]));
   });

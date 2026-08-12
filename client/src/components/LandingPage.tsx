@@ -89,7 +89,7 @@ function HeroScene() {
             className="absolute inset-0 overflow-hidden"
             style={{ background: world.skyGradient }}
           >
-            <WorldDecor worldId={world.id} />
+            <WorldDecor worldId={world.id} sceneWidth={0} />
           </div>
           <div
             className="absolute bottom-0 left-0 right-0"
