@@ -351,6 +351,66 @@ const BUSH: PixelMap = [
 ];
 const BUSH_PALETTE: PixelPalette = { L: GRASS[3], M: GRASS[2], D: GRASS[1] };
 
+// A spruce for the winter mountain: narrower and steeper than the forest pine
+// (42x102 against the pine's 60x111), with snow settling on the outer edge of
+// each bough where it would actually collect.
+const SPRUCE: PixelMap = [
+  "......MD......",
+  ".....LMDD.....",
+  "....LMMDDD....",
+  ".....LMDD.....",
+  "....LMMDDD....",
+  "...SSMMDDss...",
+  "....LMMDDD....",
+  "...LMMMDDDD...",
+  "..SSMMMDDDss..",
+  "....LMMDDD....",
+  "...LMMMDDDD...",
+  "..LMMMMDDDDD..",
+  ".SSMMMMMDDDss.",
+  "...LMMMDDDD...",
+  "..LMMMMDDDDD..",
+  ".LMMMMMMDDDDD.",
+  "SSMMMMMMDDDDss",
+  "...MMMMDDDDD..",
+  ".LMMMMMMDDDDD.",
+  "LMMMMMMMDDDDDD",
+  "SSMMMMMMDDDDss",
+  ".LMMMMMMDDDDD.",
+  "LMMMMMMMDDDDDD",
+  "LMMMMMMMDDDDDD",
+  "SSMMMMMMDDDDss",
+  ".LMMMMMMDDDDD.",
+  ".MMMMMMMDDDDDD",
+  "LMMMMMMMDDDDDD",
+  "LMMMMMMMDDDDDD",
+  "SSMMMMMMDDDDss",
+  "......ttT.....",
+  "......ttT.....",
+  ".....tttTT....",
+  ".....tttTT....",
+];
+const SPRUCE_PALETTE: PixelPalette = {
+  L: FOLIAGE[3],
+  M: FOLIAGE[1],
+  D: FOLIAGE[0],
+  S: SNOW[3],
+  s: SNOW[2],
+  t: BARK[1],
+  T: BARK[0],
+};
+
+// A boulder breaking through the snow, so the ground isn't one flat sheet.
+const ROCK: PixelMap = [
+  "..LLMM....",
+  ".LLMMMMD..",
+  "LLMMMMMDD.",
+  "LMMMMMMDDD",
+  "MMMMMMMDDD",
+];
+const ROCK_PALETTE: PixelPalette = { L: STONE[4], M: STONE[3], D: STONE[1] };
+
+
 /** Keyline for a sprite at a given depth. The outline has to recede with
  *  everything else, or a far sprite reads as nearer than the ridge behind it. */
 function keyline(sky: string, depth: Depth): string {
@@ -828,72 +888,103 @@ export function CityDecor({ sceneWidth }: DecorProps) {
 
 export function MountainDecor({ sceneWidth }: DecorProps) {
   const sky = HORIZON.mountain;
-  const tree = (depth: Depth) => hazedPalette(PINE_TALL_PALETTE, sky, depth);
+  const spruce = (depth: Depth) => hazedPalette(SPRUCE_PALETTE, sky, depth);
   return (
     <>
-      <div
-        className="absolute right-[14%] top-[7%]"
-        style={{ filter: "drop-shadow(0 0 12px #ffd16677)" }}
-      >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
-      </div>
-      <DriftingCloud left={8} top={13} slow />
-      <DriftingCloud left={52} top={8} delay={5} slow />
-      <DriftingCloud left={80} top={18} delay={10} />
+      <DriftingCloud left={8} top={16} slow opacity={0.85} />
+      <DriftingCloud left={52} top={9} delay={5} slow opacity={0.8} />
+      <DriftingCloud left={80} top={21} delay={10} opacity={0.75} />
 
-      {/* Four ranges. The old scene drew one 16x10 map at scale 5, 6, 7 and 8
-          in a single frame — four different pixel sizes standing next to a
-          character at 3. These are one grid, separated by haze and snow line. */}
+      {/* Ranges, not hills. The far wall is 78 art pixels — 234px, more than
+          three times the character — where the old one topped out at 80px
+          total. Snow lines sit lower on the near ranges, which is backwards
+          for altitude but right for reading: the near rock has to stay dark
+          enough to hold the silhouette against the sky. */}
       <Ridge
-        spec={{ seed: 5, base: 46, amplitude: 26, wavelength: 62, detail: 2 }}
+        spec={{ seed: 5, base: 78, amplitude: 40, wavelength: 78, detail: 2 }}
         sceneWidth={sceneWidth}
         ramp={STONE}
         sky={sky}
         depth="far"
-        capAbove={40}
+        capAbove={64}
         capColor={SNOW[3]}
       />
       <Ridge
-        spec={{ seed: 19, base: 34, amplitude: 22, wavelength: 46, detail: 3 }}
+        spec={{ seed: 19, base: 58, amplitude: 34, wavelength: 54, detail: 3 }}
         sceneWidth={sceneWidth}
         ramp={STONE}
         sky={sky}
         depth="mid"
-        capAbove={32}
+        capAbove={52}
         capColor={SNOW[3]}
         zIndex={1}
       />
       <Ridge
-        spec={{ seed: 31, base: 20, amplitude: 14, wavelength: 34, detail: 3 }}
+        spec={{ seed: 31, base: 36, amplitude: 24, wavelength: 38, detail: 3 }}
         sceneWidth={sceneWidth}
         ramp={STONE}
         sky={sky}
         depth="near"
+        capAbove={38}
+        capColor={SNOW[2]}
         zIndex={2}
       />
+      {/* Snowline foothills the treeline stands on. */}
       <Ridge
-        spec={{ seed: 47, base: 7, amplitude: 5, wavelength: 16, detail: 3 }}
+        spec={{ seed: 47, base: 9, amplitude: 6, wavelength: 20, detail: 3 }}
         sceneWidth={sceneWidth}
-        ramp={FOLIAGE}
+        ramp={SNOW}
         sky={sky}
         depth="front"
         zIndex={3}
       />
 
-      <Grounded left={16} z={4} shadow={16} sceneWidth={sceneWidth}>
+      {/* A treeline rather than two lonely trees. */}
+      <Grounded left={3} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded left={12} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded left={21} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded right={4} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded right={13} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+      </Grounded>
+      <Grounded left={-2} z={5} shadow={12} sceneWidth={sceneWidth}>
         <PixelSprite
-          map={PINE_TALL}
-          palette={tree("near")}
+          map={SPRUCE}
+          palette={spruce("near")}
           scale={ART_PX}
           outline={keyline(sky, "near")}
         />
       </Grounded>
-      <Grounded right={20} z={4} shadow={16} sceneWidth={sceneWidth}>
+      <Grounded right={-1} z={5} shadow={12} sceneWidth={sceneWidth}>
         <PixelSprite
-          map={PINE_TALL}
-          palette={tree("near")}
+          map={SPRUCE}
+          palette={spruce("near")}
           scale={ART_PX}
           outline={keyline(sky, "near")}
+        />
+      </Grounded>
+
+      {/* Rock breaking the snow so the ground isn't a flat sheet. */}
+      <Grounded left={30} z={5} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={ROCK}
+          palette={hazedPalette(ROCK_PALETTE, sky, "near")}
+          scale={ART_PX}
+        />
+      </Grounded>
+      <Grounded right={26} z={5} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={ROCK}
+          palette={hazedPalette(ROCK_PALETTE, sky, "near")}
+          scale={ART_PX}
         />
       </Grounded>
     </>

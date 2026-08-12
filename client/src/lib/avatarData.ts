@@ -117,9 +117,10 @@ export const WORLDS: WorldConfig[] = [
     id: 'mountain',
     label: 'Mountain',
     emoji: '🏔️',
+    // Winter: the ground is snow over rock, not the alpine meadow it was.
     skyGradient: 'linear-gradient(180deg, #87CEEB 0%, #E0F0FF 100%)',
-    groundColor: '#6b8e5e',
-    groundPatternColor: '#5a7d4d',
+    groundColor: '#dbe4ea',
+    groundPatternColor: '#aab7c2',
   },
   {
     id: 'library',
