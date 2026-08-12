@@ -2,7 +2,18 @@
 import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
 import { getWorld, type WorldId } from "@/lib/avatarData";
-import { GROUND } from "@/lib/scene";
+import { ART_PX, GROUND } from "@/lib/scene";
+import Ridge from "./Ridge";
+import {
+  BARK,
+  FOLIAGE,
+  GRASS,
+  SNOW,
+  STONE,
+  blend,
+  hazedPalette,
+  type Depth,
+} from "@/lib/palette";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // World Decorations — pixel-art scenery for each world.
@@ -143,11 +154,6 @@ const MOUNTAIN_FRONT: PixelPalette = {
   M: "#7c8490",
   m: "#5f6875",
   S: "#f1f5f9",
-};
-const MOUNTAIN_BACK: PixelPalette = {
-  M: "#9aa3b0",
-  m: "#8891a0",
-  S: "#e8eef5",
 };
 
 const PALM: PixelMap = [
@@ -297,53 +303,108 @@ const TABLE: PixelMap = [
 ];
 const TABLE_PALETTE: PixelPalette = { T: "#8d5a2b", t: "#6e441f" };
 
-// ── Shared layer helpers ────────────────────────────────────────────────────
+// A conifer at ART_PX is 60x111px against a 48x72 person — 1.54x human height.
+// The old PINE was 48x56: shorter than the people standing under it, and with
+// 33% bigger pixels. Boughs are tiered rather than one smooth triangle, and
+// three of them are nicked on the left so the silhouette isn't perfectly
+// regular — a symmetrical conifer reads as a christmas tree.
+const PINE_TALL: PixelMap = [
+  ".........MD.........",
+  "........LMDD........",
+  ".......LMMMDD.......",
+  "......LMMMMDDD......",
+  "........LMDD........",
+  ".......LMMMDD.......",
+  "......LMMMMDDD......",
+  ".....LMMMMMDDDD.....",
+  ".......LMMMDD.......",
+  "......LMMMMDDD......",
+  ".....LMMMMMDDDD.....",
+  ".....MMMMMMDDDDD....",
+  "......LMMMMDDD......",
+  ".....LMMMMMDDDD.....",
+  "....LMMMMMMDDDDD....",
+  "...LMMMMMMMDDDDDD...",
+  ".....LMMMMMDDDD.....",
+  "....LMMMMMMDDDDD....",
+  "...LMMMMMMMDDDDDD...",
+  "...MMMMMMMMMDDDDDD..",
+  "....LMMMMMMDDDDD....",
+  "...LMMMMMMMDDDDDD...",
+  "..LMMMMMMMMMDDDDDD..",
+  ".LMMMMMMMMMMDDDDDDD.",
+  "...LMMMMMMMDDDDDD...",
+  "..LMMMMMMMMMDDDDDD..",
+  ".LMMMMMMMMMMDDDDDDD.",
+  "LMMMMMMMMMMMDDDDDDDD",
+  "..LMMMMMMMMMDDDDDD..",
+  ".LMMMMMMMMMMDDDDDDD.",
+  "LMMMMMMMMMMMDDDDDDDD",
+  ".MMMMMMMMMMMDDDDDDDD",
+  "........tttT........",
+  "........tttT........",
+  ".......ttttTT.......",
+  ".......ttttTT.......",
+  "......tttttTTT......",
+];
+const PINE_TALL_PALETTE: PixelPalette = {
+  L: FOLIAGE[4],
+  M: FOLIAGE[2],
+  D: FOLIAGE[1],
+  t: BARK[2],
+  T: BARK[1],
+};
 
-/** Column heights (0–10) stretched full-width — stepped hills / skylines. */
-function SteppedSilhouette({
-  heights,
-  color,
-  height,
-  opacity = 1,
-  bottom = GROUND,
-}: {
-  heights: number[];
-  color: string;
-  height: string;
-  opacity?: number;
-  bottom?: string;
-}) {
-  return (
-    <svg
-      viewBox={`0 0 ${heights.length} 10`}
-      preserveAspectRatio="none"
-      className="absolute left-0 right-0 w-full"
-      style={{ bottom, height, opacity, shapeRendering: "crispEdges" }}
-      aria-hidden="true"
-    >
-      {heights.map((h, i) => (
-        <rect key={i} x={i} y={10 - h} width={1} height={h} fill={color} />
-      ))}
-    </svg>
-  );
+// Undergrowth. Its job is to break the line where trunks meet the ground, so
+// the trees don't read as posted into a flat plane.
+const BUSH: PixelMap = [
+  "...LMM....",
+  ".LMMMMDD..",
+  "LMMMMMMDD.",
+  "LMMMMMMDDD",
+  ".MMMMMDDD.",
+  "..MMMDDD..",
+];
+const BUSH_PALETTE: PixelPalette = { L: GRASS[3], M: GRASS[2], D: GRASS[1] };
+
+/** Keyline for a sprite at a given depth. The outline has to recede with
+ *  everything else, or a far sprite reads as nearer than the ridge behind it. */
+function keyline(sky: string, depth: Depth): string {
+  return hazedPalette({ k: blend(FOLIAGE[0], "#000000", 0.4) }, sky, depth).k;
 }
 
-const HILLS_BACK = [
-  3, 3, 4, 4, 5, 5, 6, 6, 6, 5, 5, 4, 4, 3, 3, 3, 4, 5, 6, 7, 7, 6, 5, 4, 4,
-  3, 3, 4, 4, 5, 5, 4,
-];
-const HILLS_FRONT = [
-  2, 2, 2, 3, 3, 4, 4, 4, 3, 3, 2, 2, 3, 4, 5, 5, 5, 4, 3, 3, 2, 2, 2, 3, 4,
-  4, 5, 5, 4, 3, 2, 2,
-];
-const SKYLINE = [
-  3, 3, 3, 5, 5, 5, 5, 2, 2, 4, 4, 4, 7, 7, 7, 3, 3, 6, 6, 6, 2, 2, 5, 5, 5,
-  8, 8, 4, 4, 4, 6, 6,
-];
-const SKYLINE_FAR = [
-  2, 2, 4, 4, 4, 3, 3, 5, 5, 2, 2, 3, 3, 6, 6, 6, 4, 4, 2, 2, 5, 5, 3, 3, 3,
-  4, 4, 6, 6, 3, 3, 2,
-];
+/**
+ * The sky at the horizon for each world — what distance blends toward.
+ *
+ * Taken from the bottom stop of each world's skyGradient, because that is
+ * literally the colour the air is at the point a far ridge meets it.
+ */
+const HORIZON: Record<WorldId, string> = {
+  forest: "#AEE5D8",
+  space: "#130840",
+  beach: "#FFD166",
+  city: "#16213e",
+  mountain: "#E0F0FF",
+  library: "#5d4037",
+  cafe: "#e8d5b7",
+  lofi: "#11063a",
+};
+
+/** Every decor scene needs the measured scene width: terrain is generated to
+ *  cover it, and sprite positions are rounded to whole pixels against it. */
+interface DecorProps {
+  sceneWidth: number;
+}
+
+// ── Shared layer helpers ────────────────────────────────────────────────────
+
+/** A percentage of the scene, snapped to a whole pixel once it is measurable. */
+function pin(pct: number | undefined, sceneWidth: number): string | undefined {
+  if (pct === undefined) return undefined;
+  if (sceneWidth <= 0) return `${pct}%`;
+  return `${Math.round((sceneWidth * pct) / 100)}px`;
+}
+
 
 /** Deterministic star field; a third of the stars twinkle on a stagger. */
 function Stars({
@@ -351,11 +412,15 @@ function Stars({
   color = "#ffffff",
   maxY = 60,
   baseOpacity = 0.55,
+  sceneWidth = 0,
 }: {
   count: number;
   color?: string;
   maxY?: number;
   baseOpacity?: number;
+  /** A 1px star placed at a percentage is a 1px star straddling two device
+   *  pixels — i.e. two half-lit greys where there should be one white dot. */
+  sceneWidth?: number;
 }) {
   const stars = useMemo(
     () =>
@@ -375,7 +440,10 @@ function Stars({
           key={i}
           className={`absolute ${s.twinkle ? "decor-twinkle" : ""}`}
           style={{
-            left: `${s.x}%`,
+            left:
+              sceneWidth > 0
+                ? `${Math.round((sceneWidth * s.x) / 100)}px`
+                : `${s.x}%`,
             top: `${s.y}%`,
             width: s.size,
             height: s.size,
@@ -424,23 +492,44 @@ function Grounded({
   right,
   children,
   z = 0,
+  shadow,
+  sceneWidth = 0,
 }: {
   left?: number;
   right?: number;
   children: React.ReactNode;
   z?: number;
+  /** Measured scene width. A percentage offset lands on a fractional pixel and
+   *  softens every edge in the sprite, same as it did for the characters. */
+  sceneWidth?: number;
+  /** Width of the contact shadow in art pixels. Without one a sprite hovers:
+   *  nothing tells the eye where the object meets the plane it stands on. */
+  shadow?: number;
 }) {
   return (
     <div
       className="absolute"
       style={{
-        left: left !== undefined ? `${left}%` : undefined,
-        right: right !== undefined ? `${right}%` : undefined,
+        left: pin(left, sceneWidth),
+        right: pin(right, sceneWidth),
         bottom: GROUND,
         zIndex: z,
       }}
     >
       {children}
+      {shadow !== undefined && (
+        <div
+          className="absolute left-1/2"
+          style={{
+            bottom: -ART_PX,
+            width: shadow * ART_PX,
+            height: ART_PX,
+            marginLeft: -Math.round((shadow * ART_PX) / 2),
+            background: "#000000",
+            opacity: 0.26,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -466,37 +555,97 @@ function SteamPuffs({ left, bottom }: { left: string; bottom: string }) {
 
 // ── Forest — daytime, layered hills, drifting clouds, pine clusters ─────────
 
-export function ForestDecor() {
+export function ForestDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.forest;
+  const tree = (depth: Depth) => hazedPalette(PINE_TALL_PALETTE, sky, depth);
+  const bush = (depth: Depth) => hazedPalette(BUSH_PALETTE, sky, depth);
   return (
     <>
       <div
         className="absolute right-[10%] top-[8%]"
         style={{ filter: "drop-shadow(0 0 12px #ffd16688)" }}
       >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={4} />
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
       </div>
-      <DriftingCloud left={10} top={12} scale={3} slow />
-      <DriftingCloud left={38} top={7} scale={2} delay={4} />
-      <DriftingCloud left={64} top={17} scale={2} delay={9} slow />
-      <DriftingCloud left={84} top={26} scale={2} delay={2} opacity={0.7} />
-      <SteppedSilhouette
-        heights={HILLS_BACK}
-        color="#a4cdb0"
-        height="13%"
-        opacity={0.8}
+      <DriftingCloud left={10} top={12} slow />
+      <DriftingCloud left={38} top={7} delay={4} />
+      <DriftingCloud left={64} top={17} delay={9} slow />
+      <DriftingCloud left={84} top={26} delay={2} opacity={0.7} />
+
+      {/* Three bands of hill. Each is the same green ramp pushed further
+          toward the sky, so the depth is carried by contrast, not by size. */}
+      <Ridge
+        spec={{ seed: 11, base: 26, amplitude: 15, wavelength: 44 }}
+        sceneWidth={sceneWidth}
+        ramp={FOLIAGE}
+        sky={sky}
+        depth="far"
       />
-      <SteppedSilhouette heights={HILLS_FRONT} color="#7db892" height="9%" />
-      <Grounded left={3}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={4} />
+      <Ridge
+        spec={{ seed: 23, base: 16, amplitude: 11, wavelength: 30 }}
+        sceneWidth={sceneWidth}
+        ramp={FOLIAGE}
+        sky={sky}
+        depth="mid"
+        zIndex={1}
+      />
+      <Ridge
+        spec={{ seed: 37, base: 8, amplitude: 6, wavelength: 19, detail: 3 }}
+        sceneWidth={sceneWidth}
+        ramp={GRASS}
+        sky={sky}
+        depth="near"
+        zIndex={2}
+      />
+
+      {/* Trees at two depths, so the treeline has front and back. */}
+      <Grounded left={6} z={3} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("mid")}
+          scale={ART_PX}
+          outline={keyline(sky, "mid")}
+        />
       </Grounded>
-      <Grounded left={12}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={3} />
+      <Grounded left={19} z={3} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("mid")}
+          scale={ART_PX}
+          outline={keyline(sky, "mid")}
+        />
       </Grounded>
-      <Grounded right={12}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={4} />
+      <Grounded right={9} z={3} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("mid")}
+          scale={ART_PX}
+          outline={keyline(sky, "mid")}
+        />
       </Grounded>
-      <Grounded right={4}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={3} />
+      <Grounded left={1} z={4} shadow={16} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("near")}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
+      </Grounded>
+      <Grounded right={2} z={4} shadow={16} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("near")}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
+      </Grounded>
+
+      {/* Undergrowth, to break the line where the trunks meet the ground. */}
+      <Grounded left={13} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
+      </Grounded>
+      <Grounded right={17} z={4} sceneWidth={sceneWidth}>
+        <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
       </Grounded>
     </>
   );
@@ -504,7 +653,7 @@ export function ForestDecor() {
 
 // ── Space — nebulas, twinkling stars, ringed planet, shooting star ──────────
 
-export function SpaceDecor() {
+export function SpaceDecor({ sceneWidth }: DecorProps) {
   return (
     <>
       <div
@@ -529,7 +678,7 @@ export function SpaceDecor() {
             "radial-gradient(ellipse at center, #2563eb22, transparent 70%)",
         }}
       />
-      <Stars count={40} maxY={70} />
+      <Stars count={40} maxY={70} sceneWidth={sceneWidth} />
       <div
         className="absolute right-[8%] top-[8%]"
         style={{ filter: "drop-shadow(0 0 16px #7c3aed88)" }}
@@ -575,7 +724,7 @@ function WaveBand({
   );
 }
 
-export function BeachDecor() {
+export function BeachDecor({ sceneWidth }: DecorProps) {
   return (
     <>
       <div
@@ -588,10 +737,10 @@ export function BeachDecor() {
       <DriftingCloud left={70} top={20} scale={3} delay={6} slow opacity={0.7} />
       <WaveBand bottom={GROUND} height="12%" color="rgba(59,130,199,0.45)" />
       <WaveBand bottom={GROUND} height="7%" color="rgba(37,99,168,0.5)" />
-      <Grounded right={7}>
+      <Grounded sceneWidth={sceneWidth} right={7}>
         <PixelSprite map={PALM} palette={PALM_PALETTE} scale={4} />
       </Grounded>
-      <Grounded left={8}>
+      <Grounded sceneWidth={sceneWidth} left={8}>
         <PixelSprite map={UMBRELLA} palette={UMBRELLA_PALETTE} scale={4} />
       </Grounded>
     </>
@@ -600,10 +749,10 @@ export function BeachDecor() {
 
 // ── City — far skyline, lit pixel towers, moon and sparse stars ─────────────
 
-export function CityDecor() {
+export function CityDecor({ sceneWidth }: DecorProps) {
   return (
     <>
-      <Stars count={14} maxY={40} baseOpacity={0.4} />
+      <Stars count={14} maxY={40} baseOpacity={0.4} sceneWidth={sceneWidth} />
       <div
         className="absolute left-[10%] top-[6%]"
         style={{ filter: "drop-shadow(0 0 12px #fde68a66)" }}
@@ -614,22 +763,33 @@ export function CityDecor() {
           scale={4}
         />
       </div>
-      <SteppedSilhouette
-        heights={SKYLINE_FAR}
-        color="#20263e"
-        height="16%"
-        opacity={0.9}
+      {/* The far skyline was 32 columns stretched across the viewport. Same
+          idea, drawn on the grid: a high-detail ridge is a skyline. */}
+      <Ridge
+        spec={{ seed: 71, base: 30, amplitude: 22, wavelength: 12, detail: 1 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={HORIZON.city}
+        depth="far"
       />
-      <Grounded left={4}>
+      <Ridge
+        spec={{ seed: 89, base: 18, amplitude: 16, wavelength: 8, detail: 1 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={HORIZON.city}
+        depth="mid"
+        zIndex={1}
+      />
+      <Grounded sceneWidth={sceneWidth} z={2} left={4}>
         <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
       </Grounded>
-      <Grounded left={13}>
+      <Grounded sceneWidth={sceneWidth} z={2} left={13}>
         <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
       </Grounded>
-      <Grounded right={13}>
+      <Grounded sceneWidth={sceneWidth} z={2} right={13}>
         <PixelSprite map={BUILDING_TALL} palette={BUILDING_PALETTE} scale={3} />
       </Grounded>
-      <Grounded right={4}>
+      <Grounded sceneWidth={sceneWidth} z={2} right={4}>
         <PixelSprite map={BUILDING_SHORT} palette={BUILDING_PALETTE} scale={3} />
       </Grounded>
     </>
@@ -638,40 +798,75 @@ export function CityDecor() {
 
 // ── Mountain — layered ranges, clouds, alpine pines ─────────────────────────
 
-export function MountainDecor() {
+export function MountainDecor({ sceneWidth }: DecorProps) {
+  const sky = HORIZON.mountain;
+  const tree = (depth: Depth) => hazedPalette(PINE_TALL_PALETTE, sky, depth);
   return (
     <>
       <div
         className="absolute right-[14%] top-[7%]"
         style={{ filter: "drop-shadow(0 0 12px #ffd16677)" }}
       >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={3} />
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
       </div>
-      <DriftingCloud left={8} top={13} scale={2} slow />
-      <DriftingCloud left={52} top={8} scale={3} delay={5} slow />
-      <DriftingCloud left={80} top={18} scale={2} delay={10} />
-      {/* Back range */}
-      <Grounded left={12}>
-        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_BACK} scale={6} />
+      <DriftingCloud left={8} top={13} slow />
+      <DriftingCloud left={52} top={8} delay={5} slow />
+      <DriftingCloud left={80} top={18} delay={10} />
+
+      {/* Four ranges. The old scene drew one 16x10 map at scale 5, 6, 7 and 8
+          in a single frame — four different pixel sizes standing next to a
+          character at 3. These are one grid, separated by haze and snow line. */}
+      <Ridge
+        spec={{ seed: 5, base: 46, amplitude: 26, wavelength: 62, detail: 2 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={sky}
+        depth="far"
+        capAbove={40}
+        capColor={SNOW[3]}
+      />
+      <Ridge
+        spec={{ seed: 19, base: 34, amplitude: 22, wavelength: 46, detail: 3 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={sky}
+        depth="mid"
+        capAbove={32}
+        capColor={SNOW[3]}
+        zIndex={1}
+      />
+      <Ridge
+        spec={{ seed: 31, base: 20, amplitude: 14, wavelength: 34, detail: 3 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={sky}
+        depth="near"
+        zIndex={2}
+      />
+      <Ridge
+        spec={{ seed: 47, base: 7, amplitude: 5, wavelength: 16, detail: 3 }}
+        sceneWidth={sceneWidth}
+        ramp={FOLIAGE}
+        sky={sky}
+        depth="front"
+        zIndex={3}
+      />
+
+      <Grounded left={16} z={4} shadow={16} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("near")}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
       </Grounded>
-      <Grounded left={55}>
-        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_BACK} scale={5} />
-      </Grounded>
-      {/* Front range */}
-      <Grounded left={-2}>
-        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={8} />
-      </Grounded>
-      <Grounded left={34}>
-        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={7} />
-      </Grounded>
-      <Grounded right={-2}>
-        <PixelSprite map={MOUNTAIN} palette={MOUNTAIN_FRONT} scale={8} />
-      </Grounded>
-      <Grounded left={20}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={2} />
-      </Grounded>
-      <Grounded right={24}>
-        <PixelSprite map={PINE} palette={PINE_PALETTE} scale={2} />
+      <Grounded right={20} z={4} shadow={16} sceneWidth={sceneWidth}>
+        <PixelSprite
+          map={PINE_TALL}
+          palette={tree("near")}
+          scale={ART_PX}
+          outline={keyline(sky, "near")}
+        />
       </Grounded>
     </>
   );
@@ -679,7 +874,7 @@ export function MountainDecor() {
 
 // ── Library — shelves, hanging reading lamps, warm glow ─────────────────────
 
-export function LibraryDecor() {
+export function LibraryDecor({ sceneWidth }: DecorProps) {
   return (
     <>
       <div
@@ -703,10 +898,10 @@ export function LibraryDecor() {
       >
         <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={3} />
       </div>
-      <Grounded left={4}>
+      <Grounded sceneWidth={sceneWidth} left={4}>
         <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
       </Grounded>
-      <Grounded right={4}>
+      <Grounded sceneWidth={sceneWidth} right={4}>
         <PixelSprite map={BOOKSHELF} palette={BOOKSHELF_PALETTE} scale={4} />
       </Grounded>
     </>
@@ -741,9 +936,17 @@ function StringLights() {
   );
 }
 
-function CafeTable({ left, right }: { left?: number; right?: number }) {
+function CafeTable({
+  left,
+  right,
+  sceneWidth,
+}: {
+  left?: number;
+  right?: number;
+  sceneWidth: number;
+}) {
   return (
-    <Grounded left={left} right={right}>
+    <Grounded left={left} right={right} sceneWidth={sceneWidth}>
       <div className="relative">
         <div className="absolute" style={{ bottom: "100%", left: 10 }}>
           <PixelSprite map={CUP} palette={CUP_PALETTE} scale={2} />
@@ -755,7 +958,7 @@ function CafeTable({ left, right }: { left?: number; right?: number }) {
   );
 }
 
-export function CafeDecor() {
+export function CafeDecor({ sceneWidth }: DecorProps) {
   return (
     <>
       <div
@@ -765,32 +968,38 @@ export function CafeDecor() {
         <PixelSprite map={SUN} palette={SUN_PALETTE} scale={3} />
       </div>
       <StringLights />
-      <CafeTable left={6} />
-      <CafeTable right={6} />
+      <CafeTable sceneWidth={sceneWidth} left={6} />
+      <CafeTable sceneWidth={sceneWidth} right={6} />
     </>
   );
 }
 
 // ── World decor dispatcher — one component per worldId ──────────────────────
 
-export function WorldDecor({ worldId }: { worldId: WorldId }) {
+export function WorldDecor({
+  worldId,
+  sceneWidth,
+}: {
+  worldId: WorldId;
+  sceneWidth: number;
+}) {
   switch (worldId) {
     case "forest":
-      return <ForestDecor />;
+      return <ForestDecor sceneWidth={sceneWidth} />;
     case "space":
-      return <SpaceDecor />;
+      return <SpaceDecor sceneWidth={sceneWidth} />;
     case "beach":
-      return <BeachDecor />;
+      return <BeachDecor sceneWidth={sceneWidth} />;
     case "city":
-      return <CityDecor />;
+      return <CityDecor sceneWidth={sceneWidth} />;
     case "mountain":
-      return <MountainDecor />;
+      return <MountainDecor sceneWidth={sceneWidth} />;
     case "library":
-      return <LibraryDecor />;
+      return <LibraryDecor sceneWidth={sceneWidth} />;
     case "cafe":
-      return <CafeDecor />;
+      return <CafeDecor sceneWidth={sceneWidth} />;
     case "lofi":
-      return <LofiDecor />;
+      return <LofiDecor sceneWidth={sceneWidth} />;
   }
 }
 
@@ -840,10 +1049,16 @@ export function WorldThumbnail({ worldId }: { worldId: WorldId }) {
 
 // ── Lo-fi — purple night, twin skylines, big moon ───────────────────────────
 
-export function LofiDecor() {
+export function LofiDecor({ sceneWidth }: DecorProps) {
   return (
     <>
-      <Stars count={25} color="#c084fc" maxY={55} baseOpacity={0.45} />
+      <Stars
+        count={25}
+        color="#c084fc"
+        maxY={55}
+        baseOpacity={0.45}
+        sceneWidth={sceneWidth}
+      />
       <div
         className="absolute right-[8%] top-[7%]"
         style={{ filter: "drop-shadow(0 0 18px #8b5cf688)" }}
@@ -857,13 +1072,21 @@ export function LofiDecor() {
       <div className="absolute left-[10%] top-[32%] opacity-60">
         <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={2} />
       </div>
-      <SteppedSilhouette
-        heights={SKYLINE_FAR}
-        color="#341d66"
-        height="18%"
-        opacity={0.7}
+      <Ridge
+        spec={{ seed: 101, base: 32, amplitude: 24, wavelength: 11, detail: 1 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={HORIZON.lofi}
+        depth="far"
       />
-      <SteppedSilhouette heights={SKYLINE} color="#241250" height="12%" />
+      <Ridge
+        spec={{ seed: 113, base: 20, amplitude: 17, wavelength: 7, detail: 1 }}
+        sceneWidth={sceneWidth}
+        ramp={STONE}
+        sky={HORIZON.lofi}
+        depth="mid"
+        zIndex={1}
+      />
     </>
   );
 }

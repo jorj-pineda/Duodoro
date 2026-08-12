@@ -130,7 +130,7 @@ export default function GameWorld({
         className="absolute inset-0 overflow-hidden"
         style={{ background: world.skyGradient }}
       >
-        <WorldDecor worldId={worldId} />
+        <WorldDecor worldId={worldId} sceneWidth={sceneWidth} />
       </div>
 
       {/* Ground */}
