@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Duodoro is a collaborative pomodoro web app for long-distance couples/friends. Users sign in (Google/Discord OAuth via Supabase), create a pixel-art avatar, pick a themed "world", and run synchronized focus/break sessions together in real time. Friends, invites, presence, sticky-note tasks, and session stats are layered on top.
+Duodoro is a collaborative pomodoro web app for long-distance couples/friends. Users sign in (Google/Discord OAuth via Supabase), create a pixel-art avatar, and run synchronized focus/break sessions together in real time, in whichever themed "world" the clock is on. Friends, invites, presence, sticky-note tasks, and session stats are layered on top.
 
 ## Repo layout
 
@@ -28,7 +28,7 @@ Client (`cd client`):
 
 Server (`cd server`):
 - `npm start` — runs on port 3001 (or `npx nodemon index.js` for reload)
-- `npm run test:run` — vitest once
+- `npm run test:run` — vitest once. Most of the suite is pure helpers, but `createSession.test.js` spawns the real server as a child process with `PORT=0` and talks to it over a real socket (`socket.io-client`, a devDependency) — so that run binds an ephemeral port and scrapes the boot log for it
 - Without `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` set, the server runs in dev mode: JWT verification and all persistence are skipped. In production those vars are required (it exits otherwise).
 
 Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Server env: see `server/.env.example`.
@@ -40,6 +40,7 @@ Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `N
 - **Socket.IO server** (`server/index.js`) is the source of truth for live session state: phases, timers, players, presence, invites. All session state is **in-memory** (the `sessions` map plus the presence registry in `server/presence.js`) — it does not survive a server restart, and nothing live is read back from the DB.
 - **Supabase** handles auth (JWT), and persistence: profiles, friendships, tasks/sticky notes, and *completed* session history (`sessions` + `session_participants` rows written by the server with the service-role key, bypassing RLS). The client talks to Supabase directly (anon key + RLS) for friends, tasks, and stats.
 - **Client** never trusts its own clock for the timer: the server broadcasts `phase_change` with `phaseStartTime` and durations; the client renders countdowns from `Date.now() - phaseStartTime`.
+- **The world is not client input.** There is one world at a time, the same for everybody, derived from the wall clock — see the rotation section below.
 
 ### Server session lifecycle
 
@@ -50,9 +51,22 @@ Two timer modes: `pomodoro` (fixed durations, server auto-advances) and `flow` (
 
 A dropped socket doesn't eject its player immediately: authenticated players keep their slot for a reconnect grace window (`RECONNECT_GRACE_MS`, default 60 s), and `join_session` from the same `userId` re-keys the existing slot to the new socket instead of duplicating the player. The client mirrors the active session id into `sessionStorage` and auto-rejoins after a page reload.
 
+### The world rotation
+
+`create_session` assigns `worldAt()` (`server/rotation.js`) — one world, everybody, changing on the **:30** of every hour, anchored to UTC. Nobody picks a world; there is no picker. Rules that keep it working:
+
+- **Derived, never stored.** No row, no timer, no broadcast. Live session state is already in-memory and dies with the process, so a persisted rotation would be one more thing to resync after a restart and one more thing two instances can disagree about. Anything that needs to know the world computes it.
+- **A session keeps the world it started in.** Rotation applies to new sessions only — swapping the scene 20 minutes into a focus block is worse than a slightly stale theme, and it would make the `sessions.world` history row ambiguous. `sync_state` carries the session's world; the client mirrors it and does not re-derive.
+- **Two copies, one schedule.** `client/` and `server/` can't import each other, so the derivation is duplicated in `server/rotation.js` and `client/src/lib/rotation.ts`. What keeps them honest is that both test suites pin the **same table of timestamps** — edit one implementation and the *other* package's suite fails. Change both, or neither.
+- **Integer hash, never `Math.sin`.** The per-cycle shuffle uses `Math.imul` + xor-shift. `lib/terrain.ts` and `lib/interior.ts` seed with `Math.sin`, which is fine when a 1-ULP difference between engines moves a rock; here it would put the client and the server in *different worlds*. ECMA-262 doesn't require transcendentals to be bit-identical across implementations. Anything two packages must agree on exactly stays in integer arithmetic.
+- **The order reshuffles every cycle** (8 slots = every world once). A fixed order would be an 8-hour loop, and 8 divides 24, so a 9am regular would get the same world every day forever. A fix-up stops a cycle opening on the world the last one closed with.
+- **`create_session` ignores an unknown `world` field rather than rejecting it**, so an older client still gets a session instead of an error. That is the general shape for removing a field from an event.
+
+Adding a world now needs `ROTATION_WORLDS` (**both** copies), the client's `WorldId` and `WORLDS` in `lib/avatarData.ts`, and the SQL `sessions_world_check` (migration 008, last edited by 019). A world missing from the rotation is unreachable — there is no picker left to select it with, which is why `rotation.test.ts` asserts the two lists match.
+
 Security conventions in the socket layer (preserve these when adding events):
 - `io.use()` middleware verifies the Supabase JWT and sets `socket.userId` — **never trust a client-sent userId**.
-- Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_WORLDS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`).
+- Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_PETS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`). The stronger move, where it's available, is not to take the field at all — that is what happened to `world`.
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 - Knowing a session id is not permission to use it: `join_session` requires an existing slot, an invite, or friendship with someone already in the session, and `send_invite` is friends-only. Server-side ids are read from `socketToSession`, never taken from the payload.
 
@@ -65,14 +79,15 @@ Note: `server/session.js` holds the pure session-state helpers (`createSessionSt
 `DuoTimer.tsx` is the top-level orchestrator: it composes two hooks and switches screens on `appStep` (`loading → landing → avatar → home → game`, defined in `lib/sessionTypes.ts`).
 
 - `hooks/useAuth.ts` — Supabase auth, profile load/save, drives `appStep`.
-- `hooks/useGameSession.ts` — owns the Socket.IO connection (auth token in handshake, retries on token expiry), all session/phase/player state, invites, resume-after-tab-sleep resync (`request_sync`), and the `sessionStorage` mirror that drives rejoin-after-reload. This is the file to touch for any realtime behavior. It also exposes `connectionState`, which `ConnectionBanner` renders as a "reconnecting / connection lost" banner while you're in a session.
+- `hooks/useGameSession.ts` — owns the Socket.IO connection (auth token in handshake, retries on token expiry), all session/phase/player state, invites, resume-after-tab-sleep resync (`request_sync`), and the `sessionStorage` mirror that drives rejoin-after-reload. This is the file to touch for any realtime behavior. It also exposes `connectionState`, which `ConnectionBanner` renders as a "reconnecting / connection lost" banner while you're in a session. `myWorld` is read-only to callers — it mirrors the server's answer, and a setter would be a supported way to put the client back in charge of it.
+- **Never read `Date.now()` during render.** `"use client"` marks a component as interactive; Next still renders it on the server, where "now" is a different number, so anything clock-derived in the first pass is a hydration mismatch. Start at `null` and fill in from an effect — `useRotatingWorld` is the pattern, and `WorldNowCard.test.tsx` checks it with `renderToStaticMarkup`, because testing-library's `render()` flushes effects and so can't see the first pass at all. Then *re-read* the clock each tick rather than decrementing a stored value: background tabs get their timers throttled, and a countdown that decrements drifts by however long the tab slept.
 - `lib/supabase.ts` — browser Supabase singleton (PKCE flow, localStorage sessions — deliberately not cookie/SSR-based; `app/auth/callback/route.ts` exists for the OAuth redirect).
 - Direct-to-Supabase data hooks: `useFriendsList`, `useFriendSearch`, `useTasks`, `useStickyNotes`, `lib/useStats.ts`. In these, **check `error` on reads as well as writes** — `if (data) setX(data)` leaves the list at its old value and renders the empty state, which makes a hard failure indistinguishable from "you have nothing yet". That is exactly how the `42P17` outage fixed in migration 018 hid: every task read was erroring and the UI said "No tasks yet". Likewise, RLS refusing an UPDATE or DELETE is not an error — it matches zero rows — so those need `.select()` and a row-count check.
 - **An empty result and a failed request must never render the same way.** Zeros and "nothing here yet" are claims about the user's data; making them on a failed fetch tells someone their history is gone. Where a hook can return legitimately-empty data, expose a *loaded* flag alongside `error` — `useStats` does — and gate the empty state on it, because `personalStats === null` covers both "new account" and "never loaded". `StatsErrorState` is the shared "couldn't load, nothing was lost, retry" panel.
 - `useOnlineFriends` is a hybrid — the friend list comes from Supabase, the online/offline dots from the socket (`get_online_friends` + `presence_update`).
 - `public/sw.js` caches **nothing about the app** — only `/offline.html`, served as a fallback for failed *navigations*. Timer state is server-authoritative, so a stale socket.io or Supabase reply is worse than no reply; the fetch handler returns early for anything that isn't a navigation. Keep it that way. `offline.html` is standalone by necessity (no network means no hashed CSS bundle, no Google Fonts), so its theme tokens are a copy of `globals.css` — update both together.
 - `lib/sounds.ts` owns audio *and* the mute flag. The flag is a module-level variable with its own listener set, not React state, because `playSound` is called from `useGameSession`'s socket handlers — outside the component tree, sometimes while nothing is mounted. `useSound` subscribes to it via `useSyncExternalStore`, so any number of `SoundToggle`s stay in agreement. Add new sounds to `FILES`; don't add a second playback path that bypasses the mute check.
-- Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts`. `lib/scene.ts` holds the two numbers the scene has to agree on — `GROUND` (the ground plane's height, which everything standing is anchored to) and `ART_PX` (one art pixel in CSS px). Both were duplicated literals; `GROUND` appeared six times across three files. Note what the server actually validates: `sanitizeAvatar` whitelists `hairStyle` and `eyeStyle`, but checks colours with a plain `/^#[0-9a-fA-F]{6}$/` regex — so recolouring the palette is client-only, while adding a *style* also needs `VALID_HAIR_STYLES`/`VALID_EYE_STYLES`, and adding a *world* needs both `VALID_WORLDS` and the SQL `sessions_world_check` (migration 008).
+- Visuals: `GameWorld` renders the session scene; `PixelCharacter`/`PetCharacter`/`WorldDecorations` are hand-drawn SVG/CSS pixel art driven by `lib/avatarData.ts`. `lib/scene.ts` holds the two numbers the scene has to agree on — `GROUND` (the ground plane's height, which everything standing is anchored to) and `ART_PX` (one art pixel in CSS px). Both were duplicated literals; `GROUND` appeared six times across three files. Note what the server actually validates: `sanitizeAvatar` whitelists `hairStyle` and `eyeStyle`, but checks colours with a plain `/^#[0-9a-fA-F]{6}$/` regex — so recolouring the palette is client-only, while adding a *style* also needs `VALID_HAIR_STYLES`/`VALID_EYE_STYLES`. Adding a *world* is a separate checklist — see the rotation section; `VALID_WORLDS` no longer exists.
 
 ### Mobile / viewport conventions
 
@@ -139,10 +154,15 @@ The repo owner has settled on these; follow them without being asked.
   duplicate `long` hair, palm misalignment) turned out not to exist on inspection. Check
   the source, then fix.
 
-`ROADMAP.local.md` in the repo root is the prioritised backlog — gitignored via
-`*.local.md`, so it is local-only and safe to edit freely. It carries file:line references,
+`ROADMAP.md` in the repo root is the prioritised backlog. It carries file:line references,
 a corrections section for debunked findings, and the recommended order of work. Read it
 before proposing what to do next, and tick items off as they ship.
+
+It used to be `ROADMAP.local.md`, gitignored via `*.local.md`. It is tracked now, which
+changes how to edit it: it lands in PR diffs, so update it **in the PR that does the work**
+rather than as a separate pass, and keep the file:line references honest — a stale line
+number in a tracked file is worse than one in a scratch file, because the next person
+believes it.
 
 ## Pixel art conventions
 
