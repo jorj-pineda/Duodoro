@@ -101,15 +101,6 @@ function parseHex(hex: string): [number, number, number] {
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
-/**
- * The one colour every shadow on a character mixes toward, and the one every
- * cheek mixes toward. Named constants rather than per-call arguments so a
- * sprite's shadows all agree — a face shaded toward one tone and a sleeve
- * toward another is what makes hand-picked shading look assembled.
- */
-const SHADOW_TONE = hslToHex(SHADOW_HUE, 0.34, 0.13);
-const CHEEK_TONE = hslToHex(6, 0.72, 0.6);
-
 /** Inverse of hslToHex. Hue in degrees, s and l in 0–1. */
 export function hexToHsl(hex: string): [number, number, number] {
   const [r255, g255, b255] = parseHex(hex);
