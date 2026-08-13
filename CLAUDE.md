@@ -170,9 +170,31 @@ The art is generated at runtime — there are no image assets. `client/public/` 
 SVGs, five of which are untouched Next.js starter files.
 
 - `PixelSprite` (string map + palette → merged `<rect>`s, `shapeRendering: crispEdges`) is
-  the right primitive. `PixelCharacter` and `PetCharacter` do **not** use it — they are ~90
-  hand-placed `<rect x= y=>` elements, which is why they can't be palette-swapped,
-  outlined or given a blink frame without editing coordinates by hand.
+  the right primitive, and everything now uses it. The avatar and the pets are string maps
+  in `lib/characterMaps.ts` and `lib/petMaps.ts`; they were ~90 hand-placed `<rect x= y=>`
+  elements until PR #39, which is why they were the two sprites that couldn't be
+  palette-swapped, outlined or blinked.
+- **Multi-layer sprites composite into one map before rendering** (`lib/pixelMap.ts`),
+  never into stacked `<svg>` elements — separate SVGs put each layer's edges on their own
+  rounding and the parts of one shape pick up seams. Layers share one key alphabet, so
+  compositing is "last non-transparent wins" and no two layers can disagree about what a
+  key means. `place()` **throws** on a block that overruns the canvas or a row of the wrong
+  width: `PixelSprite`'s forgiveness is right for a standalone sprite and wrong for a
+  layer, where a padded row lands on top of what the layer was supposed to let through.
+- **Derive shading, never hand-pick it, and never scale RGB channels.** `shade()` and
+  `flush()` in `lib/palette.ts` are the only shading in the art. A per-channel multiply
+  moves a colour by an amount that depends on how bright it already is — the old
+  `darken(skin, 0.08)` shifted the deepest skin by 0.016 lightness and the palest by 0.071,
+  so the chin shadow was invisible on two of the six skins. Two obvious rewrites each fix
+  half: blending toward a fixed dark tone leaves near-black *lighter* than its own shadow,
+  and holding HSL saturation while dropping lightness turns pale colours vivid. `shade()`
+  drops lightness by a fixed amount while holding chroma, with a cap. Both failure modes
+  are regression tests in `lib/palette.test.ts`.
+- **A sprite should change its own pixels.** `pixel-idle` translates the whole sprite up
+  three px, which is motion *of* a drawing rather than motion *in* one, and a scene of
+  those reads as posed dolls. The avatar blinks (4–6.5 s, jittered — a fixed interval reads
+  as a tic — and off under `prefers-reduced-motion`). Walk cycles are separate maps, not
+  transformed copies.
 - **`PixelSprite` fails silently in three ways**, all covered by `lib/uiSprites.test.ts`:
   a short row is padded rather than rejected (the viewBox takes the *longest* row), a
   character with no palette entry is skipped, and two palette keys with the same colour

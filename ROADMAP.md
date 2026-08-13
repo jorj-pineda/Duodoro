@@ -5,8 +5,9 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-13. PRs #35, #36 and #37 merged — 24 commits on main.
-PR #38 (rotating themes, 7 commits) open on `feat/rotating-themes`.
+Last updated: 2026-08-13. PRs #35–#38 merged — 31 commits on main.
+PR #39 (characters + pets onto PixelSprite, 5 commits) open on
+`art/characters-on-pixelsprite`.
 Migrations 016–019 are applied to Supabase (019 verified in production: the
 CHECK now lists 'grocery' and keeps 'lofi' for history).
 
@@ -43,8 +44,12 @@ CHECK now lists 'grocery' and keeps 'lofi' for history).
       question below is **answered**: kept at one hour (the owner's spec) and
       fixed the daily repeat with the per-cycle shuffle instead of changing the
       interval. Home's picker is now `WorldNowCard`.
-- [ ] **7b-char. Characters + pets onto `PixelSprite`** — the deferred half.
-      Now the least detailed thing on screen; the backgrounds overtook them.
+- [x] **7b-char. Characters + pets onto `PixelSprite`** — PR #39, 5 commits.
+      Both sprites are layered string maps now (`lib/characterMaps.ts`,
+      `lib/petMaps.ts`) composited by `lib/pixelMap.ts`. The avatar blinks;
+      pets went 10×11 → 9×7 (0.46× a person → 0.29×). `darken()` is gone —
+      see below. Outlines are one prop away but **not turned on**, which is
+      the rest of item 4.
 - [ ] **2. Premium button on home is a no-op** — under an hour. "Unlock all
       world themes" already removed by #38 (nothing left to gate); the other
       three claims on that list are still fiction and still this item's job.
@@ -54,14 +59,15 @@ CHECK now lists 'grocery' and keeps 'lofi' for history).
 Three "defects" originally listed under item 7 were checked against the source
 and are **not real**. They have been struck out below. Verify before fixing:
 
-- **Eye centring** — claimed `anime`/`sleepy` centre on 7.5. They don't. The head
-  spans columns 3–12 (centre 8); `anime` and `sleepy` eyes span [4,7) and [9,12),
-  midpoint (4+12)/2 = **8**. `normal` spans [4,6) and [10,12), also 8. All three
-  are symmetric, and the blush at [3,5)/[11,13) confirms 8 is the axis.
-- **"long" hair identical to "bob"** — the *front* layer is identical, but
-  `HairBack` draws 9-row side drapes at columns 1–2 and 13–14 for `long` only
-  (`PixelCharacter.tsx:41-53`). The two options are visibly different; same
-  fringe, longer sides. Reasonable design, not a bug.
+- **Eye centring** — claimed `anime`/`sleepy` centre on 7.5. They don't: the head
+  spans columns 3–12, so the axis is 8, and all three styles sit on it. **Now
+  enforced** rather than argued — `characterMaps.test.ts` asserts the eye
+  midpoint is 8 and that rows 3–11 are shape-symmetric, for every style.
+- **"long" hair identical to "bob"** — the *front* layer is identical, but the
+  back layer draws side drapes for `long` only (`lib/characterMaps.ts`,
+  `HAIR_BACK`). Same fringe, longer sides: reasonable design, not a bug. Also
+  enforced now — `characterMaps.test.ts` asserts the two share a fringe and
+  differ overall.
 - **PALM crown misaligned** — the crown and the trunk's *top* are both centred on
   column 7. The trunk then leans right by design over rows 5–10, which is what
   palm trunks do. Comparing the crown to the trunk's base and calling the
@@ -109,17 +115,17 @@ fringe. This is why sprites look blurry **despite** `shapeRendering: crispEdges`
 - `client/src/components/SessionTopBar.tsx:43,152-159` — wires it correctly.
   So the in-session path works and the *home* path silently dies. Home is the
   primary monetization surface.
-- `client/src/components/PremiumModal.tsx:11-17` — the feature list is fiction.
-  "Unlock all world themes" while `HomeDashboard.tsx:297-315` lets everyone pick
-  all 8. "Focus stats & session history" while `StatsPanel`/`StatsScreen` are
-  open to all. "Friend session notifications" while the Notification API appears
-  nowhere in the codebase. Only pets are actually gated
+- `client/src/components/PremiumModal.tsx` — the feature list is still mostly
+  fiction. "Unlock all world themes" was removed in PR #38 (the rotation left
+  nothing to gate). Remaining: "Focus stats & session history" while
+  `StatsPanel`/`StatsScreen` are open to all; "Friend session notifications"
+  while the Notification API appears nowhere in the codebase; "Exclusive
+  premium character skins" while there are none. Only pets are actually gated
   (`PetPicker.tsx:20,34`).
 
-Thread `onOpenPremium` through (the plumbing exists in `DuoTimer`), then either
-trim the list to what's real or actually gate worlds. Gating worlds needs a
-server check too — `server/index.js:463,492` accepts any valid world from any
-user regardless of premium status.
+Thread `onOpenPremium` through (the plumbing exists in `DuoTimer`), then trim
+the list to what's real. Gating worlds is no longer an option — after PR #38
+the server assigns the world from the clock and there is no per-user choice.
 
 ---
 
@@ -128,7 +134,10 @@ user regardless of premium status.
 **146 hardcoded hex literals** in `client/src` against 17 theme tokens, drawn
 from three different published design systems:
 
-- `PetCharacter.tsx:23-37` — the most-copied Coolors palette, verbatim.
+- ~~`PetCharacter.tsx:23-37` — the most-copied Coolors palette, verbatim~~ —
+  **gone in PR #39.** Pet colours are one base per animal with `shade()`
+  deriving the rest, in `lib/petMaps.ts`. Characters likewise: `palette.ts`
+  now owns every shadow either sprite uses.
 - `lib/uiSprites.ts:16,25` — a *different* Coolors set.
 - `WorldDecorations.tsx` — 77 of the 146. Tailwind defaults (`#c084fc`
   purple-400 `:92`, `#f1f5f9` slate-100 `:121`) mixed with Material Design 800s
@@ -245,9 +254,9 @@ to come from sprite *dimensions in art pixels*, not px-per-pixel. Character is
 - a mountain (`MOUNTAIN` 16×10 @ scale 8, `:635`) is 80px — **11% taller than a
   human**
 - ~~pets are 20px with pixels ⅔ the character's~~ — **density fixed in PR #36**,
-  pets are on `ART_PX`. But they are now 30×33, i.e. a cat 0.46× a person's
-  height where a real one is ~0.25×. Redraw the pet maps at about 7×7 cells;
-  do **not** put `size` back to 2
+  ~~but they are now 30×33, i.e. a cat 0.46× a person's height~~ — **size fixed
+  in PR #39**: redrawn at 9×7, so 27×21 px, 0.29× a person. `size` stayed at
+  `ART_PX`
 
 A 16-px-tall person needs a ~28px tree, ~60px tower, ~40px mountain range, plus
 explicit far/mid/near variants differing by *value*, not scale.
@@ -266,19 +275,27 @@ Latent bugs to fix while redrawing:
   which. All four pets now share an 11-row grid.
 - ~~eye centring~~ — **not a real defect.** See corrections at the top.
 - ~~`long` hair identical to `bob`~~ — **not a real defect.** See corrections.
-- `PixelCharacter.tsx:325` — `darken(skinColor, 0.08)` is a naive RGB multiply;
-  on the two darkest skins (`avatarData.ts:25-26`) it shifts value by ~6/255,
-  i.e. invisibly. Meanwhile blush is a fixed `#F4A0A0` at 0.6 opacity
-  (`:331-332`), which on `#4A2518` reads as two bright pink stripes. Derive
-  shading by hue-shift; scale blush opacity to skin luminance.
+- ~~`darken(skinColor, 0.08)` is a naive RGB multiply~~ — **fixed in PR #39.**
+  Confirmed: it shifted the deepest skin by 0.016 lightness against 0.071 for
+  the palest. `shade()` in `palette.ts` drops lightness by a fixed amount while
+  holding chroma; `flush()` derives blush from the skin. Two earlier
+  implementations each fixed half of it — blending toward a fixed dark tone
+  leaves near-black hair *lighter* than its shadow, and holding HSL saturation
+  turns pale skin pink. Both are regression tests now.
 - ~~`CUP_PALETTE` H identical to C~~ — **fixed in PR #33**, handle now uses the
   saucer shade.
 - ~~`PALM` crown misaligned~~ — **not a real defect.** See corrections.
 - `MOON` — 2 always-empty trailing columns. Cosmetic; see corrections.
 
-Then add a blink frame every 4–6s and a 2-frame idle. Today `pixel-idle`
-(`globals.css:107-109`) translates the whole sprite up 3px; no sprite's own
-pixels ever change, so scenes read as posed dolls.
+~~Then add a blink frame every 4–6s and a 2-frame idle.~~ **Blink shipped in
+PR #39** (4–6.5s, jittered, 130ms, off under `prefers-reduced-motion`). The
+2-frame idle did *not*: `pixel-idle` still carries the whole motion, and a
+second body frame on top of it looked busy in the static dump. Worth trying
+once someone has watched the current version move.
+
+Also still open from this item: `PixelCharacter` accepts an `outline` prop and
+nothing passes one. Turning it on is the remaining half of item 4, and it is a
+visual call — the dump shows a fairly heavy keyline at `ART_PX`.
 
 ---
 
