@@ -3,6 +3,8 @@ import { render } from "@testing-library/react";
 import GameWorld, { type GamePhase } from "./GameWorld";
 import { DEFAULT_AVATAR } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
+import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
+import { PET_W, PET_H } from "@/lib/petMaps";
 
 // The scene used to place characters with `calc(41.7% + 8px)` on `left` and
 // spin the break-phase controller ±10°. Both put sprite edges between device
@@ -135,9 +137,23 @@ describe("one art pixel", () => {
 
   it("draws characters and their pets on the same pixel grid", () => {
     const { container } = renderScene("waiting", 0, 0, true);
-    // The scenery is deliberately not here yet — see the deviation table in
-    // WorldDecorations. These two are what stand side by side in one frame.
-    expect(density(container, "0 0 16 24")).toBe(ART_PX);
-    expect(density(container, "0 0 10 11")).toBe(ART_PX);
+    // Read the grids from the art rather than writing them out here — this
+    // test hardcoded "0 0 10 11" and had to be edited when the pets were
+    // redrawn, which is the kind of edit that quietly turns a check into a
+    // restatement of whatever the code now does.
+    expect(density(container, `0 0 ${CHAR_W} ${CHAR_H}`)).toBe(ART_PX);
+    expect(density(container, `0 0 ${PET_W} ${PET_H}`)).toBe(ART_PX);
+  });
+
+  it("keeps pets to something like an animal's share of a person's height", () => {
+    // Pets were 10x11 against a 16x24 person: 0.46x a human, where a cat is
+    // about 0.25x. They only looked right while they were rendering at a
+    // smaller pixel than the character, which is the mismatch ART_PX removed.
+    //
+    // A guard, not an A/B — it reads the constants the art declares, so it
+    // holds whatever the components do. The test above is the one that fails
+    // against the previous commit.
+    expect(PET_H / CHAR_H).toBeLessThan(0.35);
+    expect(PET_H / CHAR_H).toBeGreaterThan(0.2);
   });
 });
