@@ -101,6 +101,100 @@ function parseHex(hex: string): [number, number, number] {
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
+/**
+ * The one colour every shadow on a character mixes toward, and the one every
+ * cheek mixes toward. Named constants rather than per-call arguments so a
+ * sprite's shadows all agree — a face shaded toward one tone and a sleeve
+ * toward another is what makes hand-picked shading look assembled.
+ */
+const SHADOW_TONE = hslToHex(SHADOW_HUE, 0.34, 0.13);
+const CHEEK_TONE = hslToHex(6, 0.72, 0.6);
+
+/** Inverse of hslToHex. Hue in degrees, s and l in 0–1. */
+export function hexToHsl(hex: string): [number, number, number] {
+  const [r255, g255, b255] = parseHex(hex);
+  const [r, g, b] = [r255 / 255, g255 / 255, b255 / 255];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [((h * 60) % 360 + 360) % 360, s, l];
+}
+
+/**
+ * The shaded side of a surface.
+ *
+ * Replaces a naive RGB multiply. Scaling channels by a ratio moves a *dark*
+ * colour almost not at all — `darken('#4A2518', 0.08)` shifted value by about
+ * 6/255, so the two deepest skin tones had a chin shadow nobody could see,
+ * while the same call on the palest skin was obvious. Subtracting lightness
+ * instead moves every colour by the same visible amount, and rotating toward
+ * the ambient shadow hue is what makes it read as a surface turning away from
+ * the light rather than as the same colour dimmed.
+ *
+ * Two things have to hold at once, and the obvious implementations each get
+ * one of them:
+ *
+ * - **Every colour must darken by a visible amount.** Blending toward a fixed
+ *   dark tone fails here, because a colour that is already dark barely moves —
+ *   black hair came out 0.006 *lighter* than its own shadow.
+ * - **Pale colours must not turn vivid.** Holding HSL `s` and dropping `l`
+ *   fails here: `s` means different things at different lightnesses, so a
+ *   peachy skin at l=0.85 shaded to l=0.75 came out pink.
+ *
+ * So: drop lightness by a fixed amount, and hold *chroma* rather than
+ * saturation while doing it — chroma is `(1 - |2l - 1|) · s`, so `s` has to be
+ * recomputed for the new lightness. Then rotate slightly toward the ambient
+ * shadow hue, which is what makes it read as a surface turning away from the
+ * light instead of the same colour dimmed.
+ *
+ * `drop` is in lightness units, not a ratio.
+ */
+export function shade(hex: string, drop = 0.1): string {
+  const [h, s, l] = hexToHsl(hex);
+  const lit = Math.max(0.04, l - drop);
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const spread = 1 - Math.abs(2 * lit - 1);
+  // Chroma preservation asks for more and more saturation as lightness falls,
+  // and near the bottom it asks for impossible amounts — the deepest skin came
+  // back as a saturated near-black red. Cap the rise: hold chroma where that
+  // is achievable, and give up on it rather than produce a colour harsher than
+  // the one it is shading.
+  const sat = Math.min(s * 1.12, spread === 0 ? 0 : chroma / spread);
+  // Warm hues take the short way round to the ambient blue, i.e. through red —
+  // the same trap that turned the EMBER ramp pink. That is the right direction
+  // for skin and hair anyway (warm shadows go red-violet, not blue), so the
+  // pull stays small and the path is left alone.
+  return hslToHex(hueLerp(h, SHADOW_HUE, 0.1), clamp01(sat), lit);
+}
+
+/**
+ * Cheeks, on any skin.
+ *
+ * Was a fixed `#F4A0A0` at 0.6 opacity, which on the palest skin is a blush
+ * and on `#4A2518` is two bright pink stripes — the mark was being painted
+ * *over* the face instead of being the face flushing. Deriving it from the
+ * skin keeps the value where it was and moves only hue and saturation, so it
+ * reads as warmth at every tone. Opacity is gone with it: a flat colour is one
+ * fewer thing between the sprite and `crispEdges`.
+ */
+export function flush(skin: string): string {
+  const [h, s, l] = hexToHsl(skin);
+  return hslToHex(
+    hueLerp(h, 8, 0.4),
+    clamp01(s * 1.18 + 0.06),
+    // Warmth reads as a lift on deep skin and a deepening on pale skin, which
+    // is also how blood under skin actually behaves.
+    clamp01(l < 0.45 ? l + 0.05 : l - 0.04),
+  );
+}
+
 /** Mix two hexes; `t` 0 = `a`, 1 = `b`. */
 export function blend(a: string, b: string, t: number): string {
   const [ar, ag, ab] = parseHex(a);
