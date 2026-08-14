@@ -1,48 +1,84 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSupabase } from "@/lib/supabase";
+import { PREMIUM_IS_FREE } from "@/lib/billing";
+import Button from "./Button";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  isPremium: boolean;
+  /** Called after the grant lands, so the app can flip its own copy of the flag. */
+  onClaimed: () => void;
 }
 
-// "Unlock all world themes" was here. It was already untrue — everyone could
-// pick all eight — and the rotation makes it unsellable: there is no per-user
-// world choice left to gate. The rest of this list is still ahead of the
-// product (stats and history are open to all, and nothing in the codebase
-// sends a notification); that is roadmap item 2's to settle, not this PR's.
+// Only what actually exists. The old list promised premium character skins,
+// stats and history (open to everyone), friend notifications (the Notification
+// API appears nowhere in this codebase) and all world themes (the rotation in
+// PR #38 removed the choice entirely). Pets are the feature; saying so is
+// better than four claims and one truth.
 const FEATURES = [
-  { icon: "🐾", label: "Companion pets that walk with you" },
-  { icon: "🎨", label: "Exclusive premium character skins" },
-  { icon: "📊", label: "Focus stats & session history" },
-  { icon: "🔔", label: "Friend session notifications" },
+  "Four pixel companions that walk with you",
+  "They stay with you across every session",
+  "More on the way — you'll hear about it first",
 ];
 
-export default function PremiumModal({ open, onClose }: Props) {
-  const [email, setEmail] = useState("");
+export default function PremiumModal({
+  open,
+  onClose,
+  isPremium,
+  onClaimed,
+}: Props) {
+  const [email, setEmail] = useState<string | null>(null);
+  const [optIn, setOptIn] = useState(true);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(
     "idle",
   );
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleWaitlist = async () => {
-    if (!email.includes("@")) return;
+  // The address is read from the session rather than typed. It is the one
+  // Google or Discord already verified, which is the whole basis for granting
+  // on it — see migration 020.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getSupabase()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (!cancelled) setEmail(data.user?.email ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const claim = async () => {
     setStatus("loading");
-    try {
-      const { error } = await getSupabase().from("waitlist").insert({ email });
-      if (error && error.code !== "23505") throw error; // 23505 = duplicate
-      setStatus("done");
-    } catch {
+    setMessage(null);
+    const { error } = await getSupabase().rpc("claim_premium", {
+      p_marketing_opt_in: optIn,
+    });
+    if (error) {
+      // Check the error on the write, and say what actually happened rather
+      // than leaving the button spinning or pretending it worked.
+      console.error("claim_premium failed:", error);
       setStatus("error");
+      setMessage(
+        error.message.includes("confirmed email")
+          ? "Your account doesn't have a confirmed email address yet."
+          : "Couldn't unlock premium just now. Try again in a moment.",
+      );
+      return;
     }
+    setStatus("done");
+    onClaimed();
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -51,7 +87,6 @@ export default function PremiumModal({ open, onClose }: Props) {
             onClick={onClose}
           />
 
-          {/* Modal */}
           <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -62,73 +97,89 @@ export default function PremiumModal({ open, onClose }: Props) {
             <div
               className="bg-surface border border-line rounded-2xl p-8 max-w-sm w-full shadow-2xl relative"
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Duodoro Premium"
             >
-              {/* Close */}
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="absolute top-2 right-2 sm:top-4 sm:right-4 w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center text-faint hover:text-ink transition-colors text-xl"
               >
                 ✕
               </button>
 
-              {/* Header */}
               <div className="text-center mb-6">
                 <div className="text-5xl mb-3">🐾</div>
                 <h2 className="font-display text-2xl text-ink">
                   Duodoro Premium
                 </h2>
                 <p className="text-muted text-sm mt-1">
-                  Coming soon — join the waitlist
+                  {isPremium || status === "done"
+                    ? "You're all set — pick a pet in your next session."
+                    : PREMIUM_IS_FREE
+                      ? "Free while we're small. All it costs is your email."
+                      : "Unlock companions for your sessions."}
                 </p>
               </div>
 
-              {/* Feature list */}
               <ul className="space-y-2.5 mb-7">
-                {FEATURES.map((f) => (
+                {FEATURES.map((label) => (
                   <li
-                    key={f.label}
-                    className="flex items-center gap-3 text-sm text-ink"
+                    key={label}
+                    className="flex items-start gap-3 text-sm text-ink"
                   >
-                    <span className="text-xl flex-shrink-0">{f.icon}</span>
-                    <span>{f.label}</span>
+                    <span className="text-gold flex-shrink-0 leading-5">◆</span>
+                    <span>{label}</span>
                   </li>
                 ))}
               </ul>
 
-              {/* Waitlist signup */}
-              {status === "done" ? (
-                <div className="text-center text-go text-sm py-3">
-                  ✓ You&apos;re on the list! We&apos;ll let you know when
-                  Premium launches.
-                </div>
+              {isPremium || status === "done" ? (
+                <Button variant="accent" size="lg" fullWidth onClick={onClose}>
+                  Done
+                </Button>
               ) : (
                 <>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleWaitlist()}
-                      className="flex-1 bg-raise border border-line rounded-xl px-4 py-2.5 text-ink text-sm placeholder-faint focus:outline-none focus:border-accent"
-                    />
-                    <button
-                      onClick={handleWaitlist}
-                      disabled={status === "loading" || !email.includes("@")}
-                      className="bg-accent hover:brightness-105 active:scale-95 disabled:opacity-40 text-white font-bold px-4 py-2.5 rounded-xl transition-all text-sm"
-                    >
-                      {status === "loading" ? "..." : "Notify me"}
-                    </button>
-                  </div>
-                  {status === "error" && (
-                    <p className="text-danger text-xs mt-2 text-center">
-                      Something went wrong. Try again.
+                  <div className="rounded-xl border border-line bg-raise px-3 py-2.5 mb-3">
+                    <p className="text-[10px] font-semibold text-faint uppercase tracking-wider">
+                      Your account email
                     </p>
-                  )}
-                  <p className="text-faint text-xs text-center mt-3">
-                    Stripe integration coming soon • No spam, ever
-                  </p>
+                    <p className="text-sm text-ink font-mono break-all mt-0.5">
+                      {email ?? "…"}
+                    </p>
+                    <p className="text-[11px] text-muted mt-1">
+                      Already verified when you signed in.
+                    </p>
+                  </div>
+
+                  <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={optIn}
+                      onChange={(e) => setOptIn(e.target.checked)}
+                      className="mt-0.5 accent-accent w-4 h-4 flex-shrink-0"
+                    />
+                    <span className="text-xs text-muted">
+                      Email me occasionally about Duodoro. Unticking this still
+                      unlocks pets — it only decides whether we write to you.
+                    </span>
+                  </label>
+
+                  <Button
+                    variant="gold"
+                    size="lg"
+                    fullWidth
+                    disabled={status === "loading" || !email}
+                    onClick={claim}
+                  >
+                    {status === "loading" ? "Unlocking…" : "Unlock pets"}
+                  </Button>
                 </>
+              )}
+
+              {message && (
+                <p className="text-danger text-xs text-center mt-3">{message}</p>
               )}
             </div>
           </motion.div>
