@@ -58,12 +58,15 @@ const profile: Profile = {
   updated_at: "2026-08-12T00:00:00Z",
 };
 
-function renderHome(onFocus = vi.fn()) {
+function renderHome(overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {}) {
+  const onFocus = overrides.onFocus ?? vi.fn();
+  const onOpenPremium = overrides.onOpenPremium ?? vi.fn();
   const utils = render(
     <HomeDashboard
-      profile={profile}
+      profile={overrides.profile ?? profile}
       socketRef={{ current: null }}
       onFocus={onFocus}
+      onOpenPremium={onOpenPremium}
       onRejoinSession={vi.fn()}
       onJoinSession={vi.fn()}
       onInvite={vi.fn()}
@@ -75,7 +78,7 @@ function renderHome(onFocus = vi.fn()) {
       onOpenStats={vi.fn()}
     />,
   );
-  return { ...utils, onFocus };
+  return { ...utils, onFocus, onOpenPremium };
 }
 
 beforeEach(() => {
@@ -116,5 +119,38 @@ describe("HomeDashboard world rotation", () => {
     // Previously this was onFocus(selectedWorld). Nothing may be passed now —
     // an argument here would mean the client still believes it decides.
     expect(onFocus).toHaveBeenCalledWith();
+  });
+});
+
+describe("HomeDashboard premium entry point", () => {
+  /** Open the avatar menu, where the upgrade button lives. */
+  function openProfileMenu() {
+    fireEvent.click(screen.getByRole("button", { name: "J" }));
+  }
+
+  it("opens the premium modal from the home screen", () => {
+    // The bug: this button's entire onClick was setProfileMenuOpen(false).
+    // It closed the menu and did nothing else, so the home screen — the
+    // primary place anyone would look — silently dropped the request, while
+    // the in-session button next to it worked.
+    const { onOpenPremium } = renderHome();
+    openProfileMenu();
+    fireEvent.click(screen.getByRole("button", { name: /Unlock pets/ }));
+    expect(onOpenPremium).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the menu on the way", () => {
+    // Guard: the one thing the old handler did right.
+    renderHome();
+    openProfileMenu();
+    expect(screen.getByText("Change display name")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Unlock pets/ }));
+    expect(screen.queryByText("Change display name")).not.toBeInTheDocument();
+  });
+
+  it("does not offer the unlock to someone who already has it", () => {
+    renderHome({ profile: { ...profile, is_premium: true } });
+    openProfileMenu();
+    expect(screen.queryByText(/Unlock pets/)).not.toBeInTheDocument();
   });
 });

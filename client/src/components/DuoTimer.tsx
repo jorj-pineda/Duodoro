@@ -170,6 +170,10 @@ export default function DuoTimer() {
           <PremiumModal
             open={premiumOpen}
             onClose={() => setPremiumOpen(false)}
+            isPremium={isPremium}
+            // The RPC has already flipped the column; this brings the local
+            // copy into line so PetPicker unlocks without a reload.
+            onClaimed={() => auth.updateProfile({ is_premium: true })}
           />
         </>
       )}
@@ -281,6 +285,7 @@ export default function DuoTimer() {
           activeSessionId={game.sessionId || undefined}
           socketRef={game.socketRef}
           onFocus={handleCreateSession}
+          onOpenPremium={() => setPremiumOpen(true)}
           onRejoinSession={() => setAppStep("game")}
           onJoinSession={handleJoinSession}
           onInvite={handleSendInvite}

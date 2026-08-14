@@ -26,6 +26,12 @@ interface Props {
   socketRef: { current: Socket | null };
   /** Starts a session in whatever world the rotation is on — see WorldNowCard. */
   onFocus: () => void;
+  /**
+   * Opens the premium modal. Home had no such prop at all: its Upgrade button
+   * called setProfileMenuOpen(false) and stopped there, so the primary
+   * monetization surface silently did nothing while the in-session one worked.
+   */
+  onOpenPremium: () => void;
   onRejoinSession: () => void;
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
@@ -67,6 +73,7 @@ export default function HomeDashboard({
   activeSessionId,
   socketRef,
   onFocus,
+  onOpenPremium,
   onRejoinSession,
   onJoinSession,
   onInvite,
@@ -215,10 +222,13 @@ export default function HomeDashboard({
                 </button>
                 {!isPremium && (
                   <button
-                    onClick={() => setProfileMenuOpen(false)}
+                    onClick={() => {
+                      onOpenPremium();
+                      setProfileMenuOpen(false);
+                    }}
                     className="w-full flex items-center gap-2 text-left text-xs text-gold hover:text-gold-deep py-1.5 transition-colors"
                   >
-                    <StarIcon className="w-3.5 h-3.5" /> Upgrade to Premium
+                    <StarIcon className="w-3.5 h-3.5" /> Unlock pets — free
                   </button>
                 )}
                 <button
