@@ -6,8 +6,8 @@ files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
 Last updated: 2026-08-13. PRs #35–#38 merged — 31 commits on main.
-PR #39 (characters + pets onto PixelSprite, 5 commits) open on
-`art/characters-on-pixelsprite`.
+PR #39 (characters + pets onto PixelSprite, 7 commits) reviewed and approved on
+localhost, merging.
 Migrations 016–019 are applied to Supabase (019 verified in production: the
 CHECK now lists 'grocery' and keeps 'lofi' for history).
 
@@ -44,7 +44,8 @@ CHECK now lists 'grocery' and keeps 'lofi' for history).
       question below is **answered**: kept at one hour (the owner's spec) and
       fixed the daily repeat with the per-cycle shuffle instead of changing the
       interval. Home's picker is now `WorldNowCard`.
-- [x] **7b-char. Characters + pets onto `PixelSprite`** — PR #39, 5 commits.
+- [x] **7b-char. Characters + pets onto `PixelSprite`** — PR #39, 6 commits.
+      Owner reviewed on localhost: pets, walk and sitting all approved.
       Both sprites are layered string maps now (`lib/characterMaps.ts`,
       `lib/petMaps.ts`) composited by `lib/pixelMap.ts`. The avatar blinks;
       pets went 10×11 → 9×7 (0.46× a person → 0.29×). `darken()` is gone —
@@ -53,6 +54,10 @@ CHECK now lists 'grocery' and keeps 'lofi' for history).
 - [ ] **2. Premium button on home is a no-op** — under an hour. "Unlock all
       world themes" already removed by #38 (nothing left to gate); the other
       three claims on that list are still fiction and still this item's job.
+      Note item 12 makes pets the one premium feature with real depth.
+- [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
+      below. Mostly drawing: growth has to be maps with more cells, never a
+      bigger `size`. Levels want deriving from focus history, not storing.
 
 ## ⚠️ Corrections to this file
 
@@ -412,6 +417,61 @@ boundary repeats.
 **Not verified:** nothing here has been looked at in a browser. Worth checking
 by eye — the countdown ticking on home, and that a session left open across a
 :30 keeps its own world rather than swapping under you.
+
+---
+
+## 12. Pets level up and grow  ·  owner's idea, 2026-08-13, not started
+
+The owner's call after previewing #39: pets earn levels and get **bigger** as
+they level. A companion that visibly changes because of hours you actually put
+in is the first thing in the product that rewards returning, and it lands on a
+pet system that is now cheap to extend.
+
+**Growth is redrawn maps, not a scale multiplier.** This is the whole design
+constraint and it is not negotiable — it is the same lesson as the density
+collapse in 3b/7b. A sprite's apparent pixel size *is* its scale, so rendering
+the 9×7 cat at `size={4}` is not a bigger cat, it is the same cat with bigger
+pixels next to a person whose pixels didn't change. Growth means a map with
+*more cells* at the same `ART_PX`. Budget three sizes:
+
+| stage | cells | px at ART_PX | vs. a person |
+|---|---|---|---|
+| young | 7×5 | 21×15 | 0.21× |
+| grown (today's art) | 9×7 | 27×21 | 0.29× |
+| full | 11×9 | 33×27 | 0.38× |
+
+Three maps per pet × four pets = twelve, plus two walk frames each. That is the
+real cost of this feature and it is mostly drawing. Stop at 0.38×: a companion
+taller than half its owner stops reading as a pet.
+
+**Derive the level, don't store it.** Same instinct as the rotation (item 11)
+and for the same reason — a stored counter is a thing to migrate, resync and
+reconcile, and it can disagree with the history it is supposed to summarise.
+Total focus minutes already exist in `sessions`/`session_participants`, and
+`lib/useStats.ts` already reads them. `level = f(totalFocusMinutes)` needs no
+new column, cannot drift, and is automatically right for existing users on the
+day it ships — everyone's back catalogue counts.
+
+Open questions worth settling before drawing anything:
+
+- **Per user or per pet type?** Per user is one number and reuses the stats
+  that exist. Per pet type means a real table and makes switching pets cost
+  progress, which is either the point or a punishment depending on taste.
+- **Does your partner see your pet's level?** They see the pet already
+  (`pet_changed` relays the type). If growth is only local, two people in the
+  same room see different animals, which is the same class of bug the world
+  rotation exists to prevent. So the level has to travel with the pet in
+  session state, which means the server derives it too — and the server has the
+  service key and the same rows, so that is cheap.
+- **What are the thresholds?** Wants to be slow enough to mean something and
+  fast enough that a new user sees one change. First growth inside a week of
+  ordinary use is a reasonable target.
+- **Does it interact with premium?** Pets are the one thing actually gated
+  today (`PetPicker.tsx:20,34`), so levelling is currently a premium-only
+  feature by accident. Worth deciding deliberately — see item 2.
+
+Prerequisite: none. #39 put both sprites on string maps, so adding sizes is
+adding maps to `lib/petMaps.ts` and a selector, not touching a component.
 
 ---
 
