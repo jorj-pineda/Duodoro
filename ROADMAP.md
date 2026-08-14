@@ -5,11 +5,11 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-13. PRs #35–#38 merged — 31 commits on main.
-PR #39 (characters + pets onto PixelSprite, 7 commits) reviewed and approved on
-localhost, merging.
-Migrations 016–019 are applied to Supabase (019 verified in production: the
-CHECK now lists 'grocery' and keeps 'lofi' for history).
+Last updated: 2026-08-14. PRs #35–#39 merged — 38 commits on main.
+PR #40 (premium unlocked by confirmed email) open on `feat/premium-email-unlock`.
+Migrations 016–019 are applied to Supabase (019 verified in production).
+**Migration 020 is NOT applied yet** — it has to go in before #40 deploys, or
+the unlock button hits a function that doesn't exist.
 
 ~~Open infra issue: `ALLOWED_ORIGIN` missing the www host~~ — **fixed
 2026-08-12.** Verified: both `https://duodoro.live` and
@@ -51,10 +51,12 @@ CHECK now lists 'grocery' and keeps 'lofi' for history).
       pets went 10×11 → 9×7 (0.46× a person → 0.29×). `darken()` is gone —
       see below. Outlines are one prop away but **not turned on**, which is
       the rest of item 4.
-- [ ] **2. Premium button on home is a no-op** — under an hour. "Unlock all
-      world themes" already removed by #38 (nothing left to gate); the other
-      three claims on that list are still fiction and still this item's job.
-      Note item 12 makes pets the one premium feature with real depth.
+- [x] **2. Premium button on home is a no-op** — PR #40. Wired through, and
+      premium is now *grantable at all*: `claim_premium` (migration 020) turns
+      it on free in exchange for the OAuth-confirmed email. Feature list is
+      down to what exists. Stripe seam is `client/src/lib/billing.ts`.
+      **Migration 020 must be applied before the deploy**, or the button
+      raises `function claim_premium does not exist`.
 - [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
       below. Mostly drawing: growth has to be maps with more cells, never a
       bigger `size`. Levels want deriving from focus history, not storing.
@@ -111,7 +113,7 @@ fringe. This is why sprites look blurry **despite** `shapeRendering: crispEdges`
 
 ---
 
-## 2. Premium button on the home screen is a no-op  ·  under an hour
+## 2. Premium button on the home screen is a no-op  ·  SHIPPED — PR #40
 
 - `client/src/components/HomeDashboard.tsx:212-219` —
   `onClick={() => setProfileMenuOpen(false)}`. Closes the menu, does nothing
@@ -128,9 +130,22 @@ fringe. This is why sprites look blurry **despite** `shapeRendering: crispEdges`
   premium character skins" while there are none. Only pets are actually gated
   (`PetPicker.tsx:20,34`).
 
-Thread `onOpenPremium` through (the plumbing exists in `DuoTimer`), then trim
-the list to what's real. Gating worlds is no longer an option — after PR #38
-the server assigns the world from the clock and there is no per-user choice.
+**Shipped in #40.** `onOpenPremium` threaded through, list trimmed to the one
+true item, and the bigger thing the audit missed: premium was not merely
+unsold, it was **ungrantable**. `is_premium` defaults false, migration 010
+revoked the client's write, and nothing else ever set it — so it was false for
+all 10 users and pets had never been reachable by anyone, premium or not.
+
+The owner's call was to give it away for a confirmed email address until there
+are enough users for Stripe. No confirmation email is sent: all 10 users signed
+in with Google or Discord, so `email_confirmed_at` is already set, and our own
+link would re-verify something already verified while needing an email provider
+this project doesn't have. `claim_premium` reads the address from `auth.users`
+inside a `SECURITY DEFINER` function, so the client can't assert it.
+
+Worth being explicit: **this is not a paywall.** Any authenticated user can call
+the RPC and get premium. That is the intent until Stripe lands — see
+`client/src/lib/billing.ts` for what that will need.
 
 ---
 
