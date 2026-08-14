@@ -7,6 +7,7 @@ import { columnsFor, ridgeHeights } from "@/lib/terrain";
 import Ridge from "./Ridge";
 import Skyline from "./Skyline";
 import Shelving from "./Shelving";
+import ContactShadow from "./ContactShadow";
 import {
   BARK,
   EMBER,
@@ -752,19 +753,7 @@ function Grounded({
       }}
     >
       {children}
-      {shadow !== undefined && (
-        <div
-          className="absolute left-1/2"
-          style={{
-            bottom: -ART_PX,
-            width: shadow * ART_PX,
-            height: ART_PX,
-            marginLeft: -Math.round((shadow * ART_PX) / 2),
-            background: "#000000",
-            opacity: 0.26,
-          }}
-        />
-      )}
+      {shadow !== undefined && <ContactShadow width={shadow} />}
     </div>
   );
 }
