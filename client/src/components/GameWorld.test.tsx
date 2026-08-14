@@ -157,3 +157,47 @@ describe("one art pixel", () => {
     expect(PET_H / CHAR_H).toBeGreaterThan(0.2);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contact shadows — what stops a sprite reading as hovering.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("contact shadows", () => {
+  /** Only the ones inside the character wrappers; the scenery's are elsewhere. */
+  function characterShadows(container: HTMLElement) {
+    return characterWrappers(container).flatMap((wrapper) =>
+      Array.from(wrapper.querySelectorAll<HTMLElement>("div")).filter(
+        (el) => el.style.opacity === "0.26" && el.style.height === `${ART_PX}px`,
+      ),
+    );
+  }
+
+  it("grounds both people and both pets", () => {
+    // A/B — fails against the previous commit. `Grounded` has given every tree
+    // a shadow since the backgrounds landed, but the characters are drawn from
+    // GameWorld rather than WorldDecorations and so got none: two people
+    // hovering in a scene where the scenery stands on the floor.
+    const { container } = renderScene("waiting", 0, 0, true);
+    expect(characterShadows(container).length).toBe(4);
+  });
+
+  it("still grounds a lone player with no pet", () => {
+    const { container } = renderScene("waiting");
+    expect(characterShadows(container).length).toBe(2);
+  });
+
+  it("keeps a shadow narrower than the sprite casting it", () => {
+    // A guard, not an A/B. A shadow the full width of the sprite's bounding box
+    // reads as a plinth rather than as contact — the avatar's box includes its
+    // shoulders, and shoulders do not touch the ground.
+    const { container } = renderScene("waiting", 0, 0, true);
+    const widths = characterShadows(container).map((el) =>
+      Number.parseInt(el.style.width, 10),
+    );
+    expect(widths.length).toBe(4);
+    for (const w of widths) {
+      expect(w).toBeGreaterThan(0);
+      expect(w).toBeLessThan(CHAR_W * ART_PX);
+    }
+  });
+});

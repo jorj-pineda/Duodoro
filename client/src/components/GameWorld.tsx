@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
 import PetCharacter from "./PetCharacter";
@@ -20,6 +20,7 @@ import {
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
 import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
+import ContactShadow from "./ContactShadow";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
 import { ART_PX, GROUND } from "@/lib/scene";
 
@@ -100,6 +101,35 @@ const BREAK_PROP: Record<
   cafe: { map: CUP, palette: CUP_PALETTE },
   grocery: { map: CUP, palette: CUP_PALETTE },
 };
+
+/**
+ * A sprite standing on the ground plane, with the shadow that says so.
+ *
+ * `Grounded` has done this for the scenery since the backgrounds landed, so
+ * every tree meets the ground and both people floated above it. The wrapper has
+ * to be shrink-wrapped to the sprite: the shadow centres on it, and a span that
+ * stretched would centre the shadow on the row instead of on the character.
+ */
+function Standing({
+  shadow,
+  children,
+}: {
+  shadow: number;
+  children: ReactNode;
+}) {
+  return (
+    <span className="relative inline-block">
+      {children}
+      <ContactShadow width={shadow} />
+    </span>
+  );
+}
+
+// Footprints, in art pixels. Deliberately narrower than the sprite's bounding
+// box — the avatar is 16 cells wide and the pets 9, but a shadow is cast by
+// what touches the ground, so it tracks the feet rather than the shoulders.
+const CHARACTER_SHADOW = 10;
+const PET_SHADOW = 6;
 
 function BreakOverlay({ worldId }: { worldId: WorldId }) {
   const prop = BREAK_PROP[worldId] ?? BREAK_PROP.forest;
@@ -249,19 +279,23 @@ export default function GameWorld({
       >
         <div className="flex items-end gap-1">
           {myPet && (
-            <PetCharacter
-              type={myPet}
+            <Standing shadow={PET_SHADOW}>
+              <PetCharacter
+                type={myPet}
+                anim={myAnim}
+                facing="right"
+                size={ART_PX}
+              />
+            </Standing>
+          )}
+          <Standing shadow={CHARACTER_SHADOW}>
+            <PixelCharacter
+              {...me.avatar}
               anim={myAnim}
               facing="right"
               size={ART_PX}
             />
-          )}
-          <PixelCharacter
-            {...me.avatar}
-            anim={myAnim}
-            facing="right"
-            size={ART_PX}
-          />
+          </Standing>
         </div>
         <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
           {myName ?? "YOU"}
@@ -280,19 +314,23 @@ export default function GameWorld({
               partnerDisconnected ? "opacity-40" : ""
             }`}
           >
-            <PixelCharacter
-              {...partner.avatar}
-              anim={partnerDisconnected ? "idle" : partnerAnim}
-              facing="left"
-              size={ART_PX}
-            />
-            {partnerPet && (
-              <PetCharacter
-                type={partnerPet}
+            <Standing shadow={CHARACTER_SHADOW}>
+              <PixelCharacter
+                {...partner.avatar}
                 anim={partnerDisconnected ? "idle" : partnerAnim}
                 facing="left"
                 size={ART_PX}
               />
+            </Standing>
+            {partnerPet && (
+              <Standing shadow={PET_SHADOW}>
+                <PetCharacter
+                  type={partnerPet}
+                  anim={partnerDisconnected ? "idle" : partnerAnim}
+                  facing="left"
+                  size={ART_PX}
+                />
+              </Standing>
             )}
           </div>
           <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
