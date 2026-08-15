@@ -231,7 +231,23 @@ SVGs, five of which are untouched Next.js starter files.
 - Anything that stands in the world anchors to `GROUND`, and its wrapper's bottom edge
   must be the sprite's feet. A name tag or caption inside the wrapper silently becomes
   the bottom edge and lifts the sprite off the ground — that is what `calc(19% - 4px)`
-  was compensating for.
+  was compensating for. The wrapper also has to be shrink-wrapped to the sprite, because
+  `ContactShadow` centres on it: a wrapper that stretches centres the shadow on the row
+  instead of on the character.
+- **Keylines and contact shadows are shared recipes, not per-component choices.**
+  `ContactShadow` (one art pixel tall, `#000` at 0.26, one art pixel below the wrapper) is
+  used by both `Grounded` in the scenery and `Standing` in `GameWorld`; a character whose
+  shadow is darker than the tree beside it reads as lit by a different sun. Outline colour
+  comes from `keylineOn()` in `lib/palette.ts`, which picks light-on-dark or dark-on-light
+  from the backdrop's lightness — the scenery's own `keyline()` is always dark, which is
+  right on a daylit world and invisible on Space (`#130840`), where a dark-haired avatar
+  and a dark outline dissolve together at exactly the moment the silhouette needs help.
+- **An outline changes a sprite's size.** `PixelSprite` grows the viewBox and the rendered
+  box by one cell on every side, so a 16×24 avatar renders 18×26. That is not neutral
+  across sprites of different sizes: the same border is +8% on a 24-row person and +29% on
+  a 7-row pet, which moved the pet-to-person ratio from 0.29 to 0.35 when outlines were
+  turned on. Measure proportions off the rendered SVG heights, never off the map constants
+  — a test asserting `PET_H / CHAR_H` passes on a number nobody can see.
 - To review sprite changes without a browser, render the component in jsdom and dump the
   SVG to a static HTML page — that is how the pet fix was reviewed. Screenshots and visual
   judgement still need the repo owner; say so instead of guessing.
