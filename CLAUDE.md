@@ -234,14 +234,16 @@ SVGs, five of which are untouched Next.js starter files.
   was compensating for. The wrapper also has to be shrink-wrapped to the sprite, because
   `ContactShadow` centres on it: a wrapper that stretches centres the shadow on the row
   instead of on the character.
-- **Keylines and contact shadows are shared recipes, not per-component choices.**
-  `ContactShadow` (one art pixel tall, `#000` at 0.26, one art pixel below the wrapper) is
-  used by both `Grounded` in the scenery and `Standing` in `GameWorld`; a character whose
-  shadow is darker than the tree beside it reads as lit by a different sun. Outline colour
-  comes from `keylineOn()` in `lib/palette.ts`, which picks light-on-dark or dark-on-light
-  from the backdrop's lightness — the scenery's own `keyline()` is always dark, which is
-  right on a daylit world and invisible on Space (`#130840`), where a dark-haired avatar
-  and a dark outline dissolve together at exactly the moment the silhouette needs help.
+- **Contact shadows are a shared recipe, not a per-component choice.** `ContactShadow`
+  (one art pixel tall, `#000` at 0.26, one art pixel below the wrapper) is used by both
+  `Grounded` in the scenery and `Standing` in `GameWorld` — a character whose shadow is
+  darker than the tree beside it reads as lit by a different sun.
+- **The characters carry no keyline, and that is a decision, not an omission.** Outlining
+  them was tried across all eight worlds and rejected on looks (2026-08-15). The scenery
+  keeps its own. Before adding one back, note what it costs: an outline is drawn on all
+  eight worlds to fix three, and it changes the sprite's size (below). The legibility
+  problem it was for is real and measured — a black-haired avatar's head sits at 1.06
+  contrast against Space's air — and is written up under item 4 in ROADMAP.md.
 - **An outline changes a sprite's size.** `PixelSprite` grows the viewBox and the rendered
   box by one cell on every side, so a 16×24 avatar renders 18×26. That is not neutral
   across sprites of different sizes: the same border is +8% on a 24-row person and +29% on

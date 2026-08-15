@@ -62,42 +62,14 @@ the live database.
       down to what exists. Stripe seam is `client/src/lib/billing.ts`.
       **Migration 020 must be applied before the deploy**, or the button
       raises `function claim_premium does not exist`.
-- [x] **4. Outline + contact shadow** — branch `art/character-outline-shadow`,
-      pushed, PR pending. Most of this had already shipped inside #37 and
-      #39 and the entry below overstated what was left: `PixelSprite` has had
-      the outline pass and `Grounded` the contact shadow since the backgrounds
-      landed. What was actually missing was that GameWorld draws the characters
+- [x] **4. Contact shadow** — branch `art/character-outline-shadow`.
+      `PixelSprite` has had an outline pass and `Grounded` a contact shadow
+      since #37; what was missing is that `GameWorld` draws the characters
       itself and passed neither, so the two things the scene is about were the
-      only two hovering and un-outlined. Shadow extracted to
-      `components/ContactShadow.tsx` so both halves share one recipe; outline
-      colour comes from `keylineOn()` (`lib/palette.ts`), which flips to a light
-      keyline on a dark sky — the scenery's is always dark, which is invisible
-      on Space. **Not reviewed by eye**; A/B'd in jsdom only.
-
-      **Open question for the owner, before this merges:** the character
-      keyline and the scenery keyline disagree in every world, and on the three
-      dark ones they run in opposite directions — a rock outlined `#11171e`
-      standing beside a person outlined `#b3adb5` (Space). That may be exactly
-      right, since a rim-lit character is a real technique and the whole point
-      of `keylineOn` is that a dark line on a dark sky buys nothing. But it
-      contradicts the principle written in this branch's own `ContactShadow`
-      comment — "a character whose shadow is darker than the tree beside it
-      reads as lit by a different sun". Decide by eye; the code currently argues
-      both sides.
-
-      | world | scenery | character |
-      |---|---|---|
-      | forest | `#273634` | `#404e4a` |
-      | mountain | `#2e3839` | `#4c5054` |
-      | space | `#11171e` | `#b3adb5` |
-      | city | `#121b1e` | `#b4b3b5` |
-      | library | `#1c1f1d` | `#c5bbb3` |
-
-      Also noted: outlining everything moved pets from 0.29x a person to 0.35x,
-      because a one-cell border costs a 7-row pet proportionally more than a
-      24-row person. Under the 0.38 cap set in item 12, so left alone — but it
-      is a third of #39's shrink handed back as a side effect of a change about
-      keylines, and there is now a test pinning the number.
+      only two hovering. Shadow extracted to `components/ContactShadow.tsx` so
+      the scenery and the characters share one recipe.
+      **Outlines were tried on the characters and taken back off** at the
+      owner's call, 2026-08-15 — see below.
 - [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
       below. Mostly drawing: growth has to be maps with more cells, never a
       bigger `size`. Levels want deriving from focus history, not storing.
@@ -235,30 +207,50 @@ was the rest.
 
 ---
 
-## 4. Outline + contact shadow  ·  SHIPPED — `art/character-outline-shadow`
+## 4. Contact shadow  ·  SHIPPED (outline reverted)
 
-This entry described ~40 lines of new work. By the time it was picked up, most
-of it existed: #37 added the outline pass to `PixelSprite` and the contact
-shadow to `Grounded`, and #39 gave `PixelCharacter`/`PetCharacter` the
-`outline` prop. The gap was that `GameWorld` renders the two characters itself
-and passed neither, so the scenery stood on the floor with keylines while the
-people hovered without one.
+**Shipped:** every grounded sprite, characters and pets included, now has a
+one-art-pixel contact shadow from the shared `ContactShadow` component. That
+half of this item was the "everyone appears to hover" complaint and it is done.
 
-What landed:
+**Reverted:** character outlines. They were turned on across all eight worlds
+and the owner didn't like the look. Taken back off 2026-08-15; `keylineOn()`
+went with them. The scenery keeps its own keylines — those shipped in #37 and
+were reviewed and accepted then.
 
-- `components/ContactShadow.tsx` — the scenery's shadow, extracted so the
-  characters get the *same* one. A character whose shadow is darker than the
-  tree beside it reads as lit by a different sun.
-- `keylineOn(backdrop)` in `lib/palette.ts` — outline colour chosen on the
-  backdrop's lightness, softened 25% toward it. The scenery's `keyline()` is
-  always dark, which is right on a daylit world and useless on Space
-  (`HORIZON.space` is `#130840`), where a dark outline on a dark sky behind
-  dark hair is a pixel of silhouette paid for and not received.
-- Both people and both pets are outlined and grounded in `GameWorld`.
+Worth being straight about where this came from: **the owner never asked for
+outlines.** It was written into this file by an earlier audit and got built
+because the file said to. That is the failure mode the corrections section at
+the top exists for — except here the *diagnosis* was right and the
+*prescription* was too broad.
 
-**Not reviewed by eye.** A/B'd in jsdom: the four shadows and the outlines each
-fail against the previous commit. Whether the weight looks right at `ART_PX`
-still wants a human on localhost.
+**The problem the outline was for is real and is now unsolved.** Contrast of
+the worst-case hair colour against the sky at head height, measured:
+
+| world | sky at head | worst hair | contrast |
+|---|---|---|---|
+| space | `#130840` | Black `#1A1A1A` | **1.06** |
+| city | `#16213e` | Black | **1.09** |
+| library | `#5d4037` | Brown `#5C3317` | **1.16** |
+| grocery | `#cdd4cc` | Blonde | 1.47 |
+| beach | `#FFD166` | Blonde | 1.54 |
+| cafe | `#e8d5b7` | Blonde | 1.55 |
+| forest | `#AEE5D8` | Blonde | 1.59 |
+| mountain | `#E0F0FF` | Blonde | 1.91 |
+
+1.00 is invisible. On Space a black-haired avatar's head is at 1.06 against the
+air behind it — not a matter of taste, the head is genuinely not there.
+
+Options if it is worth fixing later, cheapest first:
+
+- **Outline on the three dark worlds only.** The five light worlds sit at
+  1.47–1.91, low but readable; the outline bought nothing there and cost the
+  look everywhere. `keylineOn()` is in this branch's git history.
+- **Lift the sky's bottom stop** on space/city/library so the air behind a head
+  is lighter. Changes the mood of worlds the owner already approved.
+- **Rim-light the head only** — one lighter row along the top of the hair.
+  More drawing, no border.
+- **Leave it.** Three of eight worlds, two of six hair colours. Real, narrow.
 
 ---
 
