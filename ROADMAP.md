@@ -5,11 +5,14 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-14. PRs #35–#39 merged — 38 commits on main.
-PR #40 (premium unlocked by confirmed email) open on `feat/premium-email-unlock`.
+Last updated: 2026-08-14. PRs #35–#40 merged.
+Item 4 is done on `art/character-outline-shadow`, unpushed — no PR yet.
 Migrations 016–019 are applied to Supabase (019 verified in production).
-**Migration 020 is NOT applied yet** — it has to go in before #40 deploys, or
-the unlock button hits a function that doesn't exist.
+**Migration 020 is NOT applied yet, and #40 is already on main** — so the
+premium unlock button is live against a function that doesn't exist. It fails
+soft (`PremiumModal` catches it and shows "try again in a moment") and nothing
+could grant premium before either, so this is a gap rather than a regression.
+Apply 020 to close it.
 
 ~~Open infra issue: `ALLOWED_ORIGIN` missing the www host~~ — **fixed
 2026-08-12.** Verified: both `https://duodoro.live` and
@@ -49,14 +52,25 @@ the unlock button hits a function that doesn't exist.
       Both sprites are layered string maps now (`lib/characterMaps.ts`,
       `lib/petMaps.ts`) composited by `lib/pixelMap.ts`. The avatar blinks;
       pets went 10×11 → 9×7 (0.46× a person → 0.29×). `darken()` is gone —
-      see below. Outlines are one prop away but **not turned on**, which is
-      the rest of item 4.
+      see below. Outlines were one prop away but not turned on; item 4 turned
+      them on.
 - [x] **2. Premium button on home is a no-op** — PR #40. Wired through, and
       premium is now *grantable at all*: `claim_premium` (migration 020) turns
       it on free in exchange for the OAuth-confirmed email. Feature list is
       down to what exists. Stripe seam is `client/src/lib/billing.ts`.
       **Migration 020 must be applied before the deploy**, or the button
       raises `function claim_premium does not exist`.
+- [x] **4. Outline + contact shadow** — branch `art/character-outline-shadow`,
+      4 commits, **not pushed**. Most of this had already shipped inside #37 and
+      #39 and the entry below overstated what was left: `PixelSprite` has had
+      the outline pass and `Grounded` the contact shadow since the backgrounds
+      landed. What was actually missing was that GameWorld draws the characters
+      itself and passed neither, so the two things the scene is about were the
+      only two hovering and un-outlined. Shadow extracted to
+      `components/ContactShadow.tsx` so both halves share one recipe; outline
+      colour comes from `keylineOn()` (`lib/palette.ts`), which flips to a light
+      keyline on a dark sky — the scenery's is always dark, which is invisible
+      on Space. **Not reviewed by eye**; A/B'd in jsdom only.
 - [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
       below. Mostly drawing: growth has to be maps with more cells, never a
       bigger `size`. Levels want deriving from focus history, not storing.
@@ -189,24 +203,35 @@ Also corrected while doing it: the `calc(19% - 4px)` was not "people stand 4px
 into the dirt". `bottom` positions the wrapper, and the wrapper's bottom edge
 was the *name tag* — so characters floated a label's height **above** the
 horizon while trees stood on it. Fixed by taking the tag out of flow. This is
-part of item 4's "everyone appears to hover"; the contact shadow is the rest.
+part of item 4's "everyone appears to hover"; the contact shadow, since done,
+was the rest.
 
 ---
 
-## 4. Outline + contact shadow  ·  ~40 lines
+## 4. Outline + contact shadow  ·  SHIPPED — `art/character-outline-shadow`
 
-Nothing in `PixelCharacter.tsx` or `PetCharacter.tsx` draws a dark border, and
-nothing draws a shadow under a grounded sprite. On the Space world
-(`sky #04001A`, `ground #1e0f4a`, `avatarData.ts:96-98`) a dark-haired character
-dissolves into the background, and everyone appears to hover rather than stand.
+This entry described ~40 lines of new work. By the time it was picked up, most
+of it existed: #37 added the outline pass to `PixelSprite` and the contact
+shadow to `Grounded`, and #39 gave `PixelCharacter`/`PetCharacter` the
+`outline` prop. The gap was that `GameWorld` renders the two characters itself
+and passed neither, so the scenery stood on the floor with keylines while the
+people hovered without one.
 
-Add an optional auto-outline pass to `PixelSprite`: for each transparent cell
-orthogonally adjacent to a filled cell, emit a rect in an outline colour. ~15
-lines inside the existing run-merging loop, and every string-map sprite gets a
-1-pixel border for free. Then a shared `<ContactShadow>` — one art-pixel-tall
-dark rect at ~35% opacity — under every `Grounded` sprite and both characters.
+What landed:
 
-Characters won't benefit until item 7 migrates them onto `PixelSprite`.
+- `components/ContactShadow.tsx` — the scenery's shadow, extracted so the
+  characters get the *same* one. A character whose shadow is darker than the
+  tree beside it reads as lit by a different sun.
+- `keylineOn(backdrop)` in `lib/palette.ts` — outline colour chosen on the
+  backdrop's lightness, softened 25% toward it. The scenery's `keyline()` is
+  always dark, which is right on a daylit world and useless on Space
+  (`HORIZON.space` is `#130840`), where a dark outline on a dark sky behind
+  dark hair is a pixel of silhouette paid for and not received.
+- Both people and both pets are outlined and grounded in `GameWorld`.
+
+**Not reviewed by eye.** A/B'd in jsdom: the four shadows and the outlines each
+fail against the previous commit. Whether the weight looks right at `ART_PX`
+still wants a human on localhost.
 
 ---
 
