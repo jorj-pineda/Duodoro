@@ -5,14 +5,16 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-14. PRs #35–#40 merged.
-Item 4 is done on `art/character-outline-shadow`, unpushed — no PR yet.
-Migrations 016–019 are applied to Supabase (019 verified in production).
-**Migration 020 is NOT applied yet, and #40 is already on main** — so the
-premium unlock button is live against a function that doesn't exist. It fails
-soft (`PremiumModal` catches it and shows "try again in a moment") and nothing
-could grant premium before either, so this is a gap rather than a regression.
-Apply 020 to close it.
+Last updated: 2026-08-15. PRs #35–#40 merged.
+Item 4 is on `art/character-outline-shadow`, pushed, PR pending review by eye.
+Migrations 016–020 are applied to Supabase. **020 verified in production**
+2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
+limited to authenticated/service_role, SECURITY DEFINER with a pinned
+search_path. It went in *after* #40 reached main, so there was a window where
+the unlock button called a function that did not exist — it failed soft and
+nobody had claimed, so the window cost nothing. Nothing has claimed since
+either: `premium_grants` is empty, so the round trip is still unproven against
+the live database.
 
 ~~Open infra issue: `ALLOWED_ORIGIN` missing the www host~~ — **fixed
 2026-08-12.** Verified: both `https://duodoro.live` and
@@ -61,7 +63,7 @@ Apply 020 to close it.
       **Migration 020 must be applied before the deploy**, or the button
       raises `function claim_premium does not exist`.
 - [x] **4. Outline + contact shadow** — branch `art/character-outline-shadow`,
-      4 commits, **not pushed**. Most of this had already shipped inside #37 and
+      pushed, PR pending. Most of this had already shipped inside #37 and
       #39 and the entry below overstated what was left: `PixelSprite` has had
       the outline pass and `Grounded` the contact shadow since the backgrounds
       landed. What was actually missing was that GameWorld draws the characters
@@ -71,6 +73,31 @@ Apply 020 to close it.
       colour comes from `keylineOn()` (`lib/palette.ts`), which flips to a light
       keyline on a dark sky — the scenery's is always dark, which is invisible
       on Space. **Not reviewed by eye**; A/B'd in jsdom only.
+
+      **Open question for the owner, before this merges:** the character
+      keyline and the scenery keyline disagree in every world, and on the three
+      dark ones they run in opposite directions — a rock outlined `#11171e`
+      standing beside a person outlined `#b3adb5` (Space). That may be exactly
+      right, since a rim-lit character is a real technique and the whole point
+      of `keylineOn` is that a dark line on a dark sky buys nothing. But it
+      contradicts the principle written in this branch's own `ContactShadow`
+      comment — "a character whose shadow is darker than the tree beside it
+      reads as lit by a different sun". Decide by eye; the code currently argues
+      both sides.
+
+      | world | scenery | character |
+      |---|---|---|
+      | forest | `#273634` | `#404e4a` |
+      | mountain | `#2e3839` | `#4c5054` |
+      | space | `#11171e` | `#b3adb5` |
+      | city | `#121b1e` | `#b4b3b5` |
+      | library | `#1c1f1d` | `#c5bbb3` |
+
+      Also noted: outlining everything moved pets from 0.29x a person to 0.35x,
+      because a one-cell border costs a 7-row pet proportionally more than a
+      24-row person. Under the 0.38 cap set in item 12, so left alone — but it
+      is a third of #39's shrink handed back as a side effect of a change about
+      keylines, and there is now a test pinning the number.
 - [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
       below. Mostly drawing: growth has to be maps with more cells, never a
       bigger `size`. Levels want deriving from focus history, not storing.

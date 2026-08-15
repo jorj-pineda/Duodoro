@@ -168,11 +168,28 @@ describe("one art pixel", () => {
     // about 0.25x. They only looked right while they were rendering at a
     // smaller pixel than the character, which is the mismatch ART_PX removed.
     //
-    // A guard, not an A/B — it reads the constants the art declares, so it
-    // holds whatever the components do. The test above is the one that fails
-    // against the previous commit.
-    expect(PET_H / CHAR_H).toBeLessThan(0.35);
-    expect(PET_H / CHAR_H).toBeGreaterThan(0.2);
+    // Measured off the rendered SVGs, not off PET_H / CHAR_H. Those constants
+    // describe the *maps*, and the outline pass adds a cell all round — which
+    // is +8% on a 24-row person and +29% on a 7-row pet. Asserting on the maps
+    // said 0.29 while the screen showed 0.35, i.e. the test was passing on a
+    // number nobody could see.
+    //
+    // A guard, not an A/B.
+    const { container } = renderScene("waiting", 0, 0, true);
+    const height = (w: number, h: number) =>
+      Number(findSprite(container, w, h).getAttribute("height"));
+    const ratio = height(PET_W, PET_H) / height(CHAR_W, CHAR_H);
+    expect(ratio).toBeLessThan(0.38);
+    expect(ratio).toBeGreaterThan(0.2);
+  });
+
+  it("does not let the outline quietly regrow the pets", () => {
+    // The border costs a small sprite proportionally more than a large one, so
+    // outlining everything moved the pets back up from 0.29 to 0.35 — about a
+    // third of the shrink they were given in #39, handed back as a side effect
+    // of a change about keylines. Pinned so the next thing that touches either
+    // sprite's bounding box has to notice.
+    expect(((PET_H + 2) / (CHAR_H + 2)).toFixed(3)).toBe("0.346");
   });
 });
 
