@@ -5,8 +5,6 @@ import { DEFAULT_AVATAR, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 import { PET_W, PET_H } from "@/lib/petMaps";
-import { HORIZON } from "./WorldDecorations";
-import { keylineOn, hexToHsl } from "@/lib/palette";
 
 // The scene used to place characters with `calc(41.7% + 8px)` on `left` and
 // spin the break-phase controller ±10°. Both put sprite edges between device
@@ -183,61 +181,13 @@ describe("one art pixel", () => {
     expect(ratio).toBeGreaterThan(0.2);
   });
 
-  it("does not let the outline quietly regrow the pets", () => {
-    // The border costs a small sprite proportionally more than a large one, so
-    // outlining everything moved the pets back up from 0.29 to 0.35 — about a
-    // third of the shrink they were given in #39, handed back as a side effect
-    // of a change about keylines. Pinned so the next thing that touches either
-    // sprite's bounding box has to notice.
-    expect(((PET_H + 2) / (CHAR_H + 2)).toFixed(3)).toBe("0.346");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Outlines — what stops a sprite dissolving into the sky behind it.
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("outlines", () => {
-  /** Cells drawn in `color` inside the two character wrappers. */
-  function outlineRects(container: HTMLElement, color: string) {
-    return characterWrappers(container).flatMap((wrapper) =>
-      Array.from(wrapper.querySelectorAll("rect")).filter(
-        (r) => r.getAttribute("fill") === color,
-      ),
-    );
-  }
-
-  const worlds: WorldId[] = ["forest", "space"];
-
-  for (const worldId of worlds) {
-    it(`outlines both people and both pets in the ${worldId}`, () => {
-      // A/B — fails against the previous commit. The scenery has been outlined
-      // since the backgrounds landed and `PixelCharacter` has accepted an
-      // `outline` since #39, but GameWorld never passed one, so the two things
-      // the scene is actually about were the only things without a keyline.
-      const { container } = renderScene("waiting", 0, 0, true, worldId);
-      const keyline = keylineOn(HORIZON[worldId]);
-      expect(outlineRects(container, keyline).length).toBeGreaterThan(0);
-      for (const wrapper of characterWrappers(container)) {
-        for (const svg of wrapper.querySelectorAll("svg")) {
-          const drawn = Array.from(svg.querySelectorAll("rect")).some(
-            (r) => r.getAttribute("fill") === keyline,
-          );
-          expect(drawn, `a sprite in the ${worldId} has no keyline`).toBe(true);
-        }
-      }
-    });
-  }
-
-  it("outlines a dark world's characters in a light colour", () => {
-    // The one that motivated the helper: Space's air is #130840, so the
-    // scenery's always-dark keyline would be a dark line on a dark sky behind
-    // a dark-haired avatar — paid for, invisible.
-    const sky = HORIZON.space;
-    expect(hexToHsl(keylineOn(sky))[2]).toBeGreaterThan(hexToHsl(sky)[2]);
-    expect(hexToHsl(keylineOn(HORIZON.forest))[2]).toBeLessThan(
-      hexToHsl(HORIZON.forest)[2],
-    );
+  it("pins the ratio so a bounding-box change has to notice", () => {
+    // A one-cell border costs a 7-row pet proportionally far more than a
+    // 24-row person: turning outlines on moved this from 0.292 to 0.346, about
+    // a third of the shrink #39 gave the pets, as a side effect of a change
+    // about keylines. The outlines came back off, so it is 0.292 again — and
+    // pinned, because the next thing to touch either box will move it too.
+    expect((PET_H / CHAR_H).toFixed(3)).toBe("0.292");
   });
 });
 

@@ -19,9 +19,8 @@ import {
   CONTROLLER,
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
-import { WorldDecor, CUP, CUP_PALETTE, HORIZON } from "./WorldDecorations";
+import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
 import ContactShadow from "./ContactShadow";
-import { keylineOn } from "@/lib/palette";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
 import { ART_PX, GROUND } from "@/lib/scene";
 
@@ -159,9 +158,6 @@ export default function GameWorld({
   partnerDisconnected,
 }: Props) {
   const world = getWorld(worldId);
-  // Both people stand on the ground plane, so what they are seen against is the
-  // air at the horizon — the same colour the scenery hazes toward.
-  const keyline = keylineOn(HORIZON[worldId]);
   // Characters are placed in whole pixels off the scene's own width, so the
   // scene has to be measured. GameWorld only ever mounts client-side (DuoTimer
   // starts on the loading screen), so the layout effect inside runs before the
@@ -289,7 +285,6 @@ export default function GameWorld({
                 anim={myAnim}
                 facing="right"
                 size={ART_PX}
-                outline={keyline}
               />
             </Standing>
           )}
@@ -299,7 +294,6 @@ export default function GameWorld({
               anim={myAnim}
               facing="right"
               size={ART_PX}
-              outline={keyline}
             />
           </Standing>
         </div>
@@ -326,7 +320,6 @@ export default function GameWorld({
                 anim={partnerDisconnected ? "idle" : partnerAnim}
                 facing="left"
                 size={ART_PX}
-                outline={keyline}
               />
             </Standing>
             {partnerPet && (
@@ -336,7 +329,6 @@ export default function GameWorld({
                   anim={partnerDisconnected ? "idle" : partnerAnim}
                   facing="left"
                   size={ART_PX}
-                  outline={keyline}
                 />
               </Standing>
             )}

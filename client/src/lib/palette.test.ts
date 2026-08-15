@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { shade, flush, hexToHsl, hslToHex, keylineOn } from "./palette";
+import { shade, flush, hexToHsl, hslToHex } from "./palette";
 import { SKIN_COLORS, HAIR_COLORS, OUTFIT_COLORS } from "./avatarData";
-import { HORIZON } from "@/components/WorldDecorations";
 
 const lightness = (hex: string) => hexToHsl(hex)[2];
 const saturation = (hex: string) => hexToHsl(hex)[1];
@@ -96,31 +95,3 @@ describe("flush", () => {
   });
 });
 
-describe("keylineOn", () => {
-  // The scenery's own keyline is always dark, which is the whole point of this
-  // helper existing: on the Space world's air a dark outline and dark hair
-  // dissolve into the backdrop together, so the outline costs a pixel of the
-  // silhouette and buys nothing.
-  const DARK_SKY = "#130840";
-  const LIGHT_SKY = "#AEE5D8";
-
-  it("goes light on a dark backdrop and dark on a light one", () => {
-    expect(lightness(keylineOn(DARK_SKY))).toBeGreaterThan(lightness(DARK_SKY));
-    expect(lightness(keylineOn(LIGHT_SKY))).toBeLessThan(lightness(LIGHT_SKY));
-  });
-
-  it("separates from every backdrop by a visible amount", () => {
-    // The property that matters is contrast against the air, not which way it
-    // went. An always-dark keyline fails this on the two darkest skies.
-    for (const sky of Object.values(HORIZON)) {
-      const gap = Math.abs(lightness(keylineOn(sky)) - lightness(sky));
-      expect(gap, `${sky} keyline is invisible against its own sky`).toBeGreaterThan(0.1);
-    }
-  });
-
-  it("stays softer than a full keyline", () => {
-    // A pure #1b1b1b line around a 3px-pixel figure reads as marker pen. The
-    // softening is what keeps it an outline rather than a border.
-    expect(lightness(keylineOn(LIGHT_SKY))).toBeGreaterThan(lightness("#1b1b1b"));
-  });
-});

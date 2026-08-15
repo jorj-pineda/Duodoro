@@ -195,27 +195,6 @@ export function blend(a: string, b: string, t: number): string {
 }
 
 /**
- * An outline that stays visible against whatever it is drawn on.
- *
- * The scenery's keyline is always dark, which is right on a daylit world and
- * useless on a dark one: the Space world's air is `#04001A`, so a dark-haired
- * avatar and a dark outline dissolve into it together and the outline buys
- * nothing at the exact moment the silhouette needs help. Choosing on the
- * backdrop's lightness is what makes one rule work for all eight worlds.
- *
- * Softened toward the backdrop rather than run at full contrast: a pure keyline
- * on a 3px art pixel reads as a thick black marker line around a small figure.
- */
-const KEYLINE_DARK = "#1b1b1b";
-const KEYLINE_LIGHT = "#e8e4dc";
-const KEYLINE_SOFTEN = 0.25;
-
-export function keylineOn(backdrop: string): string {
-  const [, , l] = hexToHsl(backdrop);
-  return blend(l < 0.5 ? KEYLINE_LIGHT : KEYLINE_DARK, backdrop, KEYLINE_SOFTEN);
-}
-
-/**
  * How much of the sky sits between the viewer and a layer.
  *
  * Depth in a flat scene has to come from *value*, not from size — a distant
