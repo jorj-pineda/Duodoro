@@ -6,7 +6,8 @@ files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
 Last updated: 2026-08-15. PRs #35–#40 merged.
-Item 4 is on `art/character-outline-shadow`, pushed, PR pending review by eye.
+Item 4 is on `art/character-outline-shadow` — contact shadows shipped,
+character outlines tried and reverted. Reviewed on localhost 2026-08-15.
 Migrations 016–020 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -54,8 +55,9 @@ the live database.
       Both sprites are layered string maps now (`lib/characterMaps.ts`,
       `lib/petMaps.ts`) composited by `lib/pixelMap.ts`. The avatar blinks;
       pets went 10×11 → 9×7 (0.46× a person → 0.29×). `darken()` is gone —
-      see below. Outlines were one prop away but not turned on; item 4 turned
-      them on.
+      see below. Outlines were left one prop away and deliberately not turned
+      on; item 4 turned them on, the owner didn't like them, and they came back
+      off. `PixelCharacter`/`PetCharacter` still accept the prop.
 - [x] **2. Premium button on home is a no-op** — PR #40. Wired through, and
       premium is now *grantable at all*: `claim_premium` (migration 020) turns
       it on free in exchange for the OAuth-confirmed email. Feature list is
@@ -357,9 +359,11 @@ PR #39** (4–6.5s, jittered, 130ms, off under `prefers-reduced-motion`). The
 second body frame on top of it looked busy in the static dump. Worth trying
 once someone has watched the current version move.
 
-Also still open from this item: `PixelCharacter` accepts an `outline` prop and
-nothing passes one. Turning it on is the remaining half of item 4, and it is a
-visual call — the dump shows a fairly heavy keyline at `ART_PX`.
+`PixelCharacter` and `PetCharacter` still accept an `outline` prop and nothing
+passes one. That is now deliberate rather than pending — see item 4: it was
+turned on across all eight worlds, reviewed, and reverted. The prop stays
+because the dark-world legibility problem it was for is real and unfixed, and
+a per-world outline is the cheapest way back.
 
 ---
 
