@@ -615,7 +615,7 @@ function keyline(sky: string, depth: Depth): string {
  * Taken from the bottom stop of each world's skyGradient, because that is
  * literally the colour the air is at the point a far ridge meets it.
  */
-const HORIZON: Record<WorldId, string> = {
+export const HORIZON: Record<WorldId, string> = {
   forest: "#AEE5D8",
   space: "#130840",
   beach: "#FFD166",
