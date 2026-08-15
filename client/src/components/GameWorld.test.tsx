@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import GameWorld, { type GamePhase } from "./GameWorld";
-import { DEFAULT_AVATAR } from "@/lib/avatarData";
+import { DEFAULT_AVATAR, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 import { PET_W, PET_H } from "@/lib/petMaps";
+import { HORIZON } from "./WorldDecorations";
+import { keylineOn, hexToHsl } from "@/lib/palette";
 
 // The scene used to place characters with `calc(41.7% + 8px)` on `left` and
 // spin the break-phase controller ±10°. Both put sprite edges between device
@@ -20,10 +22,11 @@ function renderScene(
   focusProgress = 0,
   returning = 0,
   pets = false,
+  worldId: WorldId = "forest",
 ) {
   return render(
     <GameWorld
-      worldId="forest"
+      worldId={worldId}
       phase={phase}
       focusProgress={focusProgress}
       returningProgress={returning}
@@ -44,6 +47,22 @@ function characterWrappers(container: HTMLElement) {
   );
   expect(nodes.length).toBe(2);
   return nodes;
+}
+
+/**
+ * The sprite drawn on a `w`x`h` map.
+ *
+ * Matched on the map's shape rather than on an exact viewBox string, because
+ * the outline pass draws one cell outside the map and grows the viewBox to
+ * match — an outlined sprite is its own size plus a one-cell border.
+ */
+function findSprite(container: HTMLElement, w: number, h: number) {
+  const svg = Array.from(container.querySelectorAll("svg")).find((el) => {
+    const [, , vw, vh] = (el.getAttribute("viewBox") ?? "").split(" ").map(Number);
+    return (vw === w || vw === w + 2) && (vh === h || vh === h + 2);
+  });
+  expect(svg, `no sprite on a ${w}x${h} grid`).toBeTruthy();
+  return svg!;
 }
 
 describe("character placement", () => {
@@ -128,11 +147,10 @@ describe("ground line", () => {
 
 describe("one art pixel", () => {
   /** CSS px per art pixel, read off a sprite's own SVG. */
-  function density(container: HTMLElement, viewBox: string) {
-    const svg = container.querySelector(`svg[viewBox="${viewBox}"]`);
-    expect(svg, `no sprite with viewBox "${viewBox}"`).toBeTruthy();
-    const cells = Number(viewBox.split(" ")[2]);
-    return Number(svg!.getAttribute("width")) / cells;
+  function density(container: HTMLElement, w: number, h: number) {
+    const svg = findSprite(container, w, h);
+    const cells = Number(svg.getAttribute("viewBox")!.split(" ")[2]);
+    return Number(svg.getAttribute("width")) / cells;
   }
 
   it("draws characters and their pets on the same pixel grid", () => {
@@ -141,8 +159,8 @@ describe("one art pixel", () => {
     // test hardcoded "0 0 10 11" and had to be edited when the pets were
     // redrawn, which is the kind of edit that quietly turns a check into a
     // restatement of whatever the code now does.
-    expect(density(container, `0 0 ${CHAR_W} ${CHAR_H}`)).toBe(ART_PX);
-    expect(density(container, `0 0 ${PET_W} ${PET_H}`)).toBe(ART_PX);
+    expect(density(container, CHAR_W, CHAR_H)).toBe(ART_PX);
+    expect(density(container, PET_W, PET_H)).toBe(ART_PX);
   });
 
   it("keeps pets to something like an animal's share of a person's height", () => {
@@ -155,6 +173,54 @@ describe("one art pixel", () => {
     // against the previous commit.
     expect(PET_H / CHAR_H).toBeLessThan(0.35);
     expect(PET_H / CHAR_H).toBeGreaterThan(0.2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Outlines — what stops a sprite dissolving into the sky behind it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("outlines", () => {
+  /** Cells drawn in `color` inside the two character wrappers. */
+  function outlineRects(container: HTMLElement, color: string) {
+    return characterWrappers(container).flatMap((wrapper) =>
+      Array.from(wrapper.querySelectorAll("rect")).filter(
+        (r) => r.getAttribute("fill") === color,
+      ),
+    );
+  }
+
+  const worlds: WorldId[] = ["forest", "space"];
+
+  for (const worldId of worlds) {
+    it(`outlines both people and both pets in the ${worldId}`, () => {
+      // A/B — fails against the previous commit. The scenery has been outlined
+      // since the backgrounds landed and `PixelCharacter` has accepted an
+      // `outline` since #39, but GameWorld never passed one, so the two things
+      // the scene is actually about were the only things without a keyline.
+      const { container } = renderScene("waiting", 0, 0, true, worldId);
+      const keyline = keylineOn(HORIZON[worldId]);
+      expect(outlineRects(container, keyline).length).toBeGreaterThan(0);
+      for (const wrapper of characterWrappers(container)) {
+        for (const svg of wrapper.querySelectorAll("svg")) {
+          const drawn = Array.from(svg.querySelectorAll("rect")).some(
+            (r) => r.getAttribute("fill") === keyline,
+          );
+          expect(drawn, `a sprite in the ${worldId} has no keyline`).toBe(true);
+        }
+      }
+    });
+  }
+
+  it("outlines a dark world's characters in a light colour", () => {
+    // The one that motivated the helper: Space's air is #130840, so the
+    // scenery's always-dark keyline would be a dark line on a dark sky behind
+    // a dark-haired avatar — paid for, invisible.
+    const sky = HORIZON.space;
+    expect(hexToHsl(keylineOn(sky))[2]).toBeGreaterThan(hexToHsl(sky)[2]);
+    expect(hexToHsl(keylineOn(HORIZON.forest))[2]).toBeLessThan(
+      hexToHsl(HORIZON.forest)[2],
+    );
   });
 });
 
