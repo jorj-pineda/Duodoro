@@ -126,3 +126,63 @@ describe("create_session assigns the rotating world", () => {
     expect(ROTATION_WORLDS).toContain(world);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pet stage is the server's to decide, same shape as the world.
+//
+// Dev mode has no Supabase, so totalFocusSeconds is 0 and a pet is young.
+// Run against the previous commit and `petStage` is missing from the slot,
+// so these fail — that's the A/B.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createAndSlot(payload, sub) {
+  return new Promise((resolve, reject) => {
+    const socket = connect(url, {
+      auth: { token: fakeToken(sub) },
+      transports: ["websocket"],
+    });
+    const timer = setTimeout(() => {
+      socket.close();
+      reject(new Error("no sync_state"));
+    }, 10_000);
+    socket.on("connect_error", (err) => {
+      clearTimeout(timer);
+      socket.close();
+      reject(err);
+    });
+    socket.on("sync_state", (state) => {
+      clearTimeout(timer);
+      const me = state.players[socket.id];
+      socket.close();
+      resolve(me);
+    });
+    socket.on("connect", () => {
+      socket.emit("create_session", { avatar: AVATAR, displayName: "Tester", ...payload });
+    });
+  });
+}
+
+describe("create_session assigns pet stage from focus, not the payload", () => {
+  it("ignores a petStage sent by the client", async () => {
+    const me = await createAndSlot(
+      { pet: "cat", petStage: "full" },
+      "55555555-5555-4555-8555-555555555555",
+    );
+    expect(me.pet).toBe("cat");
+    expect(me.petStage).toBe("young");
+  });
+
+  it("does not put focusSeconds on the wire", async () => {
+    const me = await createAndSlot(
+      { pet: "dog" },
+      "66666666-6666-4666-8666-666666666666",
+    );
+    expect(me).not.toHaveProperty("focusSeconds");
+  });
+
+  it("leaves stage empty when there is no pet", async () => {
+    const me = await createAndSlot({}, "77777777-7777-4777-8777-777777777777");
+    expect(me.pet).toBe(null);
+    expect(me.petStage).toBe(null);
+  });
+});

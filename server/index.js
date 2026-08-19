@@ -10,6 +10,7 @@ const {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  creditFocus,
   inviteUser,
   isInvited,
   findPlayerByUserId,
@@ -19,6 +20,7 @@ const {
   buildSyncPayload,
 } = require('./session');
 const { worldAt } = require('./rotation');
+const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -65,6 +67,40 @@ function sanitizePet(pet) {
   return VALID_PETS.includes(pet) ? pet : null;
 }
 
+// Completed focus seconds for one user, the input to petStageAt(). Service
+// role bypasses RLS; the filter is the user id. A failed read returns null
+// so the caller can keep the current look (grown) rather than shrinking
+// everyone to young — a zero and a failure must not render the same way.
+async function totalFocusSeconds(userId) {
+  if (!supabase || !userId) return 0;
+  const { data, error } = await supabase
+    .from('session_participants')
+    .select('sessions!inner(actual_focus, completed)')
+    .eq('user_id', userId)
+    .eq('sessions.completed', true);
+  if (error) {
+    console.error('Failed to load focus total:', error.message);
+    return null;
+  }
+  return (data ?? []).reduce((sum, row) => {
+    const focus = row.sessions?.actual_focus;
+    return sum + (typeof focus === 'number' ? focus : 0);
+  }, 0);
+}
+
+function stageForTotal(seconds) {
+  // A failed fetch is not 0 hours. Leave the pet at today's size rather
+  // than pretending the user is new.
+  if (seconds === null) return 'grown';
+  return petStageAt(seconds);
+}
+
+// Keep the cached total consistent with stageForTotal: a failed fetch
+// must not later recompute as young when the user picks a different pet.
+function cachedFocus(seconds) {
+  return seconds === null ? GROWN_AT_SECONDS : seconds;
+}
+
 function sanitizeAvatar(avatar) {
   if (!avatar || typeof avatar !== 'object') return null;
   const { skinColor, hairStyle, hairColor, eyeStyle, outfitColor } = avatar;
@@ -104,7 +140,7 @@ io.use(async (socket, next) => {
 // sessions[sessionId] = {
 //   phase, focusDuration, breakDuration, phaseStartTime, phaseTimer,
 //   world, hostId (socketId),
-//   players: { [socketId]: { avatar, displayName, userId, pet } }
+//   players: { [socketId]: { avatar, displayName, userId, pet, petStage } }
 // }
 const sessions = {};
 const socketToSession = {};
@@ -257,6 +293,14 @@ async function recordSession(sessionId, session, completed, participantIds) {
       console.error(`[${sessionId}] Failed to record participants:`, pError.message);
     } else {
       console.log(`[${sessionId}] Session recorded: ${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ${userIds.length} participants`);
+      // Only completed rows feed get_focus_stats, so only those grow the pet.
+      // Credit the in-memory total rather than re-querying: the row was just
+      // written, and a replica lag would otherwise delay the growth by a round.
+      if (completed && sessions[sessionId]) {
+        for (const update of creditFocus(session, userIds, actualFocus)) {
+          io.to(sessionId).emit('pet_changed', update);
+        }
+      }
     }
   } catch (err) {
     console.error(`[${sessionId}] Session recording error:`, err);
@@ -494,7 +538,7 @@ io.on('connection', (socket) => {
   // field in the payload is ignored rather than rejected, so an older client
   // still gets a session instead of an error. There is nothing left to validate
   // here because there is nothing left to trust.
-  socket.on('create_session', ({ avatar, displayName, pet }) => {
+  socket.on('create_session', async ({ avatar, displayName, pet }) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -512,6 +556,8 @@ io.on('connection', (socket) => {
     if (prevSession) leaveSession(socket, prevSession);
 
     const userId = socket.userId || null;
+    const safePet = sanitizePet(pet);
+    const focusSeconds = await totalFocusSeconds(userId);
 
     const session = createSessionState(safeWorld, socket.id);
     const sessionId = session.id;
@@ -523,7 +569,12 @@ io.on('connection', (socket) => {
       avatar: safeAvatar,
       displayName: safeName,
       userId,
-      pet: sanitizePet(pet),
+      pet: safePet,
+      // petStage in the payload is ignored the same way world is — the server
+      // derives it from this user's completed focus, so two people never see
+      // different animals in one room.
+      petStage: safePet ? stageForTotal(focusSeconds) : null,
+      focusSeconds: cachedFocus(focusSeconds),
     });
 
     if (userId) setPresence(userId, sessionId, safeWorld);
@@ -590,6 +641,8 @@ io.on('connection', (socket) => {
     }
 
     const safePet = sanitizePet(pet);
+    const focusSeconds = await totalFocusSeconds(userId);
+    const petStage = safePet ? stageForTotal(focusSeconds) : null;
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     const playerCount = addPlayer(session, socket.id, {
@@ -597,6 +650,8 @@ io.on('connection', (socket) => {
       displayName: safeName,
       userId,
       pet: safePet,
+      petStage,
+      focusSeconds: cachedFocus(focusSeconds),
     });
 
     if (userId) setPresence(userId, sessionId, session.world);
@@ -607,6 +662,7 @@ io.on('connection', (socket) => {
       avatar: safeAvatar,
       displayName: safeName,
       pet: safePet,
+      petStage,
     });
 
     socket.emit('sync_state', buildSyncPayload(session));
@@ -708,14 +764,22 @@ io.on('connection', (socket) => {
   });
 
   // set_pet: { sessionId, pet }
-  // Change your pet mid-session; relayed to the other player.
+  // Change your pet mid-session; relayed to the other player. Stage is
+  // derived here, never taken from the payload, and emitted to the whole
+  // room (including the sender) so the picker sees the server's size.
   socket.on('set_pet', ({ sessionId, pet }) => {
     const session = getSession(sessionId);
     if (!session) return;
-    if (!session.players[socket.id]) return; // Only participants
+    const player = session.players[socket.id];
+    if (!player) return; // Only participants
     const safePet = sanitizePet(pet);
-    setPlayerPet(session, socket.id, safePet);
-    socket.to(sessionId).emit('pet_changed', { playerId: socket.id, pet: safePet });
+    const petStage = safePet ? petStageAt(player.focusSeconds || 0) : null;
+    setPlayerPet(session, socket.id, safePet, petStage);
+    io.to(sessionId).emit('pet_changed', {
+      playerId: socket.id,
+      pet: safePet,
+      petStage,
+    });
   });
 
   // leave_session: no payload needed — the server knows which session this
