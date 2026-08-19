@@ -4,6 +4,7 @@ import { io, Socket } from "socket.io-client";
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
+import type { PetStage } from "@/lib/petLevel";
 import type {
   PlayerData,
   SyncPayload,
@@ -33,6 +34,7 @@ export function useGameSession(profile: Profile | null) {
   // number.
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
   const [myPet, setMyPetState] = useState<PetType | null>(null);
+  const [myPetStage, setMyPetStage] = useState<PetStage | null>(null);
   // Ref mirrors so the socket handlers — registered once with [] deps — read
   // current values instead of whatever was captured at mount. Without this, an
   // invite sent before a session exists is relayed by the session_created
@@ -218,6 +220,12 @@ export function useGameSession(profile: Profile | null) {
         setPlayers(data.players || {});
         if (data.world) setMyWorld(data.world as WorldId);
         if (data.sessionId) setSessionId(data.sessionId);
+        // Own stage comes from the slot, not a local guess: useStats is stale
+        // during a session, and a client-sent stage is ignored by the server.
+        const self = socket.id ? data.players?.[socket.id] : undefined;
+        if (self) {
+          setMyPetStage(self.pet ? (self.petStage ?? "grown") : null);
+        }
         // Mirror the phase in both directions. Only ever setting this to true
         // left the *other* player stuck after someone pressed end-session:
         // phase went back to "waiting" but sessionStarted stayed true, which
@@ -242,27 +250,54 @@ export function useGameSession(profile: Profile | null) {
           avatar,
           displayName,
           pet,
+          petStage,
         }: {
           playerId: string;
           avatar: AvatarConfig;
           displayName?: string;
           pet?: PetType | null;
+          petStage?: PetStage | null;
         }) => {
           setPlayers((prev) => ({
             ...prev,
-            [playerId]: { avatar, displayName, pet: pet ?? null },
+            [playerId]: {
+              avatar,
+              displayName,
+              pet: pet ?? null,
+              petStage: pet ? (petStage ?? "grown") : null,
+            },
           }));
         },
       );
 
       socket.on(
         "pet_changed",
-        ({ playerId, pet }: { playerId: string; pet: PetType | null }) => {
+        ({
+          playerId,
+          pet,
+          petStage,
+        }: {
+          playerId: string;
+          pet: PetType | null;
+          petStage?: PetStage | null;
+        }) => {
           setPlayers((prev) =>
             prev[playerId]
-              ? { ...prev, [playerId]: { ...prev[playerId], pet } }
+              ? {
+                  ...prev,
+                  [playerId]: {
+                    ...prev[playerId],
+                    pet,
+                    petStage: pet ? (petStage ?? "grown") : null,
+                  },
+                }
               : prev,
           );
+          // The server emits to the whole room, including the picker, so the
+          // originator sees the derived size rather than guessing from stats.
+          if (playerId === socket.id) {
+            setMyPetStage(pet ? (petStage ?? "grown") : null);
+          }
         },
       );
 
@@ -441,6 +476,7 @@ export function useGameSession(profile: Profile | null) {
   const partnerName = partnerEntry?.[1].displayName;
   const partnerUserId = partnerEntry?.[1].userId ?? null;
   const partnerPet = partnerEntry?.[1].pet ?? null;
+  const partnerPetStage = partnerEntry?.[1].petStage ?? null;
   const partnerDisconnected = partnerEntry?.[1].disconnected ?? false;
 
   const playerCount = Object.keys(players).length;
@@ -569,6 +605,7 @@ export function useGameSession(profile: Profile | null) {
     // and a setter here is a way to put the client back in charge of it.
     myWorld,
     myPet,
+    myPetStage,
     setMyPet,
     // Session config
     timerMode,
@@ -595,6 +632,7 @@ export function useGameSession(profile: Profile | null) {
     partnerName,
     partnerUserId,
     partnerPet,
+    partnerPetStage,
     partnerDisconnected,
     playerCount,
     // Session actions

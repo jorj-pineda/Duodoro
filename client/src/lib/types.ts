@@ -42,6 +42,8 @@ export type Task = {
   completed_by: string | null;
 };
 
+export type { PetStage } from "./petLevel";
+
 export type PetType = "cat" | "dog" | "dragon" | "rabbit";
 
 export const PET_OPTIONS: { type: PetType; label: string; emoji: string }[] = [
