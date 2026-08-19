@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStickyNotes } from "@/hooks/useStickyNotes";
 import type { Task } from "@/lib/types";
+import { CloseIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -46,9 +47,9 @@ function TaskRow({
   onDelete,
 }: {
   task: Task;
-  /** Deletion stays owner-only in the database (migration 017), so the ✕ is
-   *  only drawn for notes where it can actually succeed. Ticking is open to
-   *  both partners, so the checkbox is always live. */
+  /** Deletion stays owner-only in the database (migration 017), so the close
+   *  control is only drawn for notes where it can actually succeed. Ticking is
+   *  open to both partners, so the checkbox is always live. */
   isOwn: boolean;
   nameFor: (userId: string) => string;
   onToggle: (id: string, done: boolean) => void;
@@ -99,7 +100,7 @@ function TaskRow({
           aria-label="Delete note"
           className="text-amber-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 text-xs mt-0.5 flex-shrink-0"
         >
-          ✕
+          <CloseIcon className="w-3.5 h-3.5" />
         </button>
       )}
     </motion.div>
@@ -260,7 +261,7 @@ export default function StickyNote({
                           disabled={completedCount === 0}
                           className="w-full text-left text-xs font-mono text-gray-600 hover:text-red-500 py-1 disabled:opacity-30 transition-colors"
                         >
-                          ✕ Clear completed ({completedCount})
+                          Clear completed ({completedCount})
                         </button>
                       </div>
                     )}
@@ -268,10 +269,11 @@ export default function StickyNote({
                   {/* Close */}
                   <button
                     onClick={onClose}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-base transition-opacity hover:opacity-60"
+                    aria-label="Close"
+                    className="w-7 h-7 flex items-center justify-center rounded-none text-base transition-opacity hover:opacity-60"
                     style={{ color: color.accent }}
                   >
-                    ✕
+                    <CloseIcon className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -356,7 +358,7 @@ export default function StickyNote({
                     aria-label="Dismiss error"
                     className="font-bold hover:opacity-70"
                   >
-                    ✕
+                    <CloseIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}

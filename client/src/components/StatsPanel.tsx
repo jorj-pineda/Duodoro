@@ -5,6 +5,7 @@ import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
+import { CloseIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -150,9 +151,10 @@ export default function StatsPanel({
                 </h2>
                 <button
                   onClick={onClose}
+                  aria-label="Close"
                   className="text-faint hover:text-ink transition-colors"
                 >
-                  ✕
+                  <CloseIcon />
                 </button>
               </div>
 

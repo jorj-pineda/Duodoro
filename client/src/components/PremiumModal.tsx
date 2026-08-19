@@ -5,6 +5,7 @@ import { getSupabase } from "@/lib/supabase";
 import { PREMIUM_IS_FREE } from "@/lib/billing";
 import Button from "./Button";
 import PetCharacter from "./PetCharacter";
+import { CloseIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -105,9 +106,9 @@ export default function PremiumModal({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="absolute top-2 right-2 sm:top-4 sm:right-4 w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center text-faint hover:text-ink transition-colors text-xl"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center text-faint hover:text-ink transition-colors"
               >
-                ✕
+                <CloseIcon className="w-5 h-5" />
               </button>
 
               <div className="text-center mb-6">

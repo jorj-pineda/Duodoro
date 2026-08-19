@@ -5,6 +5,7 @@ import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
+import { CloseIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -143,9 +144,10 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
             </h1>
             <button
               onClick={onClose}
-              className="text-faint hover:text-ink transition-colors text-lg"
+              aria-label="Close"
+              className="text-faint hover:text-ink transition-colors"
             >
-              ✕
+              <CloseIcon className="w-5 h-5" />
             </button>
           </div>
 
