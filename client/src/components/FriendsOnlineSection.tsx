@@ -1,11 +1,11 @@
 "use client";
 import { WORLDS } from "@/lib/avatarData";
 import type { Profile } from "@/lib/types";
+import WorldThumb from "./WorldThumb";
 
-const WORLD_LABEL: Record<string, { emoji: string; label: string }> =
-  Object.fromEntries(
-    WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }]),
-  );
+const WORLD_LABEL: Record<string, string> = Object.fromEntries(
+  WORLDS.map((w) => [w.id, w.label]),
+);
 
 interface Props {
   onlineFriends: Profile[];
@@ -38,7 +38,7 @@ export default function FriendsOnlineSection({
       <div className="space-y-1">
         {onlineFriends.slice(0, 5).map((f) => {
           const inSession = !!f.current_session_id;
-          const worldInfo = f.current_world_id
+          const worldLabel = f.current_world_id
             ? WORLD_LABEL[f.current_world_id]
             : null;
           const name = f.display_name ?? f.username;
@@ -54,9 +54,10 @@ export default function FriendsOnlineSection({
                 <p className="text-sm font-semibold text-ink truncate">
                   {name}
                 </p>
-                {inSession && worldInfo ? (
-                  <p className="text-[10px] text-go truncate">
-                    {worldInfo.emoji} In {worldInfo.label}
+                {inSession && worldLabel && f.current_world_id ? (
+                  <p className="text-[10px] text-go truncate flex items-center gap-1.5">
+                    <WorldThumb worldId={f.current_world_id} />
+                    In {worldLabel}
                   </p>
                 ) : (
                   <p className="text-[10px] text-faint">Online</p>
