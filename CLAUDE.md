@@ -70,9 +70,9 @@ Security conventions in the socket layer (preserve these when adding events):
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 - Knowing a session id is not permission to use it: `join_session` requires an existing slot, an invite, or friendship with someone already in the session, and `send_invite` is friends-only. Server-side ids are read from `socketToSession`, never taken from the payload.
 
-Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion.
+Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion. `petStage` is derived from total completed focus (`server/petLevel.js` / `client/src/lib/petLevel.ts`, same two-copy pin as the rotation) and a client-sent stage is ignored. Growth is more cells at `ART_PX`, never a scale multiplier.
 
-Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
+Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `creditFocus`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
 
 ### Client structure
 

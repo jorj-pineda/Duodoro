@@ -5,9 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-15. PRs #35–#40 merged.
-Item 4 is on `art/character-outline-shadow` — contact shadows shipped,
-character outlines tried and reverted. Reviewed on localhost 2026-08-15.
+Last updated: 2026-08-18. PRs #35–#41 merged.
+Item 12 is on `feat/pet-levels`. Not verified in a browser.
 Migrations 016–020 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -64,17 +63,20 @@ the live database.
       down to what exists. Stripe seam is `client/src/lib/billing.ts`.
       **Migration 020 must be applied before the deploy**, or the button
       raises `function claim_premium does not exist`.
-- [x] **4. Contact shadow** — branch `art/character-outline-shadow`.
-      `PixelSprite` has had an outline pass and `Grounded` a contact shadow
-      since #37; what was missing is that `GameWorld` draws the characters
-      itself and passed neither, so the two things the scene is about were the
-      only two hovering. Shadow extracted to `components/ContactShadow.tsx` so
-      the scenery and the characters share one recipe.
+- [x] **4. Contact shadow** — PR #41. `PixelSprite` has had an outline pass
+      and `Grounded` a contact shadow since #37; what was missing is that
+      `GameWorld` draws the characters itself and passed neither, so the two
+      things the scene is about were the only two hovering. Shadow extracted
+      to `components/ContactShadow.tsx` so the scenery and the characters
+      share one recipe.
       **Outlines were tried on the characters and taken back off** at the
       owner's call, 2026-08-15 — see below.
-- [ ] **12. Pets level up and grow** — owner's idea, 2026-08-13. Written up
-      below. Mostly drawing: growth has to be maps with more cells, never a
-      bigger `size`. Levels want deriving from focus history, not storing.
+- [x] **12. Pets level up and grow** — this PR. Derived from completed focus
+      (`server/petLevel.js` + `client/src/lib/petLevel.ts`, 3h / 15h), same
+      two-copy pin as the rotation. Growth is more cells at `ART_PX`: young
+      7×5, grown 9×7 (today's art), full 11×9. Stage travels in the slot as
+      `petStage`; a client-sent value is ignored. Per user, not per pet.
+      Premium stays the pet gate. **Not verified in a browser.**
 
 ## ⚠️ Corrections to this file
 
@@ -483,7 +485,7 @@ by eye — the countdown ticking on home, and that a session left open across a
 
 ---
 
-## 12. Pets level up and grow  ·  owner's idea, 2026-08-13, not started
+## 12. Pets level up and grow  ·  SHIPPED — this PR
 
 The owner's call after previewing #39: pets earn levels and get **bigger** as
 they level. A companion that visibly changes because of hours you actually put
@@ -515,26 +517,28 @@ Total focus minutes already exist in `sessions`/`session_participants`, and
 new column, cannot drift, and is automatically right for existing users on the
 day it ships — everyone's back catalogue counts.
 
-Open questions worth settling before drawing anything:
+**What actually shipped, settling the open questions:**
 
-- **Per user or per pet type?** Per user is one number and reuses the stats
-  that exist. Per pet type means a real table and makes switching pets cost
-  progress, which is either the point or a punishment depending on taste.
-- **Does your partner see your pet's level?** They see the pet already
-  (`pet_changed` relays the type). If growth is only local, two people in the
-  same room see different animals, which is the same class of bug the world
-  rotation exists to prevent. So the level has to travel with the pet in
-  session state, which means the server derives it too — and the server has the
-  service key and the same rows, so that is cheap.
-- **What are the thresholds?** Wants to be slow enough to mean something and
-  fast enough that a new user sees one change. First growth inside a week of
-  ordinary use is a reasonable target.
-- **Does it interact with premium?** Pets are the one thing actually gated
-  today (`PetPicker.tsx:20,34`), so levelling is currently a premium-only
-  feature by accident. Worth deciding deliberately — see item 2.
+- **Per user, not per pet type.** One number, the `sum(actual_focus)` that
+  already exists. Switching cat → dog keeps the size.
+- **Partner sees the same animal.** `petStage` travels in the slot;
+  `buildSyncPayload` / `player_joined` / `pet_changed` carry it.
+  `focusSeconds` stays off the wire. A client-sent stage is ignored, same
+  shape as `world`.
+- **Thresholds:** young → grown at **3 hours** (10800 s), grown → full at
+  **15 hours** (54000 s). First change is inside a week of two 25-minute
+  sessions a day. Both packages pin the same table of seconds.
+- **Premium stays the pet gate.** Levelling is not a second lock.
+- A completed focus credits the in-memory total so a pet can grow in the
+  room it earned it, rather than on the next join.
+- Grown maps in `lib/petMaps.ts` are the #39 art, unchanged. Young and full
+  are the same silhouettes with less or more room. `size` stays `ART_PX`.
+- A missing `petStage` (older server) renders as grown, so a client-first
+  deploy does not shrink every pet to young.
 
-Prerequisite: none. #39 put both sprites on string maps, so adding sizes is
-adding maps to `lib/petMaps.ts` and a selector, not touching a component.
+**Not verified:** nothing here has been looked at in a browser. The young
+and full silhouettes need an owner's eye — geometry tests catch clipping and
+grid size, not whether a 5-row cat still reads as a cat.
 
 ---
 
