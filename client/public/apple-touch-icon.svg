@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#10b981"/>
-  <circle cx="180" cy="256" r="72" fill="#ffffff"/>
-  <circle cx="332" cy="256" r="72" fill="#ffffff"/>
+  <!-- iOS applies its own squircle; a rounded rect here would double-round. -->
+  <rect width="512" height="512" fill="#171411"/>
+  <circle cx="180" cy="256" r="72" fill="#f3ede1"/>
+  <circle cx="332" cy="256" r="72" fill="#f3ede1"/>
 </svg>
