@@ -24,6 +24,7 @@ import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
 import ContactShadow from "./ContactShadow";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
 import { ART_PX, GROUND } from "@/lib/scene";
+import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 
 export type GamePhase =
   | "waiting"
@@ -388,10 +389,13 @@ export default function GameWorld({
           className="absolute right-4 flex flex-col items-center opacity-40"
           style={{ bottom: GROUND }}
         >
-          <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center text-white text-lg">
+          <div
+            className="border-2 border-white/50 flex items-center justify-center font-display text-white text-xl leading-none"
+            style={{ width: CHAR_W * ART_PX, height: CHAR_H * ART_PX }}
+          >
             ?
           </div>
-          <div className="text-[10px] text-center mt-1 font-bold text-white font-mono">
+          <div className="text-[10px] text-center mt-1 font-bold text-white font-display">
             WAITING
           </div>
         </div>
