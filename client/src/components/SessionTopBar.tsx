@@ -19,7 +19,7 @@ function SessionStatusDot({ phase }: { phase: GamePhase }) {
         : "bg-gold";
   return (
     <div
-      className={`w-2 h-2 rounded-full ${color} ${phase !== "waiting" ? "animate-pulse" : ""}`}
+      className={`w-2 h-2 ${color} ${phase !== "waiting" ? "animate-pulse" : ""}`}
     />
   );
 }

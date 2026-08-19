@@ -133,7 +133,7 @@ export default function SessionHUD({
     // controls ("end session" / "leave session") can scroll clear of the home
     // indicator instead of sitting under it.
     <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
-      <div className="hud-card bg-surface/85 backdrop-blur border border-line rounded-2xl px-6 sm:px-8 py-5 flex flex-col items-center gap-3 shadow-xl mb-4">
+      <div className="hud-card bg-surface border-2 border-line border-b-4 px-6 sm:px-8 py-5 flex flex-col items-center gap-3 mb-4">
         <div className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
         </div>
@@ -144,7 +144,7 @@ export default function SessionHUD({
         )}
 
         {showTimer && (
-          <div className="hud-timer text-5xl sm:text-6xl font-mono font-bold tabular-nums flex flex-col items-center">
+          <div className="hud-timer text-5xl sm:text-6xl font-display font-bold tabular-nums tracking-wide flex flex-col items-center">
             {phase === "focus" && serverMode === "flow" && (
               <span className="text-xs text-calm mb-1 tracking-widest font-bold uppercase">
                 Flow elapsed
@@ -160,10 +160,10 @@ export default function SessionHUD({
 
         {!sessionStarted && phase === "waiting" && (
           <div className="w-full max-w-xs space-y-4 mt-1">
-            <div className="flex bg-raise rounded-lg p-1 border border-line">
+            <div className="flex bg-raise p-1 border-2 border-line">
               <button
                 onClick={() => onTimerModeChange("pomodoro")}
-                className={`flex-1 py-2 sm:py-1 text-xs font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "pomodoro"
                     ? "bg-accent text-white"
                     : "text-muted hover:text-ink"
@@ -173,7 +173,7 @@ export default function SessionHUD({
               </button>
               <button
                 onClick={() => onTimerModeChange("flow")}
-                className={`flex-1 py-2 sm:py-1 text-xs font-bold rounded-md transition-colors ${
+                className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "flow"
                     ? "bg-calm text-white"
                     : "text-muted hover:text-ink"
@@ -224,7 +224,7 @@ export default function SessionHUD({
         {/* Player indicators */}
         <div className="flex items-center gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${playerCount >= 1 ? "bg-go" : "bg-faint"}`}
+            className={`w-2 h-2 ${playerCount >= 1 ? "bg-go" : "bg-faint"}`}
           />
           <span className="text-muted text-xs font-medium uppercase tracking-wide">
             You
@@ -232,7 +232,7 @@ export default function SessionHUD({
           {playerCount >= 2 && (
             <>
               <div className="w-8 h-px bg-line" />
-              <div className="w-2 h-2 rounded-full bg-go" />
+              <div className="w-2 h-2 bg-go" />
               <span className="text-muted text-xs font-medium uppercase tracking-wide">
                 Partner
               </span>
@@ -241,7 +241,7 @@ export default function SessionHUD({
           {playerCount < 2 && phase === "waiting" && (
             <>
               <div className="w-8 h-px bg-line" />
-              <div className="w-2 h-2 rounded-full bg-faint" />
+              <div className="w-2 h-2 bg-faint" />
               <span className="text-faint text-xs font-medium uppercase tracking-wide">
                 Waiting...
               </span>
