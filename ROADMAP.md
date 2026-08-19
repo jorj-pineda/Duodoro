@@ -5,8 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-18. PRs #35–#41 merged.
-Item 12 is on `feat/pet-levels`. Not verified in a browser.
+Last updated: 2026-08-19. PRs #35–#42 merged.
+Item 10 is on `feat/launch-surface`.
 Migrations 016–020 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -71,12 +71,17 @@ the live database.
       share one recipe.
       **Outlines were tried on the characters and taken back off** at the
       owner's call, 2026-08-15 — see below.
-- [x] **12. Pets level up and grow** — this PR. Derived from completed focus
+- [x] **12. Pets level up and grow** — PR #42. Derived from completed focus
       (`server/petLevel.js` + `client/src/lib/petLevel.ts`, 3h / 15h), same
       two-copy pin as the rotation. Growth is more cells at `ART_PX`: young
       7×5, grown 9×7 (today's art), full 11×9. Stage travels in the slot as
       `petStage`; a client-sent value is ignored. Per user, not per pet.
       Premium stays the pet gate. **Not verified in a browser.**
+- [x] **10. Launch surface** — this PR. `metadataBase` is `https://duodoro.live`,
+      so the generated OG/Twitter image is an absolute URL; the extra period
+      on the tagline is gone; the duo mark is charcoal/paper instead of
+      Tailwind emerald; the install splash uses `#171411` instead of gray-900.
+      Copy and colours live in `client/src/lib/site.ts`.
 
 ## ⚠️ Corrections to this file
 
@@ -398,15 +403,27 @@ wrapped around a game.
 
 ---
 
-## 10. Launch surface  ·  cheap, do before showing anyone
+## 10. Launch surface  ·  SHIPPED — this PR
 
-- no `openGraph.images` and no `metadataBase` → every shared link renders a
-  blank card
-- `app/layout.tsx:40` — typo: `"Focus together, anywhere.."`
-- `public/icon.svg` is a placeholder: two white circles on emerald `#10b981`, a
-  colour that appears nowhere else in the app
-- `manifest.webmanifest` sets `theme_color: "#111827"`, matching neither theme
-  (`#f3ede1` / `#171411`), so the install splash flashes the wrong colour
+- ~~no `openGraph.images` and no `metadataBase` → every shared link renders a
+  blank card~~ — `metadataBase` is `https://duodoro.live`; `app/opengraph-image.tsx`
+  (and `twitter-image.tsx` re-exporting it) is the card. Next fills
+  `og:image` from the file convention.
+- ~~`app/layout.tsx:40` — typo: `"Focus together, anywhere.."`~~ — one period,
+  and the string lives in `lib/site.ts` so layout, the OG alt text, and the
+  manifest cannot drift.
+- ~~`public/icon.svg` is a placeholder: two white circles on emerald `#10b981`~~
+  — same duo mark (two people), now charcoal `#171411` and paper `#f3ede1`.
+  `apple-touch-icon.svg` matches, without a rounded rect so iOS does not
+  double-round.
+- ~~`manifest.webmanifest` sets `theme_color: "#111827"`~~ — `app/manifest.ts`
+  reads `DARK_BG` from `lib/site.ts`, same value as the dark viewport
+  `themeColor`. The static JSON in `public/` is gone so there is not a second
+  copy to forget.
+
+**Not verified:** crawlers (iMessage, Slack, Twitter) have not been shown a
+deployed card. The unit tests pin the copy, the origin, and the colours;
+whether the PNG *looks* right needs an owner's eye on `/opengraph-image`.
 
 ---
 
@@ -485,7 +502,7 @@ by eye — the countdown ticking on home, and that a session left open across a
 
 ---
 
-## 12. Pets level up and grow  ·  SHIPPED — this PR
+## 12. Pets level up and grow  ·  SHIPPED — PR #42
 
 The owner's call after previewing #39: pets earn levels and get **bigger** as
 they level. A companion that visibly changes because of hours you actually put
