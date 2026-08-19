@@ -3,6 +3,14 @@ import { Geist, Geist_Mono, Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import MotionProvider from "@/components/MotionProvider";
+import {
+  DARK_BG,
+  LIGHT_BG,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_URL,
+} from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,22 +31,30 @@ const pixelSans = Pixelify_Sans({
 const themeInitScript = `(function(){try{var t=localStorage.getItem("duodoro-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})();`;
 
 export const metadata: Metadata = {
-  title: "Duodoro — Focus together, anywhere.",
-  description: "A real-time focus timer for long-distance couples and friends. Walk toward each other, meet in the middle, and celebrate your session together.",
-  manifest: "/manifest.webmanifest",
+  metadataBase: new URL(SITE_URL),
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/apple-touch-icon.svg", sizes: "180x180" }],
   },
   appleWebApp: {
     capable: true,
-    title: "Duodoro",
+    title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
   openGraph: {
-    title: "Duodoro",
-    description: "Focus together, anywhere..",
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
     type: "website",
+    locale: "en_US",
+    siteName: SITE_NAME,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
   },
 };
 
@@ -47,8 +63,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3ede1" },
-    { media: "(prefers-color-scheme: dark)", color: "#171411" },
+    { media: "(prefers-color-scheme: light)", color: LIGHT_BG },
+    { media: "(prefers-color-scheme: dark)", color: DARK_BG },
   ],
 };
 
