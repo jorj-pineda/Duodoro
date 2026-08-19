@@ -1,29 +1,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Pet maps — the companions as string maps.
+// Pet maps — the companions as string maps, in three sizes.
 //
-// ── Why they got smaller ────────────────────────────────────────────────────
-// The pets were 10 x 11 cells. On ART_PX that is 30 x 33 px beside a 48 x 72
-// person, i.e. a cat 0.46x a human's height — a cat is about 0.25x. They only
-// ever looked right because they used to render at a *smaller pixel* than the
-// character did, which is the density mismatch PR #36 removed: the fix put them
-// on the same grid and the size problem became visible.
+// Growth is more cells at the same ART_PX, never a scale multiplier. A 9×7
+// cat at size={4} is the same cat with bigger pixels, not a bigger cat. The
+// three stages:
 //
-// So they are redrawn at 9 x 7, which is 27 x 21 px, or 0.29x a person. The
-// wrong fix is putting `size` back to 2 — that reintroduces two pixel grids in
-// one frame, and a scene with two pixel sizes reads as broken no matter how
-// well-proportioned the things in it are.
+//   young  7×5   21×15 px   0.21× a person
+//   grown  9×7   27×21 px   0.29× a person   ← today's art, unchanged
+//   full   11×9  33×27 px   0.38× a person
 //
-// ── What seven rows costs you ───────────────────────────────────────────────
-// Every pet is a head with a body under it, seen face-on. That is a choice, not
-// a limitation to apologise for: at this size the head is the only part with
-// room for anything readable, so it gets four of the seven rows and the body
-// gets two. The first attempt drew face-on heads with side-on tails, and the
-// tails read as detached sticks floating beside the animal — mixing two views
-// in nine pixels does not survive.
+// Stop at 0.38×: a companion taller than half its owner stops reading as a
+// pet. The grown maps are the ones that shipped in #39; young and full are
+// the same silhouettes with less or more room for the same tells (cat ears
+// at the corners, dog ears down the sides, dragon horns and wings, rabbit
+// ears above).
 //
-// Everything distinguishing therefore happens in the silhouette: cat ear
-// points, dog ears down the sides of the head, dragon horns and wings, rabbit
-// ears above it. Interior detail is two eyes and a nose.
+// ── What seven (or five, or nine) rows costs you ────────────────────────────
+// Every pet is a head with a body under it, seen face-on. That is a choice:
+// at this size the head is the only part with room for anything readable.
+// Everything distinguishing therefore happens in the silhouette.
 //
 // ── The key alphabet ────────────────────────────────────────────────────────
 //   C coat        c coat in shadow      M muzzle / marking
@@ -33,10 +28,20 @@
 import type { PixelMap, PixelPalette } from "@/components/PixelSprite";
 import { place } from "./pixelMap";
 import { shade } from "./palette";
+import type { PetStage } from "./petLevel";
 import type { PetType } from "./types";
 
-export const PET_W = 9;
-export const PET_H = 7;
+export type { PetStage };
+
+export const PET_STAGE_SIZE: Record<PetStage, { w: number; h: number }> = {
+  young: { w: 7, h: 5 },
+  grown: { w: 9, h: 7 },
+  full: { w: 11, h: 9 },
+};
+
+/** Grown size, the one the rest of the scene was drawn against. */
+export const PET_W = PET_STAGE_SIZE.grown.w;
+export const PET_H = PET_STAGE_SIZE.grown.h;
 
 /**
  * Both walk frames plant both feet on the bottom row.
@@ -46,19 +51,27 @@ export const PET_H = 7;
  * shipped with, each walking on one leg. So the step is a change of *stance*,
  * feet together and feet apart, and the bottom row is never empty.
  */
-const FEET_TOGETHER = "..cc.cc..";
-const FEET_APART = ".cc...cc.";
+const FEET: Record<PetStage, { together: string; apart: string }> = {
+  young: { together: ".cc.cc.", apart: "cc...cc" },
+  grown: { together: "..cc.cc..", apart: ".cc...cc." },
+  full: { together: "...cc.cc...", apart: "..cc...cc.." },
+};
 
 interface PetArt {
   frames: [PixelMap, PixelMap];
   palette: PixelPalette;
 }
 
-/** Six rows of body plus the two foot stances. */
-function pet(body: readonly string[], palette: PixelPalette): PetArt {
-  const frame = (feet: string) =>
-    place(0, [...body, feet], PET_H, PET_W);
-  return { frames: [frame(FEET_TOGETHER), frame(FEET_APART)], palette };
+/** Body rows plus the two foot stances, sized to the stage. */
+function pet(
+  stage: PetStage,
+  body: readonly string[],
+  palette: PixelPalette,
+): PetArt {
+  const { w, h } = PET_STAGE_SIZE[stage];
+  const feet = FEET[stage];
+  const frame = (feetRow: string) => place(0, [...body, feetRow], h, w);
+  return { frames: [frame(feet.together), frame(feet.apart)], palette };
 }
 
 const coat = (base: string, rest: PixelPalette): PixelPalette => ({
@@ -67,58 +80,152 @@ const coat = (base: string, rest: PixelPalette): PixelPalette => ({
   ...rest,
 });
 
-export const PET_ART: Record<PetType, PetArt> = {
-  // Pointed ears at the head's corners, tail curling out to one side.
-  cat: pet(
-    [
-      ".C.....C.",
-      ".CCCCCCC.",
-      ".CECCCEC.",
-      ".CCCNCCC.",
-      "..CCCCCcc",
-      "..CCCCC.c",
-    ],
-    coat("#E2A65C", { E: "#2C3A4A", N: "#C4604A" }),
-  ),
+const CAT = coat("#E2A65C", { E: "#2C3A4A", N: "#C4604A" });
+const DOG = coat("#C99A63", { E: "#3B2411", M: "#EFD9B4", N: "#2A1808" });
+const DRAGON = coat("#A78BFA", { E: "#FFC93C", N: "#7C3AED" });
+const RABBIT = coat("#EFE6D6", { E: "#8A5A6B", N: "#E39AA0", W: "#FFFFFF" });
+
+export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
+  cat: {
+    // Pointed ears at the head's corners, tail curling out to one side.
+    young: pet(
+      "young",
+      [".C...C.", ".CCCCC.", ".CENCE.", ".CCCCCc"],
+      CAT,
+    ),
+    grown: pet(
+      "grown",
+      [
+        ".C.....C.",
+        ".CCCCCCC.",
+        ".CECCCEC.",
+        ".CCCNCCC.",
+        "..CCCCCcc",
+        "..CCCCC.c",
+      ],
+      CAT,
+    ),
+    full: pet(
+      "full",
+      [
+        ".C.......C.",
+        ".CCCCCCCCC.",
+        ".CCECCCECC.",
+        ".CCCCCCCCC.",
+        ".CCCCNCCCC.",
+        "...CCCCCcc.",
+        "...CCCCCc.c",
+        "...CCCCC..c",
+      ],
+      CAT,
+    ),
+  },
 
   // Ears down the sides rather than above — that plus the muzzle is the whole
-  // difference between this and the cat at nine pixels wide.
-  dog: pet(
-    [
-      "CC.....CC",
-      "cCCCCCCCc",
-      "cCECCCECc",
-      ".CCMMMCC.",
-      "..CCCCCc.",
-      "..CCCCC..",
-    ],
-    coat("#C99A63", { E: "#3B2411", M: "#EFD9B4", N: "#2A1808" }),
-  ),
+  // difference between this and the cat at these sizes.
+  dog: {
+    young: pet(
+      "young",
+      ["CC...CC", "cCECECc", ".CCMMC.", ".CCCCC."],
+      DOG,
+    ),
+    grown: pet(
+      "grown",
+      [
+        "CC.....CC",
+        "cCCCCCCCc",
+        "cCECCCECc",
+        ".CCMMMCC.",
+        "..CCCCCc.",
+        "..CCCCC..",
+      ],
+      DOG,
+    ),
+    full: pet(
+      "full",
+      [
+        "CC.......CC",
+        "cCCCCCCCCCc",
+        "cCCECCCECCc",
+        ".CCMMMMMCC.",
+        ".CCCCCCCCC.",
+        "..CCCCCCCc.",
+        "..CCCCCC...",
+        "..CCCCC....",
+      ],
+      DOG,
+    ),
+  },
 
   // Horns up, wings out at the shoulders, gold eyes.
-  dragon: pet(
-    [
-      "..c...c..",
-      ".CCCCCCC.",
-      ".CECCCEC.",
-      ".CCCNCCC.",
-      "cCCCCCCCc",
-      "..CCCCC.c",
-    ],
-    coat("#A78BFA", { E: "#FFC93C", N: "#7C3AED" }),
-  ),
+  dragon: {
+    young: pet(
+      "young",
+      [".c...c.", ".CCCCC.", ".CENCE.", "cCCCCCc"],
+      DRAGON,
+    ),
+    grown: pet(
+      "grown",
+      [
+        "..c...c..",
+        ".CCCCCCC.",
+        ".CECCCEC.",
+        ".CCCNCCC.",
+        "cCCCCCCCc",
+        "..CCCCC.c",
+      ],
+      DRAGON,
+    ),
+    full: pet(
+      "full",
+      [
+        "..c.....c..",
+        ".CCCCCCCCC.",
+        ".CCECCCECC.",
+        ".CCCCCCCCC.",
+        ".CCCCNCCCC.",
+        "cCCCCCCCCCc",
+        "..CCCCCcc.c",
+        "..CCCCC...c",
+      ],
+      DRAGON,
+    ),
+  },
 
-  // Two rows of ear, which is most of what a rabbit is from the front, so it
-  // sits up and gets only one row of body.
-  rabbit: pet(
-    [
-      "...C.C...",
-      "...C.C...",
-      ".CCCCCCC.",
-      ".CECCCEC.",
-      ".CCCNCCC.",
-      "..CCCCCWW",
-    ],
-    coat("#EFE6D6", { E: "#8A5A6B", N: "#E39AA0", W: "#FFFFFF" }),
-  ),
+  // Two rows of ear, which is most of what a rabbit is from the front. Full
+  // gets a third so the ears scale with the rest of it; young keeps two and
+  // drops the body, same sit-up as grown.
+  rabbit: {
+    young: pet(
+      "young",
+      ["..C.C..", "..C.C..", ".CENCE.", ".CCCWW."],
+      RABBIT,
+    ),
+    grown: pet(
+      "grown",
+      [
+        "...C.C...",
+        "...C.C...",
+        ".CCCCCCC.",
+        ".CECCCEC.",
+        ".CCCNCCC.",
+        "..CCCCCWW",
+      ],
+      RABBIT,
+    ),
+    full: pet(
+      "full",
+      [
+        "...C...C...",
+        "...C...C...",
+        "...C...C...",
+        ".CCCCCCCCC.",
+        ".CCECCCECC.",
+        ".CCCCNCCCC.",
+        "..CCCCCCC..",
+        "..CCCCCWWW.",
+      ],
+      RABBIT,
+    ),
+  },
 };

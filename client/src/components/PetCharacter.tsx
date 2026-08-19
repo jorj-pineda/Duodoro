@@ -4,6 +4,7 @@ import type { AnimState } from "./PixelCharacter";
 import type { PetType } from "@/lib/types";
 import { ART_PX } from "@/lib/scene";
 import { PET_ART } from "@/lib/petMaps";
+import type { PetStage } from "@/lib/petLevel";
 import PixelSprite from "./PixelSprite";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,6 +17,9 @@ import PixelSprite from "./PixelSprite";
 
 interface PetCharacterProps {
   type: PetType;
+  /** Missing on an older server; grown is today's art, so a client-first
+   *  deploy does not shrink every pet to young. */
+  stage?: PetStage | null;
   anim?: AnimState;
   facing?: "right" | "left";
   size?: number;
@@ -26,6 +30,7 @@ const STEP_MS = 250;
 
 export default function PetCharacter({
   type,
+  stage = "grown",
   anim = "idle",
   facing = "right",
   size = ART_PX,
@@ -42,7 +47,7 @@ export default function PetCharacter({
   }, [anim]);
 
   const frame = anim === "walk" ? walkFrame : 0;
-  const art = PET_ART[type];
+  const art = PET_ART[type][stage ?? "grown"];
 
   let animClass = "";
   if (anim === "idle") animClass = "pixel-idle";
