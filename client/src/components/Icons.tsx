@@ -11,8 +11,8 @@ function base(className?: string) {
     fill: "none",
     stroke: "currentColor",
     strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
+    strokeLinecap: "square" as const,
+    strokeLinejoin: "miter" as const,
     className: className ?? "w-4 h-4",
   };
 }
@@ -115,7 +115,7 @@ export function CloseIcon({ className }: IconProps) {
 export function LockIcon({ className }: IconProps) {
   return (
     <svg {...base(className)}>
-      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <rect x="5" y="11" width="14" height="10" />
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   );
