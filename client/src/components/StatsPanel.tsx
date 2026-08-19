@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
+import WorldThumb from "./WorldThumb";
 
 interface Props {
   open: boolean;
@@ -33,12 +34,6 @@ function formatDate(iso: string): string {
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
-
-const WORLD_EMOJI: Record<string, string> = {
-  forest: "🌲",
-  space: "🚀",
-  beach: "🏖️",
-};
 
 // ── Stat Card ───────────────────────────────────────────────────────────────
 
@@ -81,7 +76,7 @@ function PartnerRow({ duo, rank }: { duo: DuoStats; rank: number }) {
 function SessionRow({ session }: { session: SessionWithPartner }) {
   return (
     <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-raise">
-      <span className="text-sm">{WORLD_EMOJI[session.world] ?? "🌍"}</span>
+      <WorldThumb worldId={session.world} />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-ink truncate">
           {formatDuration(session.actual_focus)} focus

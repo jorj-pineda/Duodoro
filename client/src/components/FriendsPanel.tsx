@@ -6,6 +6,7 @@ import type { Profile } from "@/lib/types";
 import { formatTag } from "@/lib/format";
 import { useFriendsList } from "@/hooks/useFriendsList";
 import { useFriendSearch } from "@/hooks/useFriendSearch";
+import WorldThumb from "./WorldThumb";
 
 interface Props {
   open: boolean;
@@ -17,10 +18,9 @@ interface Props {
 
 type Tab = "friends" | "requests" | "find";
 
-const WORLD_LABEL: Record<string, { emoji: string; label: string }> =
-  Object.fromEntries(
-    WORLDS.map((w) => [w.id, { emoji: w.emoji, label: w.label }]),
-  );
+const WORLD_LABEL: Record<string, string> = Object.fromEntries(
+  WORLDS.map((w) => [w.id, w.label]),
+);
 
 function StatusDot({ inSession }: { inSession: boolean }) {
   return (
@@ -41,7 +41,7 @@ function FriendRow({
   onInvite: () => void;
 }) {
   const inSession = !!friend.current_session_id;
-  const worldInfo = friend.current_world_id
+  const worldLabel = friend.current_world_id
     ? WORLD_LABEL[friend.current_world_id]
     : null;
   const name = friend.display_name ?? friend.username;
@@ -51,9 +51,10 @@ function FriendRow({
       <StatusDot inSession={inSession} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-ink truncate">{name}</p>
-        {inSession && worldInfo ? (
-          <p className="text-xs text-go truncate">
-            {worldInfo.emoji} In {worldInfo.label}
+        {inSession && worldLabel && friend.current_world_id ? (
+          <p className="text-xs text-go truncate flex items-center gap-1.5">
+            <WorldThumb worldId={friend.current_world_id} />
+            In {worldLabel}
           </p>
         ) : (
           <p className="text-xs text-faint font-mono truncate">

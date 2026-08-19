@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
+import WorldThumb from "./WorldThumb";
 
 interface Props {
   open: boolean;
@@ -28,12 +29,6 @@ function formatDate(iso: string): string {
     minute: "2-digit",
   });
 }
-
-const WORLD_EMOJI: Record<string, string> = {
-  forest: "🌲",
-  space: "🚀",
-  beach: "🏖️",
-};
 
 // ── Weekly Bar Chart ────────────────────────────────────────────────────────
 
@@ -255,9 +250,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
                           key={s.id}
                           className="flex items-center gap-3 bg-surface border border-line rounded-xl px-4 py-2.5"
                         >
-                          <span className="text-base">
-                            {WORLD_EMOJI[s.world] ?? "🌍"}
-                          </span>
+                          <WorldThumb worldId={s.world} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-ink">
                               {formatDuration(s.actual_focus)}
