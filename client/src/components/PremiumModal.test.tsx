@@ -121,4 +121,11 @@ describe("PremiumModal", () => {
     expect(container.textContent).not.toMatch(/\$|\/mo|subscri|payment|card/i);
     expect(container.textContent).toMatch(/free/i);
   });
+
+  it("draws a companion instead of a paw-print emoji", () => {
+    // A/B — the previous commit opened with 🐾.
+    const { container } = open();
+    expect(container.textContent).not.toMatch(/🐾/);
+    expect(container.querySelector("svg")).toBeTruthy();
+  });
 });

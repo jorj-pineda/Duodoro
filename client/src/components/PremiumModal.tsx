@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSupabase } from "@/lib/supabase";
 import { PREMIUM_IS_FREE } from "@/lib/billing";
 import Button from "./Button";
+import PetCharacter from "./PetCharacter";
 
 interface Props {
   open: boolean;
@@ -110,7 +111,9 @@ export default function PremiumModal({
               </button>
 
               <div className="text-center mb-6">
-                <div className="text-5xl mb-3">🐾</div>
+                <div className="flex justify-center mb-3">
+                  <PetCharacter type="cat" stage="grown" />
+                </div>
                 <h2 className="font-display text-2xl text-ink">
                   Duodoro Premium
                 </h2>

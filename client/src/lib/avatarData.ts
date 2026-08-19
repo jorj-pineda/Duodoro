@@ -74,7 +74,6 @@ export const DEFAULT_AVATAR: AvatarConfig = {
 export type WorldConfig = {
   id: WorldId;
   label: string;
-  emoji: string;
   skyGradient: string;
   groundColor: string;
   groundPatternColor: string;
@@ -84,7 +83,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'forest',
     label: 'Forest',
-    emoji: '🌲',
     skyGradient: 'linear-gradient(180deg, #7EC8E3 0%, #AEE5D8 100%)',
     groundColor: '#4a7c59',
     groundPatternColor: '#3d6849',
@@ -92,7 +90,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'space',
     label: 'Space',
-    emoji: '🚀',
     // Standing on the moon, so the ground is regolith rather than purple.
     skyGradient: 'linear-gradient(180deg, #04001A 0%, #130840 100%)',
     groundColor: '#6d727c',
@@ -101,7 +98,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'beach',
     label: 'Beach',
-    emoji: '🏖️',
     skyGradient: 'linear-gradient(180deg, #FF8C42 0%, #FFD166 100%)',
     groundColor: '#C9A84C',
     groundPatternColor: '#B89238',
@@ -109,7 +105,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'city',
     label: 'City',
-    emoji: '🏙️',
     skyGradient: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
     groundColor: '#3a3a4a',
     groundPatternColor: '#2d2d3d',
@@ -117,7 +112,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'mountain',
     label: 'Mountain',
-    emoji: '🏔️',
     // Winter: the ground is snow over rock, not the alpine meadow it was.
     skyGradient: 'linear-gradient(180deg, #87CEEB 0%, #E0F0FF 100%)',
     groundColor: '#dbe4ea',
@@ -126,7 +120,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'library',
     label: 'Library',
-    emoji: '📚',
     skyGradient: 'linear-gradient(180deg, #3e2723 0%, #5d4037 100%)',
     groundColor: '#6d4c41',
     groundPatternColor: '#5d3f35',
@@ -134,7 +127,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'cafe',
     label: 'Café',
-    emoji: '☕',
     skyGradient: 'linear-gradient(180deg, #f5e6d3 0%, #e8d5b7 100%)',
     groundColor: '#8d6e63',
     groundPatternColor: '#795548',
@@ -142,7 +134,6 @@ export const WORLDS: WorldConfig[] = [
   {
     id: 'grocery',
     label: 'Grocery',
-    emoji: '🛒',
     // An interior: the "sky" is a lit ceiling, the ground is vinyl tile.
     skyGradient: 'linear-gradient(180deg, #f2f4f0 0%, #dfe4dd 55%, #cdd4cc 100%)',
     groundColor: '#c8ccc6',

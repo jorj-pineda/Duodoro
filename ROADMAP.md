@@ -5,8 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-19. PRs #35–#42 merged.
-Item 10 is on `feat/launch-surface`.
+Last updated: 2026-08-19. PRs #35–#43 merged.
+Item 8 is on `feat/emoji-purge`.
 Migrations 016–020 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -77,11 +77,15 @@ the live database.
       7×5, grown 9×7 (today's art), full 11×9. Stage travels in the slot as
       `petStage`; a client-sent value is ignored. Per user, not per pet.
       Premium stays the pet gate. **Not verified in a browser.**
-- [x] **10. Launch surface** — this PR. `metadataBase` is `https://duodoro.live`,
+- [x] **10. Launch surface** — PR #43. `metadataBase` is `https://duodoro.live`,
       so the generated OG/Twitter image is an absolute URL; the extra period
       on the tagline is gone; the duo mark is charcoal/paper instead of
       Tailwind emerald; the install splash uses `#171411` instead of gray-900.
       Copy and colours live in `client/src/lib/site.ts`.
+- [x] **8. Emoji purge** — this PR. `PetPicker` draws `PetCharacter`; friend
+      rows and session history use `WorldThumb` (`WorldThumbnail` in a chip);
+      PremiumModal opens on a cat instead of 🐾. The emoji fields on
+      `PET_OPTIONS` and `WORLDS` went with them. **Not verified in a browser.**
 
 ## ⚠️ Corrections to this file
 
@@ -374,18 +378,24 @@ a per-world outline is the cheapest way back.
 
 ---
 
-## 8. Emoji purge  ·  ~20 lines, disproportionately visible
+## 8. Emoji purge  ·  SHIPPED — this PR
 
 `lib/uiSprites.ts:3` says sprites exist for "anywhere an emoji would break the
 pixel-art look" and `Icons.tsx:1` says the set "replaces emoji in UI chrome" —
-yet:
+yet those replacements were unused:
 
-- `PetPicker.tsx:40` renders 🐱🐶🐉🐰/🔒 while `PetCharacter` can draw the pets
-- `FriendsPanel.tsx:56` and `FriendsOnlineSection.tsx:59` render world emoji
-  while `WorldThumbnail` (`WorldDecorations.tsx:787`) exists
-- `PremiumModal.tsx:12-16,72` is all emoji
+- ~~`PetPicker.tsx` 🐱🐶🐉🐰/🔒~~ — `PetCharacter` at grown, `LockIcon` when
+  gated.
+- ~~`FriendsPanel` / `FriendsOnlineSection` world emoji~~ — `WorldThumb`, a
+  sized `WorldThumbnail`. Same swap in `StatsPanel` / `StatsScreen`, which
+  had a three-world emoji table and fell back to 🌍 for grocery/library/cafe.
+- ~~`PremiumModal` 🐾~~ — a cat. The old feature-list emoji died in #40 with
+  the fiction; this was the last one.
 
-The replacements already exist and are simply unused in these spots.
+The `emoji` field on `WORLDS` and `PET_OPTIONS` had no remaining callers and
+came off. Close buttons still use ✕; that's chrome, item 9.
+
+**Not verified in a browser.**
 
 ---
 
@@ -403,7 +413,7 @@ wrapped around a game.
 
 ---
 
-## 10. Launch surface  ·  SHIPPED — this PR
+## 10. Launch surface  ·  SHIPPED — PR #43
 
 - ~~no `openGraph.images` and no `metadataBase` → every shared link renders a
   blank card~~ — `metadataBase` is `https://duodoro.live`; `app/opengraph-image.tsx`
