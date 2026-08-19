@@ -14,8 +14,8 @@ describe("PetPicker", () => {
         onPremiumClick={vi.fn()}
       />,
     );
-    expect(locked.textContent).not.toMatch(/🐱|🐶|🐉|🐰|🔒/);
-    expect(locked.querySelectorAll("svg").length).toBe(PET_OPTIONS.length);
+    expect(locked.textContent).not.toMatch(/🐱|🐶|🐉|🐰|🔒|✕/);
+    expect(locked.querySelectorAll("svg").length).toBe(PET_OPTIONS.length + 1);
 
     const { container: open } = render(
       <PetPicker
@@ -25,9 +25,9 @@ describe("PetPicker", () => {
         onPremiumClick={vi.fn()}
       />,
     );
-    expect(open.textContent).not.toMatch(/🐱|🐶|🐉|🐰|🔒/);
+    expect(open.textContent).not.toMatch(/🐱|🐶|🐉|🐰|🔒|✕/);
     expect(screen.getByTitle("Cat")).toBeInTheDocument();
-    // Grown pet sprites, one per option, plus nothing else using emoji.
-    expect(open.querySelectorAll("svg").length).toBe(PET_OPTIONS.length);
+    // Grown pet sprites, one per option, plus CloseIcon for "no pet".
+    expect(open.querySelectorAll("svg").length).toBe(PET_OPTIONS.length + 1);
   });
 });
