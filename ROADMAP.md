@@ -5,8 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-19. PRs #35–#43 merged.
-Item 8 is on `feat/emoji-purge`.
+Last updated: 2026-08-19. PRs #35–#44 merged.
+Item 9 is on `feat/pixel-chrome`.
 Migrations 016–020 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -82,10 +82,15 @@ the live database.
       on the tagline is gone; the duo mark is charcoal/paper instead of
       Tailwind emerald; the install splash uses `#171411` instead of gray-900.
       Copy and colours live in `client/src/lib/site.ts`.
-- [x] **8. Emoji purge** — this PR. `PetPicker` draws `PetCharacter`; friend
+- [x] **8. Emoji purge** — PR #44. `PetPicker` draws `PetCharacter`; friend
       rows and session history use `WorldThumb` (`WorldThumbnail` in a chip);
       PremiumModal opens on a cat instead of 🐾. The emoji fields on
       `PET_OPTIONS` and `WORLDS` went with them. **Not verified in a browser.**
+- [x] **9. Pixel-ify the chrome** — this PR. Timer is Pixelify (`font-display`),
+      HUD card is a chunky square (`border-b-4`, no blur), icons use square
+      caps, waiting slot is a person-sized square, close buttons are
+      `CloseIcon`. Root `README.md` covers what the product is and that git
+      starts 2026-02-26. **Not verified in a browser.**
 
 ## ⚠️ Corrections to this file
 
@@ -393,23 +398,27 @@ yet those replacements were unused:
   the fiction; this was the last one.
 
 The `emoji` field on `WORLDS` and `PET_OPTIONS` had no remaining callers and
-came off. Close buttons still use ✕; that's chrome, item 9.
+came off. Close buttons still used ✕; that moved to item 9.
 
 **Not verified in a browser.**
 
 ---
 
-## 9. Pixel-ify the chrome  ·  after 3
+## 9. Pixel-ify the chrome  ·  SHIPPED — this PR
 
-The app loads the pixel typeface Pixelify Sans (`app/layout.tsx:17`) and then
-renders **the timer — the largest element in the product — in Geist Mono**
-(`SessionHUD.tsx:144`). Elsewhere: `rounded-2xl backdrop-blur shadow-xl`
-(`SessionHUD.tsx:133`), `rounded-full` status dots, Feather-style stroke icons
-with `strokeLinecap: "round"` (`Icons.tsx:8-16`), and a waiting slot that is a
-dashed **circle** with a text "?" (`GameWorld.tsx:313-322`). Soft-SaaS chrome
-wrapped around a game.
+~~The timer — the largest element in the product — was Geist Mono
+(`SessionHUD.tsx`) while Pixelify Sans was already loaded.~~ `hud-timer` is
+`font-display`. The HUD card dropped `rounded-2xl backdrop-blur shadow-xl`
+for a square `border-2 border-b-4`. Status dots and `Button` sizes lost their
+pills. Icons use `strokeLinecap: "square"` / `miter` instead of Feather
+rounds. The waiting slot is a person-sized square (`CHAR_W × CHAR_H` at
+`ART_PX`), not a dashed circle with "?". Close controls use `CloseIcon`.
 
-`Button.tsx:29-33` already gestures at the right idiom with `border-b-4`.
+A root `README.md` now describes the current product (rotating worlds, email
+premium, growing pets) and that git starts on 26 February 2026. The
+create-next-app stub in `client/README.md` is a pointer to it.
+
+**Not verified in a browser.**
 
 ---
 
