@@ -2,7 +2,7 @@
 import type { PetType } from "@/lib/types";
 import { PET_OPTIONS } from "@/lib/types";
 import PetCharacter from "./PetCharacter";
-import { LockIcon } from "./Icons";
+import { CloseIcon, LockIcon } from "./Icons";
 
 export default function PetPicker({
   selected,
@@ -20,20 +20,21 @@ export default function PetPicker({
       <span className="text-faint text-xs font-medium uppercase tracking-wide">Pet:</span>
       <button
         onClick={() => (isPremium ? onSelect(null) : onPremiumClick())}
-        className={`w-7 h-7 rounded-full border text-xs flex items-center justify-center transition-all ${
+        className={`w-7 h-7 border flex items-center justify-center transition-all ${
           selected === null
             ? "border-faint bg-raise text-ink"
             : "border-line bg-surface text-faint hover:border-faint"
         }`}
         title="No pet"
+        aria-label="No pet"
       >
-        {"✕"}
+        <CloseIcon className="w-3.5 h-3.5" />
       </button>
       {PET_OPTIONS.map(({ type, label }) => (
         <button
           key={type}
           onClick={() => (isPremium ? onSelect(type) : onPremiumClick())}
-          className={`w-7 h-7 rounded-full border flex items-end justify-center overflow-hidden transition-all ${
+          className={`w-7 h-7 border flex items-end justify-center overflow-hidden transition-all ${
             selected === type
               ? "border-accent bg-accent/15"
               : "border-line bg-surface hover:border-faint"

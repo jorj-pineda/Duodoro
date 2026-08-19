@@ -7,6 +7,7 @@ import { formatTag } from "@/lib/format";
 import { useFriendsList } from "@/hooks/useFriendsList";
 import { useFriendSearch } from "@/hooks/useFriendSearch";
 import WorldThumb from "./WorldThumb";
+import { CheckIcon, CloseIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -103,15 +104,17 @@ function RequestRow({
       <div className="flex gap-1.5">
         <button
           onClick={() => onAccept(friendshipId)}
+          aria-label="Accept"
           className="text-xs bg-go hover:brightness-105 text-white font-bold px-2.5 py-1 rounded-lg transition-all"
         >
-          ✓
+          <CheckIcon className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={() => onDecline(friendshipId)}
+          aria-label="Decline"
           className="text-xs bg-line hover:bg-faint text-ink font-bold px-2.5 py-1 rounded-lg transition-colors"
         >
-          ✕
+          <CloseIcon className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
@@ -163,9 +166,10 @@ export default function FriendsPanel({
                 </h2>
                 <button
                   onClick={onClose}
+                  aria-label="Close"
                   className="text-faint hover:text-ink transition-colors"
                 >
-                  ✕
+                  <CloseIcon />
                 </button>
               </div>
 
@@ -203,7 +207,7 @@ export default function FriendsPanel({
                     aria-label="Dismiss error"
                     className="font-bold hover:opacity-70"
                   >
-                    ✕
+                    <CloseIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}

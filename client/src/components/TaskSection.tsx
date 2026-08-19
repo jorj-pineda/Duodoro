@@ -1,6 +1,7 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Task } from "@/lib/types";
+import { CloseIcon } from "./Icons";
 
 interface Props {
   tasks: Task[];
@@ -43,7 +44,7 @@ export default function TaskSection({
               aria-label="Dismiss error"
               className="font-bold hover:opacity-70"
             >
-              ✕
+              <CloseIcon className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -89,9 +90,10 @@ export default function TaskSection({
               </p>
               <button
                 onClick={() => deleteTask(task.id)}
+                aria-label="Delete task"
                 className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
               >
-                {"✕"}
+                <CloseIcon className="w-3.5 h-3.5" />
               </button>
             </motion.div>
           ))}
@@ -115,9 +117,10 @@ export default function TaskSection({
               </p>
               <button
                 onClick={() => deleteTask(task.id)}
+                aria-label="Delete task"
                 className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
               >
-                {"✕"}
+                <CloseIcon className="w-3.5 h-3.5" />
               </button>
             </motion.div>
           ))}
