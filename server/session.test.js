@@ -4,6 +4,7 @@ import {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  creditFocus,
   findPlayerByUserId,
   markPlayerDisconnected,
   inviteUser,
@@ -209,21 +210,118 @@ describe("setPlayerPet", () => {
     addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1", pet: "cat" });
     addPlayer(s, "p2", { avatar: {}, displayName: "B", userId: "u2" });
     expect(s.players["p1"].pet).toBe("cat");
+    expect(s.players["p1"].petStage).toBe("young");
     expect(s.players["p2"].pet).toBe(null);
+    expect(s.players["p2"].petStage).toBe(null);
+  });
+
+  it("keeps a caller-supplied stage rather than inventing one", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      petStage: "full",
+      focusSeconds: 20 * 3600,
+    });
+    expect(s.players["p1"].petStage).toBe("full");
+    expect(s.players["p1"].focusSeconds).toBe(20 * 3600);
   });
 
   it("updates an existing player's pet", () => {
     const s = createSessionState("forest", "host");
     addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
-    expect(setPlayerPet(s, "p1", "dragon")).toBe(true);
+    expect(setPlayerPet(s, "p1", "dragon", "grown")).toBe(true);
     expect(s.players["p1"].pet).toBe("dragon");
+    expect(s.players["p1"].petStage).toBe("grown");
     expect(setPlayerPet(s, "p1", null)).toBe(true);
     expect(s.players["p1"].pet).toBe(null);
+    expect(s.players["p1"].petStage).toBe(null);
   });
 
   it("returns false for a socket that is not a player", () => {
     const s = createSessionState("forest", "host");
     expect(setPlayerPet(s, "ghost", "cat")).toBe(false);
+  });
+
+  it("does not put focusSeconds on the wire", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      focusSeconds: 10800,
+    });
+    const payload = buildSyncPayload(s);
+    expect(payload.players["p1"].pet).toBe("cat");
+    expect(payload.players["p1"].petStage).toBe("young");
+    expect(payload.players["p1"]).not.toHaveProperty("focusSeconds");
+  });
+});
+
+describe("creditFocus", () => {
+  it("grows a pet that crosses a threshold and leaves the rest", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      petStage: "young",
+      focusSeconds: 10700,
+    });
+    addPlayer(s, "p2", {
+      avatar: {},
+      displayName: "B",
+      userId: "u2",
+      pet: "dog",
+      petStage: "young",
+      focusSeconds: 0,
+    });
+
+    const changed = creditFocus(s, ["u1", "u2"], 200);
+    expect(changed).toEqual([{ playerId: "p1", pet: "cat", petStage: "grown" }]);
+    expect(s.players["p1"].petStage).toBe("grown");
+    expect(s.players["p1"].focusSeconds).toBe(10900);
+    expect(s.players["p2"].petStage).toBe("young");
+    expect(s.players["p2"].focusSeconds).toBe(200);
+  });
+
+  it("still accumulates for a player with no pet", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(creditFocus(s, ["u1"], 10800)).toEqual([]);
+    expect(s.players["p1"].focusSeconds).toBe(10800);
+    expect(s.players["p1"].petStage).toBe(null);
+  });
+
+  it("ignores users who are not in the credit list", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      focusSeconds: 10700,
+    });
+    expect(creditFocus(s, ["u9"], 200)).toEqual([]);
+    expect(s.players["p1"].focusSeconds).toBe(10700);
+  });
+
+  it("does not shrink or re-emit a pet that is already there", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      petStage: "full",
+      focusSeconds: 54000,
+    });
+    expect(creditFocus(s, ["u1"], 3600)).toEqual([]);
+    expect(s.players["p1"].petStage).toBe("full");
   });
 });
 

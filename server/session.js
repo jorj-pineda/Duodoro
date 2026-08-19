@@ -1,4 +1,5 @@
 const { randomUUID } = require("crypto");
+const { petStageAt } = require("./petLevel");
 
 function createSessionState(world, hostSocketId) {
   return {
@@ -28,12 +29,21 @@ function isInvited(session, userId) {
   return Boolean(userId) && session.invitedUserIds.has(userId);
 }
 
-function addPlayer(session, socketId, { avatar, displayName, userId, pet }) {
+function addPlayer(session, socketId, { avatar, displayName, userId, pet, petStage, focusSeconds }) {
+  const safePet = pet || null;
   session.players[socketId] = {
     avatar,
     displayName: displayName || "Player",
     userId: userId || null,
-    pet: pet || null,
+    pet: safePet,
+    // Stage is the server's. Callers pass what petStageAt() returned for this
+    // user's completed-focus total; a missing value is young (0 hours), never
+    // full. Cleared when there is no pet so a later pick doesn't inherit a
+    // stale size from a previous animal.
+    petStage: safePet ? petStage || "young" : null,
+    // Private cache of the total that produced petStage. Stripped from
+    // buildSyncPayload — the partner sees the animal, not the hours.
+    focusSeconds: Number.isFinite(focusSeconds) ? focusSeconds : 0,
     disconnected: false,
   };
   return Object.keys(session.players).length;
@@ -54,11 +64,38 @@ function markPlayerDisconnected(session, socketId, disconnected) {
   return true;
 }
 
-function setPlayerPet(session, socketId, pet) {
+function setPlayerPet(session, socketId, pet, petStage) {
   const player = session.players[socketId];
   if (!player) return false;
   player.pet = pet || null;
+  player.petStage = player.pet ? petStage || "young" : null;
   return true;
+}
+
+/**
+ * Add completed-focus seconds to the named users and grow any pet that
+ * crossed a threshold.
+ *
+ * Returns the slots whose *visible* stage changed, so the caller can emit
+ * pet_changed. Accumulating on someone with no pet still counts — they
+ * should not have to re-fetch to see the right size when they pick one
+ * later in the same session.
+ */
+function creditFocus(session, userIds, extraSeconds) {
+  const extra = Number(extraSeconds);
+  if (!Number.isFinite(extra) || extra <= 0) return [];
+  const idSet = new Set(userIds);
+  const changed = [];
+  for (const [socketId, player] of Object.entries(session.players)) {
+    if (!player.userId || !idSet.has(player.userId)) continue;
+    player.focusSeconds = (player.focusSeconds || 0) + extra;
+    if (!player.pet) continue;
+    const next = petStageAt(player.focusSeconds);
+    if (next === player.petStage) continue;
+    player.petStage = next;
+    changed.push({ playerId: socketId, pet: player.pet, petStage: next });
+  }
+  return changed;
 }
 
 function removePlayer(session, socketId) {
@@ -89,7 +126,16 @@ function findUserSessions(sessions, userId) {
     .map(([sessionId]) => sessionId);
 }
 
+function publicPlayer(player) {
+  const { focusSeconds: _focusSeconds, ...rest } = player;
+  return rest;
+}
+
 function buildSyncPayload(session) {
+  const players = {};
+  for (const [id, player] of Object.entries(session.players)) {
+    players[id] = publicPlayer(player);
+  }
   return {
     mode: session.mode,
     phase: session.phase,
@@ -97,7 +143,7 @@ function buildSyncPayload(session) {
     breakDuration: session.breakDuration,
     phaseStartTime: session.phaseStartTime,
     world: session.world,
-    players: session.players,
+    players,
     playerCount: Object.keys(session.players).length,
     sessionId: session.id,
   };
@@ -108,6 +154,7 @@ module.exports = {
   addPlayer,
   removePlayer,
   setPlayerPet,
+  creditFocus,
   inviteUser,
   isInvited,
   findPlayerByUserId,
