@@ -4,7 +4,8 @@ import GameWorld, { type GamePhase } from "./GameWorld";
 import { DEFAULT_AVATAR, type WorldId } from "@/lib/avatarData";
 import { ART_PX, GROUND } from "@/lib/scene";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
-import { PET_W, PET_H } from "@/lib/petMaps";
+import { PET_W, PET_H, PET_STAGE_SIZE } from "@/lib/petMaps";
+import { PET_STAGES, type PetStage } from "@/lib/petLevel";
 
 // The scene used to place characters with `calc(41.7% + 8px)` on `left` and
 // spin the break-phase controller ±10°. Both put sprite edges between device
@@ -21,6 +22,7 @@ function renderScene(
   returning = 0,
   pets = false,
   worldId: WorldId = "forest",
+  petStage: PetStage | null = "grown",
 ) {
   return render(
     <GameWorld
@@ -32,6 +34,8 @@ function renderScene(
       partner={partner}
       myPet={pets ? "cat" : null}
       partnerPet={pets ? "dog" : null}
+      myPetStage={pets ? petStage : null}
+      partnerPetStage={pets ? petStage : null}
       myName="ME"
       partnerName="THEM"
     />,
@@ -181,13 +185,29 @@ describe("one art pixel", () => {
     expect(ratio).toBeGreaterThan(0.2);
   });
 
-  it("pins the ratio so a bounding-box change has to notice", () => {
+  it("pins the grown ratio so a bounding-box change has to notice", () => {
     // A one-cell border costs a 7-row pet proportionally far more than a
     // 24-row person: turning outlines on moved this from 0.292 to 0.346, about
     // a third of the shrink #39 gave the pets, as a side effect of a change
     // about keylines. The outlines came back off, so it is 0.292 again — and
     // pinned, because the next thing to touch either box will move it too.
     expect((PET_H / CHAR_H).toFixed(3)).toBe("0.292");
+  });
+
+  it("grows by adding cells, never by scaling pixels, and stops short of half a person", () => {
+    expect((PET_STAGE_SIZE.young.h / CHAR_H).toFixed(3)).toBe("0.208");
+    expect((PET_STAGE_SIZE.full.h / CHAR_H).toFixed(3)).toBe("0.375");
+    for (const stage of PET_STAGES) {
+      const { container } = renderScene("waiting", 0, 0, true, "forest", stage);
+      const { w, h } = PET_STAGE_SIZE[stage];
+      expect(density(container, w, h)).toBe(ART_PX);
+      const petPx = Number(findSprite(container, w, h).getAttribute("height"));
+      const personPx = Number(
+        findSprite(container, CHAR_W, CHAR_H).getAttribute("height"),
+      );
+      expect(petPx / personPx).toBeLessThan(0.38);
+      expect(petPx / personPx).toBeGreaterThan(0.2);
+    }
   });
 });
 

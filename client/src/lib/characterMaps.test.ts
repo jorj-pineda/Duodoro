@@ -7,7 +7,8 @@ import {
   WALK_POSES,
   type CharacterPose,
 } from "./characterMaps";
-import { PET_ART, PET_W, PET_H } from "./petMaps";
+import { PET_ART, PET_STAGE_SIZE } from "./petMaps";
+import { PET_STAGES } from "./petLevel";
 import { keysUsed } from "./pixelMap";
 import {
   DEFAULT_AVATAR,
@@ -167,21 +168,31 @@ describe("character palette", () => {
 describe("pet maps", () => {
   const PETS = PET_OPTIONS.map((o) => o.type);
 
-  it("draws every pet on one grid, fully inside it", () => {
+  it("draws every pet on its stage's grid, fully inside it", () => {
     for (const type of PETS) {
-      for (const frame of PET_ART[type].frames) {
-        expect(frame.length, type).toBe(PET_H);
-        for (const row of frame) expect(row.length, type).toBe(PET_W);
+      for (const stage of PET_STAGES) {
+        const { w, h } = PET_STAGE_SIZE[stage];
+        for (const frame of PET_ART[type][stage].frames) {
+          expect(frame.length, `${type} ${stage}`).toBe(h);
+          for (const row of frame) {
+            expect(row.length, `${type} ${stage}`).toBe(w);
+          }
+        }
       }
     }
   });
 
   it("colours every key each pet uses", () => {
     for (const type of PETS) {
-      const { frames, palette } = PET_ART[type];
-      for (const frame of frames) {
-        for (const key of keysUsed(frame)) {
-          expect(palette[key], `${type} has no colour for "${key}"`).toBeTruthy();
+      for (const stage of PET_STAGES) {
+        const { frames, palette } = PET_ART[type][stage];
+        for (const frame of frames) {
+          for (const key of keysUsed(frame)) {
+            expect(
+              palette[key],
+              `${type} ${stage} has no colour for "${key}"`,
+            ).toBeTruthy();
+          }
         }
       }
     }
@@ -191,27 +202,34 @@ describe("pet maps", () => {
     // The regression: the cat and the rabbit each drew a leg one row below
     // their viewBox, so each walked on one leg, alternating which.
     for (const type of PETS) {
-      for (const [i, frame] of PET_ART[type].frames.entries()) {
-        const feet = [...frame[PET_H - 1]].filter((c) => c !== ".").length;
-        expect(feet, `${type} frame ${i}`).toBeGreaterThanOrEqual(4);
+      for (const stage of PET_STAGES) {
+        const h = PET_STAGE_SIZE[stage].h;
+        for (const [i, frame] of PET_ART[type][stage].frames.entries()) {
+          const feet = [...frame[h - 1]].filter((c) => c !== ".").length;
+          expect(feet, `${type} ${stage} frame ${i}`).toBeGreaterThanOrEqual(4);
+        }
       }
     }
   });
 
   it("actually steps between frames", () => {
     for (const type of PETS) {
-      const [a, b] = PET_ART[type].frames;
-      expect(a.join("\n"), type).not.toBe(b.join("\n"));
+      for (const stage of PET_STAGES) {
+        const [a, b] = PET_ART[type][stage].frames;
+        expect(a.join("\n"), `${type} ${stage}`).not.toBe(b.join("\n"));
+      }
     }
   });
 
-  it("gives each pet a different silhouette", () => {
-    // At nine pixels wide the outline is all there is to tell them apart.
-    const shapes = PETS.map((type) =>
-      PET_ART[type].frames[0]
-        .map((row) => [...row].map((c) => (c === "." ? "." : "#")).join(""))
-        .join("\n"),
-    );
-    expect(new Set(shapes).size).toBe(PETS.length);
+  it("gives each pet a different silhouette at every stage", () => {
+    // At these sizes the outline is all there is to tell them apart.
+    for (const stage of PET_STAGES) {
+      const shapes = PETS.map((type) =>
+        PET_ART[type][stage].frames[0]
+          .map((row) => [...row].map((c) => (c === "." ? "." : "#")).join(""))
+          .join("\n"),
+      );
+      expect(new Set(shapes).size, stage).toBe(PETS.length);
+    }
   });
 });

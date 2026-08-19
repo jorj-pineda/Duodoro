@@ -5,6 +5,7 @@ import PixelCharacter from "./PixelCharacter";
 import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
 import type { PetType } from "@/lib/types";
+import type { PetStage } from "@/lib/petLevel";
 import {
   useCharacterPosition,
   useSceneWidth,
@@ -48,6 +49,8 @@ interface Props {
   partner: PlayerInfo | null;
   myPet?: PetType | null;
   partnerPet?: PetType | null;
+  myPetStage?: PetStage | null;
+  partnerPetStage?: PetStage | null;
   myName?: string;
   partnerName?: string;
   /** Partner's socket dropped; server is holding their spot */
@@ -129,7 +132,13 @@ function Standing({
 // box — the avatar is 16 cells wide and the pets 9, but a shadow is cast by
 // what touches the ground, so it tracks the feet rather than the shoulders.
 const CHARACTER_SHADOW = 10;
-const PET_SHADOW = 6;
+
+/** Footprints track the feet, not the bounding box, and the box grows. */
+function petShadow(stage: PetStage | null | undefined): number {
+  if (stage === "young") return 4;
+  if (stage === "full") return 8;
+  return 6;
+}
 
 function BreakOverlay({ worldId }: { worldId: WorldId }) {
   const prop = BREAK_PROP[worldId] ?? BREAK_PROP.forest;
@@ -153,6 +162,8 @@ export default function GameWorld({
   partner,
   myPet,
   partnerPet,
+  myPetStage,
+  partnerPetStage,
   myName,
   partnerName,
   partnerDisconnected,
@@ -279,9 +290,10 @@ export default function GameWorld({
       >
         <div className="flex items-end gap-1">
           {myPet && (
-            <Standing shadow={PET_SHADOW}>
+            <Standing shadow={petShadow(myPetStage)}>
               <PetCharacter
                 type={myPet}
+                stage={myPetStage}
                 anim={myAnim}
                 facing="right"
                 size={ART_PX}
@@ -323,9 +335,10 @@ export default function GameWorld({
               />
             </Standing>
             {partnerPet && (
-              <Standing shadow={PET_SHADOW}>
+              <Standing shadow={petShadow(partnerPetStage)}>
                 <PetCharacter
                   type={partnerPet}
+                  stage={partnerPetStage}
                   anim={partnerDisconnected ? "idle" : partnerAnim}
                   facing="left"
                   size={ART_PX}
