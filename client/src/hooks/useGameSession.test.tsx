@@ -223,3 +223,73 @@ describe("useGameSession connection lifecycle", () => {
     await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
   });
 });
+
+describe("useGameSession pet stage", () => {
+  beforeEach(() => {
+    fakeSocket = createFakeSocket();
+    sessionStorage.clear();
+  });
+
+  const sync = (players: Record<string, unknown>) => ({
+    mode: "pomodoro" as const,
+    phase: "waiting" as const,
+    focusDuration: 1500,
+    breakDuration: 300,
+    phaseStartTime: null,
+    world: "forest",
+    players,
+    playerCount: Object.keys(players).length,
+    sessionId: "sess-1",
+  });
+
+  it("takes own petStage from sync_state", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() =>
+      fakeSocket.fire(
+        "sync_state",
+        sync({
+          "sock-1": {
+            avatar: {},
+            displayName: "Me",
+            pet: "cat",
+            petStage: "full",
+          },
+        }),
+      ),
+    );
+    await waitFor(() => expect(result.current.myPetStage).toBe("full"));
+  });
+
+  it("updates own stage when the server emits pet_changed for this socket", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() =>
+      fakeSocket.fire("pet_changed", {
+        playerId: "sock-1",
+        pet: "cat",
+        petStage: "grown",
+      }),
+    );
+    await waitFor(() => expect(result.current.myPetStage).toBe("grown"));
+  });
+
+  it("reads the partner's stage off their slot", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() =>
+      fakeSocket.fire(
+        "sync_state",
+        sync({
+          "sock-1": { avatar: {}, displayName: "Me", pet: "cat", petStage: "young" },
+          "sock-2": { avatar: {}, displayName: "Them", pet: "dog", petStage: "full" },
+        }),
+      ),
+    );
+    await waitFor(() => expect(result.current.partnerPet).toBe("dog"));
+    expect(result.current.partnerPetStage).toBe("full");
+  });
+});

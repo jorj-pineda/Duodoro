@@ -1,6 +1,7 @@
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig } from "./avatarData";
 import type { PetType } from "./types";
+import type { PetStage } from "./petLevel";
 
 export type AppStep = "loading" | "landing" | "avatar" | "home" | "game";
 
@@ -12,6 +13,9 @@ export interface PlayerData {
    *  task's owner_id to a name without a second round trip. */
   userId?: string | null;
   pet?: PetType | null;
+  /** Server-derived growth stage. Missing on an older server; treat as grown
+   *  so a client-first deploy does not shrink every pet to young. */
+  petStage?: PetStage | null;
   /** True while the player's socket dropped and the server is holding their
    *  spot during the reconnect grace window. */
   disconnected?: boolean;
