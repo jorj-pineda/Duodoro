@@ -254,3 +254,28 @@ describe("contact shadows", () => {
     }
   });
 });
+
+describe("waiting slot", () => {
+  it("is a square the size of a person, not a dashed circle", () => {
+    // A/B — against the previous commit this is a w-12 h-12 rounded-full
+    // dashed ring with a "?" in the middle.
+    const { container } = render(
+      <GameWorld
+        worldId="forest"
+        phase="waiting"
+        focusProgress={0}
+        returningProgress={0}
+        me={me}
+        partner={null}
+      />,
+    );
+    expect(container.textContent).toMatch(/WAITING/);
+    expect(container.innerHTML).not.toMatch(/rounded-full/);
+    const frame = Array.from(container.querySelectorAll("div")).find(
+      (el) => el.textContent === "?" && el.children.length === 0,
+    );
+    expect(frame).toBeTruthy();
+    expect(frame!.style.width).toBe(`${CHAR_W * ART_PX}px`);
+    expect(frame!.style.height).toBe(`${CHAR_H * ART_PX}px`);
+  });
+});
