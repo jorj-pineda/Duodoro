@@ -572,6 +572,15 @@ day it ships — everyone's back catalogue counts.
 - A missing `petStage` (older server) renders as grown, so a client-first
   deploy does not shrink every pet to young.
 
+**Follow-up, shipped after #42:** the focus total is one RPC
+(`total_focus_seconds`, migration 021, service_role only) instead of a
+PostgREST select of one row per completed session summed in
+`server/focusTotal.js`. The old read grew with a user's history, ran on every
+create and join, and was silently truncated by the project's API "Max rows"
+setting — at the 1000-row default that is ~400 hours, far past the 15-hour
+`full` threshold, so it could not have changed anyone's stage. This is
+efficiency and hygiene, not a bug that was biting.
+
 **Not verified:** nothing here has been looked at in a browser. The young
 and full silhouettes need an owner's eye — geometry tests catch clipping and
 grid size, not whether a 5-row cat still reads as a cat.
