@@ -21,6 +21,7 @@ const {
 } = require('./session');
 const { worldAt } = require('./rotation');
 const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
+const { fetchTotalFocusSeconds } = require('./focusTotal');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -67,25 +68,13 @@ function sanitizePet(pet) {
   return VALID_PETS.includes(pet) ? pet : null;
 }
 
-// Completed focus seconds for one user, the input to petStageAt(). Service
-// role bypasses RLS; the filter is the user id. A failed read returns null
-// so the caller can keep the current look (grown) rather than shrinking
-// everyone to young — a zero and a failure must not render the same way.
-async function totalFocusSeconds(userId) {
-  if (!supabase || !userId) return 0;
-  const { data, error } = await supabase
-    .from('session_participants')
-    .select('sessions!inner(actual_focus, completed)')
-    .eq('user_id', userId)
-    .eq('sessions.completed', true);
-  if (error) {
-    console.error('Failed to load focus total:', error.message);
-    return null;
-  }
-  return (data ?? []).reduce((sum, row) => {
-    const focus = row.sessions?.actual_focus;
-    return sum + (typeof focus === 'number' ? focus : 0);
-  }, 0);
+// Completed focus seconds for one user, the input to petStageAt(). The read
+// itself lives in ./focusTotal so it can be faked in a test; a failed read
+// returns null so the caller can keep the current look (grown) rather than
+// shrinking everyone to young — a zero and a failure must not render the
+// same way.
+function totalFocusSeconds(userId) {
+  return fetchTotalFocusSeconds(supabase, userId);
 }
 
 function stageForTotal(seconds) {
