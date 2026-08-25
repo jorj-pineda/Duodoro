@@ -2,7 +2,8 @@
 import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
 import { getWorld, type WorldId } from "@/lib/avatarData";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { GROUND } from "@/lib/scene";
+import { useArtPx } from "./SceneScale";
 import { columnsFor, ridgeHeights } from "@/lib/terrain";
 import Ridge from "./Ridge";
 import Skyline from "./Skyline";
@@ -693,21 +694,23 @@ function Stars({
   );
 }
 
+// No `scale` prop: nothing ever passed one, and an optional scale on a scene
+// sprite is a way to end up with two pixel grids in one frame. It draws at the
+// scene's art pixel like everything else.
 function DriftingCloud({
   left,
   top,
-  scale = ART_PX,
   delay = 0,
   slow = false,
   opacity = 0.95,
 }: {
   left: number;
   top: number;
-  scale?: number;
   delay?: number;
   slow?: boolean;
   opacity?: number;
 }) {
+  const artPx = useArtPx();
   return (
     <div
       className={`absolute ${slow ? "decor-drift-slow" : "decor-drift"}`}
@@ -718,7 +721,7 @@ function DriftingCloud({
         animationDelay: `${delay}s`,
       }}
     >
-      <PixelSprite map={CLOUD} palette={CLOUD_PALETTE} scale={scale} />
+      <PixelSprite map={CLOUD} palette={CLOUD_PALETTE} scale={artPx} />
     </div>
   );
 }
@@ -780,6 +783,7 @@ function SteamPuffs({ left, bottom }: { left: string; bottom: string }) {
 // ── Forest — daytime, layered hills, drifting clouds, pine clusters ─────────
 
 export function ForestDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.forest;
   const tree = (depth: Depth) => hazedPalette(PINE_TALL_PALETTE, sky, depth);
   const bush = (depth: Depth) => hazedPalette(BUSH_PALETTE, sky, depth);
@@ -789,7 +793,7 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
         className="absolute right-[10%] top-[8%]"
         style={{ filter: "drop-shadow(0 0 12px #ffd16688)" }}
       >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={artPx} />
       </div>
       <DriftingCloud left={10} top={12} slow />
       <DriftingCloud left={38} top={7} delay={4} />
@@ -826,12 +830,12 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
           near ones frame the edges where the characters don't walk. */}
       {[4, 11, 18, 25, 32].map((left) => (
         <Grounded key={`lm${left}`} left={left} z={3} sceneWidth={sceneWidth}>
-          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={ART_PX} />
+          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={artPx} />
         </Grounded>
       ))}
       {[6, 13, 20, 27].map((right) => (
         <Grounded key={`rm${right}`} right={right} z={3} sceneWidth={sceneWidth}>
-          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={ART_PX} />
+          <PixelSprite map={PINE_TALL} palette={tree("mid")} scale={artPx} />
         </Grounded>
       ))}
       {[-3, 8].map((left) => (
@@ -845,7 +849,7 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
           <PixelSprite
             map={PINE_TALL}
             palette={tree("near")}
-            scale={ART_PX}
+            scale={artPx}
             outline={keyline(sky, "near")}
           />
         </Grounded>
@@ -861,7 +865,7 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
           <PixelSprite
             map={PINE_TALL}
             palette={tree("near")}
-            scale={ART_PX}
+            scale={artPx}
             outline={keyline(sky, "near")}
           />
         </Grounded>
@@ -870,12 +874,12 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
       {/* Undergrowth, to break the line where the trunks meet the ground. */}
       {[16, 29, 44].map((left) => (
         <Grounded key={`b${left}`} left={left} z={4} sceneWidth={sceneWidth}>
-          <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
+          <PixelSprite map={BUSH} palette={bush("near")} scale={artPx} />
         </Grounded>
       ))}
       {[22, 36].map((right) => (
         <Grounded key={`br${right}`} right={right} z={4} sceneWidth={sceneWidth}>
-          <PixelSprite map={BUSH} palette={bush("near")} scale={ART_PX} />
+          <PixelSprite map={BUSH} palette={bush("near")} scale={artPx} />
         </Grounded>
       ))}
     </>
@@ -885,6 +889,7 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
 // ── Space — nebulas, twinkling stars, ringed planet, shooting star ──────────
 
 export function SpaceDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.space;
   const px = (pct: number) =>
     sceneWidth > 0 ? `${Math.round((sceneWidth * pct) / 100)}px` : `${pct}%`;
@@ -913,10 +918,10 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
           filter: "drop-shadow(0 0 22px #7c3aed88)",
         }}
       >
-        <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={ART_PX} />
+        <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={artPx} />
       </div>
       <div className="absolute left-[16%] top-[34%] opacity-80">
-        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={ART_PX} />
+        <PixelSprite map={MINI_PLANET} palette={MINI_PLANET_PALETTE} scale={artPx} />
       </div>
       <div
         className="decor-shooting-star absolute left-[74%] top-[12%] bg-white"
@@ -945,7 +950,7 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
           <PixelSprite
             map={CRATER}
             palette={hazedPalette(CRATER_PALETTE, sky, i % 2 ? "near" : "mid")}
-            scale={ART_PX}
+            scale={artPx}
           />
         </Grounded>
       ))}
@@ -964,7 +969,8 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
  * of it, which needs no animation — the scene does the work.
  */
 function Shore({ sceneWidth }: DecorProps) {
-  const columns = columnsFor(sceneWidth, ART_PX);
+  const artPx = useArtPx();
+  const columns = columnsFor(sceneWidth, artPx);
   const rows = 34;
   // Waterline x per row, wobbling as it comes toward the viewer.
   const edge = ridgeHeights({
@@ -978,8 +984,8 @@ function Shore({ sceneWidth }: DecorProps) {
   return (
     <svg
       viewBox={`0 0 ${columns} ${rows}`}
-      width={columns * ART_PX}
-      height={rows * ART_PX}
+      width={columns * artPx}
+      height={rows * artPx}
       className="absolute left-0 bottom-0 pointer-events-none"
       style={{ zIndex: 5, shapeRendering: "crispEdges", display: "block" }}
       aria-hidden="true"
@@ -1005,6 +1011,7 @@ function Shore({ sceneWidth }: DecorProps) {
 }
 
 export function BeachDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.beach;
   const palm = (depth: Depth) => hazedPalette(PALM_PALETTE, sky, depth);
   return (
@@ -1013,7 +1020,7 @@ export function BeachDecor({ sceneWidth }: DecorProps) {
         className="absolute left-[8%] top-[6%]"
         style={{ filter: "drop-shadow(0 0 18px #ffd166aa)" }}
       >
-        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={ART_PX} />
+        <PixelSprite map={SUN} palette={SUN_PALETTE} scale={artPx} />
       </div>
       <DriftingCloud left={40} top={10} slow opacity={0.8} />
       <DriftingCloud left={70} top={20} delay={6} slow opacity={0.7} />
@@ -1035,21 +1042,21 @@ export function BeachDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={PALM}
           palette={palm("near")}
-          scale={ART_PX}
+          scale={artPx}
           outline={keyline(sky, "near")}
         />
       </Grounded>
       <Grounded left={14} z={6} sceneWidth={sceneWidth}>
-        <PixelSprite map={PALM} palette={palm("mid")} scale={ART_PX} />
+        <PixelSprite map={PALM} palette={palm("mid")} scale={artPx} />
       </Grounded>
       <Grounded left={26} z={6} sceneWidth={sceneWidth}>
-        <PixelSprite map={PALM} palette={palm("mid")} scale={ART_PX} />
+        <PixelSprite map={PALM} palette={palm("mid")} scale={artPx} />
       </Grounded>
       <Grounded left={8} z={6} shadow={16} sceneWidth={sceneWidth}>
         <PixelSprite
           map={UMBRELLA}
           palette={UMBRELLA_PALETTE}
-          scale={ART_PX}
+          scale={artPx}
         />
       </Grounded>
     </>
@@ -1059,6 +1066,7 @@ export function BeachDecor({ sceneWidth }: DecorProps) {
 // ── City — far skyline, lit pixel towers, moon and sparse stars ─────────────
 
 export function CityDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.city;
   return (
     <>
@@ -1070,7 +1078,7 @@ export function CityDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={MOON}
           palette={{ M: SNOW[3], m: SNOW[2] }}
-          scale={ART_PX}
+          scale={artPx}
         />
       </div>
 
@@ -1152,6 +1160,7 @@ export function CityDecor({ sceneWidth }: DecorProps) {
 // ── Mountain — layered ranges, clouds, alpine pines ─────────────────────────
 
 export function MountainDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.mountain;
   const spruce = (depth: Depth) => hazedPalette(SPRUCE_PALETTE, sky, depth);
   return (
@@ -1206,25 +1215,25 @@ export function MountainDecor({ sceneWidth }: DecorProps) {
 
       {/* A treeline rather than two lonely trees. */}
       <Grounded left={3} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={artPx} />
       </Grounded>
       <Grounded left={12} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={artPx} />
       </Grounded>
       <Grounded left={21} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={artPx} />
       </Grounded>
       <Grounded right={4} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={artPx} />
       </Grounded>
       <Grounded right={13} z={4} sceneWidth={sceneWidth}>
-        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={ART_PX} />
+        <PixelSprite map={SPRUCE} palette={spruce("mid")} scale={artPx} />
       </Grounded>
       <Grounded left={-2} z={5} shadow={12} sceneWidth={sceneWidth}>
         <PixelSprite
           map={SPRUCE}
           palette={spruce("near")}
-          scale={ART_PX}
+          scale={artPx}
           outline={keyline(sky, "near")}
         />
       </Grounded>
@@ -1232,7 +1241,7 @@ export function MountainDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={SPRUCE}
           palette={spruce("near")}
-          scale={ART_PX}
+          scale={artPx}
           outline={keyline(sky, "near")}
         />
       </Grounded>
@@ -1242,14 +1251,14 @@ export function MountainDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={ROCK}
           palette={hazedPalette(ROCK_PALETTE, sky, "near")}
-          scale={ART_PX}
+          scale={artPx}
         />
       </Grounded>
       <Grounded right={26} z={5} sceneWidth={sceneWidth}>
         <PixelSprite
           map={ROCK}
           palette={hazedPalette(ROCK_PALETTE, sky, "near")}
-          scale={ART_PX}
+          scale={artPx}
         />
       </Grounded>
     </>
@@ -1272,6 +1281,7 @@ const BOOK_TONES = [
 ];
 
 export function LibraryDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.library;
   return (
     <>
@@ -1312,8 +1322,8 @@ export function LibraryDecor({ sceneWidth }: DecorProps) {
         depth="near"
         bayWidth={26}
         zIndex={2}
-        clearFrom={Math.round(sceneWidth / ART_PX / 2) - 34}
-        clearTo={Math.round(sceneWidth / ART_PX / 2) + 34}
+        clearFrom={Math.round(sceneWidth / artPx / 2) - 34}
+        clearTo={Math.round(sceneWidth / artPx / 2) + 34}
       />
 
       {/* Hanging lamps, on their own flexes so they read as suspended. */}
@@ -1329,17 +1339,17 @@ export function LibraryDecor({ sceneWidth }: DecorProps) {
             filter: "drop-shadow(0 6px 14px #ffe08277)",
           }}
         >
-          <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={ART_PX} />
+          <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={artPx} />
         </div>
       ))}
 
       {/* Reading table under the middle gap. */}
       <Grounded left={40} z={3} sceneWidth={sceneWidth} shadow={20}>
         <div className="relative">
-          <div className="absolute" style={{ bottom: "100%", left: 4 * ART_PX }}>
-            <PixelSprite map={CUP} palette={CUP_PALETTE} scale={ART_PX} />
+          <div className="absolute" style={{ bottom: "100%", left: 4 * artPx }}>
+            <PixelSprite map={CUP} palette={CUP_PALETTE} scale={artPx} />
           </div>
-          <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={ART_PX} />
+          <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={artPx} />
         </div>
       </Grounded>
     </>
@@ -1383,26 +1393,28 @@ function CafeTable({
   right?: number;
   sceneWidth: number;
 }) {
+  const artPx = useArtPx();
   return (
     <Grounded left={left} right={right} sceneWidth={sceneWidth} shadow={18}>
       <div className="relative">
         <div
           className="absolute"
-          style={{ bottom: "100%", left: 4 * ART_PX }}
+          style={{ bottom: "100%", left: 4 * artPx }}
         >
-          <PixelSprite map={CUP} palette={CUP_PALETTE} scale={ART_PX} />
+          <PixelSprite map={CUP} palette={CUP_PALETTE} scale={artPx} />
         </div>
         <SteamPuffs
-          left={`${6 * ART_PX}px`}
-          bottom={`calc(100% + ${5 * ART_PX}px)`}
+          left={`${6 * artPx}px`}
+          bottom={`calc(100% + ${5 * artPx}px)`}
         />
-        <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={ART_PX} />
+        <PixelSprite map={TABLE} palette={TABLE_PALETTE} scale={artPx} />
       </div>
     </Grounded>
   );
 }
 
 export function CafeDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.cafe;
   const px = (pct: number) =>
     sceneWidth > 0
@@ -1424,23 +1436,23 @@ export function CafeDecor({ sceneWidth }: DecorProps) {
         className="absolute inset-x-0 pointer-events-none"
         style={{
           bottom: GROUND,
-          height: 13 * ART_PX,
+          height: 13 * artPx,
           backgroundColor: "#c2a884",
           backgroundImage:
             "repeating-linear-gradient(90deg, #b0977512 0 " +
-            3 * ART_PX +
+            3 * artPx +
             "px, transparent " +
-            3 * ART_PX +
+            3 * artPx +
             "px " +
-            6 * ART_PX +
+            6 * artPx +
             "px)",
         }}
       />
       <div
         className="absolute inset-x-0 pointer-events-none"
         style={{
-          bottom: `calc(${GROUND} + ${13 * ART_PX}px)`,
-          height: ART_PX,
+          bottom: `calc(${GROUND} + ${13 * artPx}px)`,
+          height: artPx,
           backgroundColor: "#8d6e4f",
         }}
       />
@@ -1458,13 +1470,13 @@ export function CafeDecor({ sceneWidth }: DecorProps) {
         sky={sky}
         depth="mid"
         bayWidth={22}
-        bottom={`calc(${GROUND} + ${16 * ART_PX}px)`}
+        bottom={`calc(${GROUND} + ${16 * artPx}px)`}
       />
-      <div className="absolute" style={{ left: px(38), bottom: `calc(${GROUND} + ${16 * ART_PX}px)` }}>
-        <PixelSprite map={MACHINE} palette={MACHINE_PALETTE} scale={ART_PX} />
+      <div className="absolute" style={{ left: px(38), bottom: `calc(${GROUND} + ${16 * artPx}px)` }}>
+        <PixelSprite map={MACHINE} palette={MACHINE_PALETTE} scale={artPx} />
       </div>
-      <div className="absolute" style={{ left: px(56), bottom: `calc(${GROUND} + ${26 * ART_PX}px)` }}>
-        <PixelSprite map={MENU} palette={MENU_PALETTE} scale={ART_PX} />
+      <div className="absolute" style={{ left: px(56), bottom: `calc(${GROUND} + ${26 * artPx}px)` }}>
+        <PixelSprite map={MENU} palette={MENU_PALETTE} scale={artPx} />
       </div>
 
       {/* Tables. Five of them, so it reads as a room with other people's
@@ -1553,10 +1565,11 @@ export function WorldThumbnail({ worldId }: { worldId: WorldId }) {
 // ── Lo-fi — purple night, twin skylines, big moon ───────────────────────────
 
 export function GroceryDecor({ sceneWidth }: DecorProps) {
+  const artPx = useArtPx();
   const sky = HORIZON.grocery;
   const px = (pct: number) =>
     sceneWidth > 0 ? `${Math.round((sceneWidth * pct) / 100)}px` : `${pct}%`;
-  const mid = Math.round(sceneWidth / ART_PX / 2);
+  const mid = Math.round(sceneWidth / artPx / 2);
   return (
     <>
       {/* Ceiling battens. Fluorescent strips are what a supermarket actually
@@ -1567,7 +1580,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
           className="absolute"
           style={{ left: px(left), top: "4%", filter: "drop-shadow(0 4px 18px #ffffff66)" }}
         >
-          <PixelSprite map={BATTEN} palette={BATTEN_PALETTE} scale={ART_PX} />
+          <PixelSprite map={BATTEN} palette={BATTEN_PALETTE} scale={artPx} />
         </div>
       ))}
 
@@ -1590,7 +1603,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
           <PixelSprite
             map={FRIDGE}
             palette={hazedPalette(FRIDGE_PALETTE, sky, "mid")}
-            scale={ART_PX}
+            scale={artPx}
           />
         </Grounded>
       ))}
@@ -1605,7 +1618,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
           <PixelSprite
             map={AISLE_SIGN}
             palette={AISLE_SIGN_PALETTE}
-            scale={ART_PX}
+            scale={artPx}
           />
         </div>
       ))}
@@ -1629,10 +1642,10 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
 
       {/* Produce crates in the open middle, low enough to see over. */}
       <Grounded left={40} z={3} sceneWidth={sceneWidth} shadow={16}>
-        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={ART_PX} />
+        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={artPx} />
       </Grounded>
       <Grounded right={40} z={3} sceneWidth={sceneWidth} shadow={16}>
-        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={ART_PX} />
+        <PixelSprite map={CRATE} palette={CRATE_PALETTE} scale={artPx} />
       </Grounded>
 
       {/* Checkout lanes at the near right, where you'd walk out. */}
@@ -1640,7 +1653,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={CHECKOUT}
           palette={CHECKOUT_PALETTE}
-          scale={ART_PX}
+          scale={artPx}
           outline={keyline(sky, "near")}
         />
       </Grounded>
@@ -1648,7 +1661,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
         <PixelSprite
           map={CHECKOUT}
           palette={CHECKOUT_PALETTE}
-          scale={ART_PX}
+          scale={artPx}
           outline={keyline(sky, "near")}
         />
       </Grounded>

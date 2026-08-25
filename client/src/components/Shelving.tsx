@@ -1,6 +1,7 @@
 "use client";
 import { useMemo } from "react";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { GROUND } from "@/lib/scene";
+import { useArtPx } from "./SceneScale";
 import { columnsFor } from "@/lib/terrain";
 import { shelfItems, shelfBoards } from "@/lib/interior";
 import { blend, hazedPalette, type Depth } from "@/lib/palette";
@@ -49,7 +50,8 @@ export default function Shelving({
   clearFrom,
   clearTo,
 }: ShelvingProps) {
-  const columns = columnsFor(sceneWidth, ART_PX);
+  const artPx = useArtPx();
+  const columns = columnsFor(sceneWidth, artPx);
 
   const shaded = useMemo(
     () =>
@@ -91,8 +93,8 @@ export default function Shelving({
   return (
     <svg
       viewBox={`0 0 ${columns} ${rows}`}
-      width={columns * ART_PX}
-      height={rows * ART_PX}
+      width={columns * artPx}
+      height={rows * artPx}
       className="absolute left-0 pointer-events-none"
       style={{ bottom, zIndex, shapeRendering: "crispEdges", display: "block" }}
       aria-hidden="true"
