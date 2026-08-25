@@ -8,7 +8,7 @@ import type { PetType } from "@/lib/types";
 import type { PetStage } from "@/lib/petLevel";
 import {
   useCharacterPosition,
-  useSceneWidth,
+  useSceneBox,
 } from "@/hooks/useCharacterPosition";
 import PixelSprite from "./PixelSprite";
 import {
@@ -23,7 +23,8 @@ import {
 import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
 import ContactShadow from "./ContactShadow";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { GROUND, artPxFor } from "@/lib/scene";
+import ScenePixel from "./SceneScale";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 
 export type GamePhase =
@@ -175,7 +176,11 @@ export default function GameWorld({
   // starts on the loading screen), so the layout effect inside runs before the
   // first paint of this component and there is no unmeasured frame.
   const sceneRef = useRef<HTMLDivElement>(null);
-  const sceneWidth = useSceneWidth(sceneRef);
+  const { width: sceneWidth, height: sceneHeight } = useSceneBox(sceneRef);
+  // One art pixel for everything in this scene, small screens included. The
+  // provider below is what stops a sprite deeper in the tree drawing at the
+  // other stop; nothing in here reads ART_PX directly any more.
+  const artPx = artPxFor(sceneWidth, sceneHeight);
   const { myX, partnerX, myAnim, partnerAnim } = useCharacterPosition(
     phase,
     focusProgress,
@@ -184,6 +189,7 @@ export default function GameWorld({
   );
 
   return (
+    <ScenePixel value={artPx}>
     <div ref={sceneRef} className="relative w-full h-full">
       {/* Sky */}
       <div
@@ -297,7 +303,7 @@ export default function GameWorld({
                 stage={myPetStage}
                 anim={myAnim}
                 facing="right"
-                size={ART_PX}
+                size={artPx}
               />
             </Standing>
           )}
@@ -306,7 +312,7 @@ export default function GameWorld({
               {...me.avatar}
               anim={myAnim}
               facing="right"
-              size={ART_PX}
+              size={artPx}
             />
           </Standing>
         </div>
@@ -332,7 +338,7 @@ export default function GameWorld({
                 {...partner.avatar}
                 anim={partnerDisconnected ? "idle" : partnerAnim}
                 facing="left"
-                size={ART_PX}
+                size={artPx}
               />
             </Standing>
             {partnerPet && (
@@ -342,7 +348,7 @@ export default function GameWorld({
                   stage={partnerPetStage}
                   anim={partnerDisconnected ? "idle" : partnerAnim}
                   facing="left"
-                  size={ART_PX}
+                  size={artPx}
                 />
               </Standing>
             )}
@@ -391,7 +397,7 @@ export default function GameWorld({
         >
           <div
             className="border-2 border-white/50 flex items-center justify-center font-display text-white text-xl leading-none"
-            style={{ width: CHAR_W * ART_PX, height: CHAR_H * ART_PX }}
+            style={{ width: CHAR_W * artPx, height: CHAR_H * artPx }}
           >
             ?
           </div>
@@ -401,5 +407,6 @@ export default function GameWorld({
         </div>
       )}
     </div>
+    </ScenePixel>
   );
 }

@@ -80,14 +80,29 @@ export function characterOffset(
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-/** Width of the scene box in CSS px, kept current across resizes. */
-export function useSceneWidth(ref: RefObject<HTMLElement | null>): number {
-  const [width, setWidth] = useState(0);
+/**
+ * The scene box in CSS px, kept current across resizes.
+ *
+ * Height is measured as well as width because it decides the art pixel
+ * (`artPxFor`), and a landscape phone is short rather than narrow.
+ */
+export function useSceneBox(ref: RefObject<HTMLElement | null>): {
+  width: number;
+  height: number;
+} {
+  const [box, setBox] = useState({ width: 0, height: 0 });
 
   useIsomorphicLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setWidth(el.clientWidth);
+    const measure = () =>
+      // Same object identity for the same numbers, or a ResizeObserver that
+      // fires on every scroll-driven reflow would re-render the whole scene.
+      setBox((prev) =>
+        prev.width === el.clientWidth && prev.height === el.clientHeight
+          ? prev
+          : { width: el.clientWidth, height: el.clientHeight },
+      );
     measure();
     // jsdom has no ResizeObserver; tests measure 0 and the offsets stay whole
     // numbers either way.
@@ -100,7 +115,7 @@ export function useSceneWidth(ref: RefObject<HTMLElement | null>): number {
     return () => observer.disconnect();
   }, [ref]);
 
-  return width;
+  return box;
 }
 
 /**
