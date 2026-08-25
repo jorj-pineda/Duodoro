@@ -32,13 +32,18 @@ import {
 // plus slow ambient motion (drifting clouds, twinkling stars, rising steam).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Scale deviations ────────────────────────────────────────────────────────
+// ── Scale deviations — none left, and how they were paid off ────────────────
 //
-// None of the scenery is on ART_PX yet, and it cannot get there by editing the
-// numbers below: a sprite's apparent pixel size *is* its scale, so a 16-cell
+// This list used to be the debt. Every sprite here is on the scene's art pixel
+// now (PR #37), and `WorldDecorations.test.tsx` asserts one density per world
+// with an empty exemption list, so a new sprite that picks its own scale fails
+// the suite instead of quietly reintroducing two pixel grids in one frame.
+//
+// It is kept because it records *how* they were paid off, which is the part
+// that generalises: a sprite's apparent pixel size *is* its scale, so a 16-cell
 // map rendered at 3px is a 48px mountain, not a small-pixelled 128px one.
-// Keeping the current on-screen size means redrawing each map at more cells.
-// The cost, so the redraw (roadmap 7b) can be planned rather than discovered:
+// Keeping the on-screen size meant redrawing each map at more cells — never
+// scaling the small map up. The before-and-after:
 //
 //   sprite          map      scale(s)      on-screen        cells @ ART_PX
 //   MOUNTAIN        16x10    5, 6, 7, 8    80..128 wide     27x17 .. 43x27
@@ -53,9 +58,10 @@ import {
 //   BUILDING_*      -        2, 3          -                already at/near 3
 //   LAMP, TABLE     -        3             -                already at ART_PX
 //
-// MountainDecor alone renders at 5, 6, 7 and 8 in a single frame, with the
-// character beside it at 3. Mismatched pixel density is the clearest tell of
-// amateur pixel art, so this list is the debt, not the design.
+// MountainDecor alone used to render at 5, 6, 7 and 8 in a single frame, with
+// the character beside it at 3. Mismatched pixel density is the clearest tell
+// of amateur pixel art, which is why the guard is now an assertion rather than
+// a list of exceptions.
 //
 // ── Sprite maps ─────────────────────────────────────────────────────────────
 

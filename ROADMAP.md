@@ -5,9 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-19. PRs #35–#44 merged.
-Item 9 is on `feat/pixel-chrome`.
-Migrations 016–020 are applied to Supabase. **020 verified in production**
+Last updated: 2026-08-25. PRs #35–#46 merged.
+Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
 search_path. It went in *after* #40 reached main, so there was a window where
@@ -584,6 +583,41 @@ efficiency and hygiene, not a bug that was biting.
 **Not verified:** nothing here has been looked at in a browser. The young
 and full silhouettes need an owner's eye — geometry tests catch clipping and
 grid size, not whether a 5-row cat still reads as a cat.
+
+---
+
+## 13. Mobile sprite scaling  ·  SHIPPED — this PR
+
+The scene is a full-bleed background, so a 16x24 character was 48x72 CSS px on
+a 360px phone and 48x72 on a 27" monitor. `artPxFor(width, height)` picks
+between `ART_PX` (3) and `ART_PX_COMPACT` (2) off the measured scene box, and
+`ScenePixel` publishes it so the whole frame moves together — characters, pets,
+contact shadows, terrain bands and all eleven decor components.
+
+- **Two stops, both whole numbers.** `ART_PX * 0.75` would put every sprite on
+  a fractional pixel, which is the blur this art cannot survive.
+- **Thresholds are the ones already in the codebase**: 640 (Tailwind `sm`) and
+  520 (the `max-height` query in `globals.css`). The height clause is what makes
+  landscape work.
+- **An unmeasured box answers desktop.** 0 is what the first frame, jsdom and a
+  server render all report.
+- `HeroScene` and `AvatarCreator` are deliberately left out: their boxes are
+  cards, not viewports, so a 224px-tall card would read as a phone on every
+  screen.
+
+**Open decision — the break prop's density.** `BreakOverlay` has drawn at a
+hardcoded `scale={4}` against a scene at 3 since long before this PR, and
+nothing caught it because `GameWorld`'s density tests only ever looked at the
+character and pet maps. This PR did *not* fix it, because dropping it to the
+scene's pixel is a 25% shrink of an approved desktop visual and that is the
+owner's call, not a side effect of a mobile change. It now tracks the scene one
+step above it (`useArtPx() + 1`), so it is at least consistent across screens.
+Two real options: drop it to `artPx`, or redraw the prop maps with more cells so
+it keeps its size at one density. **Never** fix it by scaling the small map up.
+
+**Not verified:** nothing here has been looked at in a browser. The compact
+scene in particular needs an owner's eye on a real phone — the tests prove one
+density and whole numbers, not that a 32x48 character still reads.
 
 ---
 
