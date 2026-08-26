@@ -8,7 +8,7 @@ import type { PetType } from "@/lib/types";
 import type { PetStage } from "@/lib/petLevel";
 import {
   useCharacterPosition,
-  useSceneWidth,
+  useSceneBox,
 } from "@/hooks/useCharacterPosition";
 import PixelSprite from "./PixelSprite";
 import {
@@ -23,7 +23,8 @@ import {
 import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
 import ContactShadow from "./ContactShadow";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { GROUND, artPxFor } from "@/lib/scene";
+import ScenePixel, { useArtPx } from "./SceneScale";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 
 export type GamePhase =
@@ -58,16 +59,24 @@ interface Props {
   partnerDisconnected?: boolean;
 }
 
+// Confetti, at two sizes for depth. `near`/`far` rather than 3 and 2 so the
+// burst tracks the scene's pixel: on a phone a literal 3 would put particles
+// *above* the characters' own density, which reads as debris from a different
+// drawing. Desktop is unchanged — near is 3 and far is 2, exactly as drawn.
 const CELEBRATION_SPRITES = [
-  { map: HEART, palette: HEART_PALETTE, scale: 3 },
-  { map: SPARKLE, palette: SPARKLE_PALETTE, scale: 3 },
-  { map: HEART, palette: HEART_PALETTE, scale: 2 },
-  { map: SPARKLE, palette: SPARKLE_BLUE_PALETTE, scale: 3 },
-  { map: HEART, palette: HEART_PALETTE, scale: 3 },
-  { map: SPARKLE, palette: SPARKLE_PALETTE, scale: 2 },
-];
+  { map: HEART, palette: HEART_PALETTE, depth: "near" },
+  { map: SPARKLE, palette: SPARKLE_PALETTE, depth: "near" },
+  { map: HEART, palette: HEART_PALETTE, depth: "far" },
+  { map: SPARKLE, palette: SPARKLE_BLUE_PALETTE, depth: "near" },
+  { map: HEART, palette: HEART_PALETTE, depth: "near" },
+  { map: SPARKLE, palette: SPARKLE_PALETTE, depth: "far" },
+] as const;
 
 function CelebrationOverlay() {
+  const artPx = useArtPx();
+  // Never below 1: a zero-scale sprite renders a 0x0 box, which is not a
+  // smaller particle, it is a missing one.
+  const far = Math.max(1, artPx - 1);
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {CELEBRATION_SPRITES.map((s, i) => (
@@ -83,7 +92,11 @@ function CelebrationOverlay() {
             repeatDelay: 1,
           }}
         >
-          <PixelSprite map={s.map} palette={s.palette} scale={s.scale} />
+          <PixelSprite
+            map={s.map}
+            palette={s.palette}
+            scale={s.depth === "near" ? artPx : far}
+          />
         </motion.div>
       ))}
     </div>
@@ -143,12 +156,22 @@ function petShadow(stage: PetStage | null | undefined): number {
 
 function BreakOverlay({ worldId }: { worldId: WorldId }) {
   const prop = BREAK_PROP[worldId] ?? BREAK_PROP.forest;
+  // One step above the scene's pixel, which is the relationship this overlay
+  // has always had: it was a hardcoded scale={4} against a scene drawn at 3.
+  //
+  // That is a genuine density mismatch and it predates this change — nothing
+  // caught it because the scene's density tests only ever looked at the
+  // character and pet maps. It is *not* silently fixed here: putting the prop
+  // on artPx would shrink an approved desktop visual by 25% inside a PR about
+  // small screens. Written up in ROADMAP instead, where the two real options
+  // are a decision (drop to artPx) or a redraw (more cells at artPx).
+  const artPx = useArtPx() + 1;
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
       {/* .pixel-shuffle, not a rotation: the controller used to swing ±10°,
           which resampled every edge of the sprite for the whole break. */}
       <div className="mt-4 pixel-shuffle">
-        <PixelSprite map={prop.map} palette={prop.palette} scale={4} />
+        <PixelSprite map={prop.map} palette={prop.palette} scale={artPx} />
       </div>
     </div>
   );
@@ -175,7 +198,11 @@ export default function GameWorld({
   // starts on the loading screen), so the layout effect inside runs before the
   // first paint of this component and there is no unmeasured frame.
   const sceneRef = useRef<HTMLDivElement>(null);
-  const sceneWidth = useSceneWidth(sceneRef);
+  const { width: sceneWidth, height: sceneHeight } = useSceneBox(sceneRef);
+  // One art pixel for everything in this scene, small screens included. The
+  // provider below is what stops a sprite deeper in the tree drawing at the
+  // other stop; nothing in here reads ART_PX directly any more.
+  const artPx = artPxFor(sceneWidth, sceneHeight);
   const { myX, partnerX, myAnim, partnerAnim } = useCharacterPosition(
     phase,
     focusProgress,
@@ -184,6 +211,7 @@ export default function GameWorld({
   );
 
   return (
+    <ScenePixel value={artPx}>
     <div ref={sceneRef} className="relative w-full h-full">
       {/* Sky */}
       <div
@@ -275,7 +303,7 @@ export default function GameWorld({
             repeat: phase === "celebration" ? Infinity : 0,
           }}
         >
-          <PixelSprite map={HEART} palette={HEART_PALETTE} scale={3} />
+          <PixelSprite map={HEART} palette={HEART_PALETTE} scale={artPx} />
         </motion.div>
         <div className="w-0.5 h-8 bg-white/20 mt-1" />
       </div>
@@ -297,7 +325,7 @@ export default function GameWorld({
                 stage={myPetStage}
                 anim={myAnim}
                 facing="right"
-                size={ART_PX}
+                size={artPx}
               />
             </Standing>
           )}
@@ -306,7 +334,7 @@ export default function GameWorld({
               {...me.avatar}
               anim={myAnim}
               facing="right"
-              size={ART_PX}
+              size={artPx}
             />
           </Standing>
         </div>
@@ -332,7 +360,7 @@ export default function GameWorld({
                 {...partner.avatar}
                 anim={partnerDisconnected ? "idle" : partnerAnim}
                 facing="left"
-                size={ART_PX}
+                size={artPx}
               />
             </Standing>
             {partnerPet && (
@@ -342,7 +370,7 @@ export default function GameWorld({
                   stage={partnerPetStage}
                   anim={partnerDisconnected ? "idle" : partnerAnim}
                   facing="left"
-                  size={ART_PX}
+                  size={artPx}
                 />
               </Standing>
             )}
@@ -391,7 +419,7 @@ export default function GameWorld({
         >
           <div
             className="border-2 border-white/50 flex items-center justify-center font-display text-white text-xl leading-none"
-            style={{ width: CHAR_W * ART_PX, height: CHAR_H * ART_PX }}
+            style={{ width: CHAR_W * artPx, height: CHAR_H * artPx }}
           >
             ?
           </div>
@@ -401,5 +429,6 @@ export default function GameWorld({
         </div>
       )}
     </div>
+    </ScenePixel>
   );
 }

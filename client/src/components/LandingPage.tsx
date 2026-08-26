@@ -60,7 +60,14 @@ function GoogleIcon() {
 const HERO_WORLD_MS = 6000;
 
 /** A window into the app: cycles through the real worlds while two
- *  characters walk toward each other. */
+ *  characters walk toward each other.
+ *
+ *  Deliberately *not* wrapped in a `ScenePixel`. The responsive art pixel is
+ *  chosen from a box that is the viewport (GameWorld is a full-bleed
+ *  background); this is a 224px-tall card in a page, so those thresholds would
+ *  read it as a phone on every screen and shrink the hero on desktop. Outside
+ *  a provider the sprites take the desktop pixel, which is what this card has
+ *  always drawn at. */
 function HeroScene() {
   const [worldIndex, setWorldIndex] = useState(0);
   const world = WORLDS[worldIndex];

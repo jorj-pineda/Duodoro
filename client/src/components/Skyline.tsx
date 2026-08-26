@@ -1,6 +1,7 @@
 "use client";
 import { useMemo } from "react";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { GROUND } from "@/lib/scene";
+import { useArtPx } from "./SceneScale";
 import { columnsFor } from "@/lib/terrain";
 import { skyline, windows, roofParts, type SkylineSpec } from "@/lib/skyline";
 import { blend, hazedPalette, type Depth } from "@/lib/palette";
@@ -39,7 +40,8 @@ export default function Skyline({
   zIndex = 0,
   showWindows = true,
 }: SkylineProps) {
-  const columns = columnsFor(sceneWidth, ART_PX);
+  const artPx = useArtPx();
+  const columns = columnsFor(sceneWidth, artPx);
 
   const { towers, rows, face, lit, edge, pane, dark } = useMemo(() => {
     const towers = skyline({ ...spec, columns });
@@ -63,8 +65,8 @@ export default function Skyline({
   return (
     <svg
       viewBox={`0 0 ${columns} ${rows}`}
-      width={columns * ART_PX}
-      height={rows * ART_PX}
+      width={columns * artPx}
+      height={rows * artPx}
       className="absolute left-0 pointer-events-none"
       style={{ bottom, zIndex, shapeRendering: "crispEdges", display: "block" }}
       aria-hidden="true"

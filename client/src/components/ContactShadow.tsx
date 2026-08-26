@@ -1,4 +1,5 @@
-import { ART_PX } from "@/lib/scene";
+"use client";
+import { useArtPx } from "./SceneScale";
 
 /**
  * One art-pixel-tall smudge on the ground plane, centred under its owner.
@@ -12,14 +13,15 @@ import { ART_PX } from "@/lib/scene";
  * The parent must be positioned, and its bottom edge must be the sprite's feet.
  */
 export default function ContactShadow({ width }: { width: number }) {
+  const artPx = useArtPx();
   return (
     <div
       className="absolute left-1/2 pointer-events-none"
       style={{
-        bottom: -ART_PX,
-        width: width * ART_PX,
-        height: ART_PX,
-        marginLeft: -Math.round((width * ART_PX) / 2),
+        bottom: -artPx,
+        width: width * artPx,
+        height: artPx,
+        marginLeft: -Math.round((width * artPx) / 2),
         background: "#000000",
         opacity: 0.26,
       }}

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import GameWorld, { type GamePhase } from "./GameWorld";
 import { DEFAULT_AVATAR, type WorldId } from "@/lib/avatarData";
-import { ART_PX, GROUND } from "@/lib/scene";
+import { ART_PX, ART_PX_COMPACT, GROUND } from "@/lib/scene";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
 import { PET_W, PET_H, PET_STAGE_SIZE } from "@/lib/petMaps";
 import { PET_STAGES, type PetStage } from "@/lib/petLevel";
@@ -65,6 +65,13 @@ function findSprite(container: HTMLElement, w: number, h: number) {
   });
   expect(svg, `no sprite on a ${w}x${h} grid`).toBeTruthy();
   return svg!;
+}
+
+/** CSS px per art pixel, read off a sprite's own SVG. */
+function density(container: HTMLElement, w: number, h: number) {
+  const svg = findSprite(container, w, h);
+  const cells = Number(svg.getAttribute("viewBox")!.split(" ")[2]);
+  return Number(svg.getAttribute("width")) / cells;
 }
 
 describe("character placement", () => {
@@ -148,13 +155,6 @@ describe("ground line", () => {
 });
 
 describe("one art pixel", () => {
-  /** CSS px per art pixel, read off a sprite's own SVG. */
-  function density(container: HTMLElement, w: number, h: number) {
-    const svg = findSprite(container, w, h);
-    const cells = Number(svg.getAttribute("viewBox")!.split(" ")[2]);
-    return Number(svg.getAttribute("width")) / cells;
-  }
-
   it("draws characters and their pets on the same pixel grid", () => {
     const { container } = renderScene("waiting", 0, 0, true);
     // Read the grids from the art rather than writing them out here — this
@@ -277,5 +277,155 @@ describe("waiting slot", () => {
     expect(frame).toBeTruthy();
     expect(frame!.style.width).toBe(`${CHAR_W * ART_PX}px`);
     expect(frame!.style.height).toBe(`${CHAR_H * ART_PX}px`);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The responsive art pixel.
+//
+// The scene box *is* the viewport here — GameWorld is `absolute inset-0` inside
+// an h-dvh shell — so faking `clientWidth`/`clientHeight` is faking the device.
+// jsdom reports 0 for both, which is why every test above sees the desktop
+// pixel without asking for it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Renders `body` with every element measuring `w` x `h`. */
+function atBox<T>(w: number, h: number, body: () => T): T {
+  const proto = HTMLElement.prototype;
+  const width = Object.getOwnPropertyDescriptor(proto, "clientWidth");
+  const height = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+  Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => w });
+  Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => h });
+  try {
+    return body();
+  } finally {
+    if (width) Object.defineProperty(proto, "clientWidth", width);
+    else delete (proto as unknown as Record<string, unknown>).clientWidth;
+    if (height) Object.defineProperty(proto, "clientHeight", height);
+    else delete (proto as unknown as Record<string, unknown>).clientHeight;
+  }
+}
+
+/** CSS px per art pixel for every sprite in the scene, scenery included. */
+function allDensities(container: HTMLElement): number[] {
+  return Array.from(container.querySelectorAll("svg"))
+    .map((svg) => {
+      const vb = svg.getAttribute("viewBox")?.split(/\s+/).map(Number);
+      const width = Number(svg.getAttribute("width"));
+      if (!vb || vb.length < 3 || !vb[2] || !width) return null;
+      return width / vb[2];
+    })
+    .filter((d): d is number => d !== null);
+}
+
+describe("art pixel follows the screen", () => {
+  const PHONE: [number, number] = [375, 667];
+  const LANDSCAPE_PHONE: [number, number] = [852, 393];
+  const DESKTOP: [number, number] = [1440, 900];
+
+  it("draws a phone's whole scene at the compact pixel", () => {
+    const { container } = atBox(...PHONE, () =>
+      renderScene("waiting", 0, 0, true),
+    );
+    expect(density(container, CHAR_W, CHAR_H)).toBe(ART_PX_COMPACT);
+    expect(density(container, PET_W, PET_H)).toBe(ART_PX_COMPACT);
+  });
+
+  it("draws a desktop's whole scene at the full pixel", () => {
+    const { container } = atBox(...DESKTOP, () =>
+      renderScene("waiting", 0, 0, true),
+    );
+    expect(density(container, CHAR_W, CHAR_H)).toBe(ART_PX);
+    expect(density(container, PET_W, PET_H)).toBe(ART_PX);
+  });
+
+  /**
+   * The invariant that actually matters, and the one a per-sprite change
+   * would break: shrinking the characters while the scenery stays at 3 is
+   * two pixel grids in one frame — the mismatch PR #37 spent twelve commits
+   * removing. So this asserts on the *set*, not on the characters.
+   */
+  for (const [what, box, expected] of [
+    ["phone", PHONE, ART_PX_COMPACT],
+    ["landscape phone", LANDSCAPE_PHONE, ART_PX_COMPACT],
+    ["desktop", DESKTOP, ART_PX],
+  ] as const) {
+    it(`gives a ${what} exactly one density, and it is ${expected}`, () => {
+      const { container } = atBox(box[0], box[1], () =>
+        renderScene("focus", 0.5, 0, true),
+      );
+      expect(new Set(allDensities(container))).toEqual(new Set([expected]));
+    });
+  }
+
+  /**
+   * A landscape phone is *wider* than an iPad is tall, so this is the case a
+   * width-only rule gets backwards — and it is the one the HUD's own
+   * max-height query already exists for.
+   */
+  it("shrinks for a landscape phone, which is wide but out of vertical room", () => {
+    const { container } = atBox(...LANDSCAPE_PHONE, () =>
+      renderScene("waiting", 0, 0, true),
+    );
+    expect(density(container, CHAR_W, CHAR_H)).toBe(ART_PX_COMPACT);
+  });
+
+  it("keeps the contact shadow on the same pixel as the sprite it sits under", () => {
+    const { container } = atBox(...PHONE, () =>
+      renderScene("waiting", 0, 0, true),
+    );
+    const shadows = Array.from(
+      container.querySelectorAll<HTMLElement>("div.absolute"),
+    ).filter((el) => el.style.opacity === "0.26");
+    expect(shadows.length).toBeGreaterThan(0);
+    for (const s of shadows) {
+      expect(s.style.height).toBe(`${ART_PX_COMPACT}px`);
+    }
+  });
+
+  /**
+   * An unmeasured box is not a small box. This is what every other test in
+   * this file relies on, so it is worth stating once rather than leaving as
+   * an accident of jsdom.
+   */
+  it("draws an unmeasured box at the full pixel, not the compact one", () => {
+    const { container } = renderScene("waiting", 0, 0, true);
+    expect(density(container, CHAR_W, CHAR_H)).toBe(ART_PX);
+  });
+});
+
+/**
+ * The two centred overlays are not part of the scene's one-density rule, and
+ * that is a deviation worth stating rather than leaving for someone to find.
+ *
+ * The break prop has drawn one step above the scene since long before the
+ * responsive pixel — `scale={4}` against a scene at 3. Shrinking it to match
+ * would have been a 25% change to an approved desktop visual inside a PR about
+ * phones, so what is pinned here is that it *tracks* the scene rather than
+ * sitting on a literal. ROADMAP carries the open decision.
+ */
+describe("centred overlays track the scene without joining it", () => {
+  function spriteScales(container: HTMLElement) {
+    return allDensities(container);
+  }
+
+  it("keeps the break prop one step above the scene, on both screens", () => {
+    const desktop = atBox(1440, 900, () => renderScene("break")).container;
+    expect(Math.max(...spriteScales(desktop))).toBe(ART_PX + 1);
+
+    const phone = atBox(375, 667, () => renderScene("break")).container;
+    expect(Math.max(...spriteScales(phone))).toBe(ART_PX_COMPACT + 1);
+  });
+
+  it("never draws celebration confetti above the scene's own pixel", () => {
+    for (const [w, h, expected] of [
+      [1440, 900, ART_PX],
+      [375, 667, ART_PX_COMPACT],
+    ] as const) {
+      const { container } = atBox(w, h, () => renderScene("celebration"));
+      // Confetti comes in two depths; neither may out-resolve the characters.
+      expect(Math.max(...spriteScales(container))).toBe(expected);
+      expect(Math.min(...spriteScales(container))).toBeGreaterThanOrEqual(1);
+    }
   });
 });

@@ -19,11 +19,49 @@ export const GROUND = "19%";
  * clearest tell of amateur pixel art, and it is not fixable by rescaling
  * later, because a sprite's apparent pixel size *is* its scale.
  *
- * The characters and pets are on it. The scenery is not yet: `MountainDecor`
- * alone renders at 5, 6, 7 and 8, and moving it to ART_PX today would shrink
- * the front range from 128px wide to 48px. Keeping its on-screen size means
- * redrawing the map at 43x27 cells instead of 16x10 — that is the redraw in
- * roadmap item 7b, not a constant swap. The deviations are catalogued in
- * WorldDecorations; do not "fix" them by scaling a small map up.
+ * Everything in the scene is on it — characters, pets and, since the
+ * backgrounds redraw (PR #37), all of the scenery. `WorldDecorations.test.tsx`
+ * asserts one density per world with no exemptions, so a new sprite that picks
+ * its own scale fails the suite rather than quietly reintroducing two pixel
+ * grids in one frame.
+ *
+ * This is the *desktop* size and the default everywhere. A small screen uses
+ * `ART_PX_COMPACT` instead — see `artPxFor` below.
  */
 export const ART_PX = 3;
+
+/**
+ * One art pixel on a small screen, in CSS px.
+ *
+ * The scene is a full-bleed background (`GameWorld` is `absolute inset-0`
+ * inside an `h-dvh` shell), so on a 360px phone a 16x24 character at ART_PX is
+ * 48x72 — the same CSS px it occupies on a 27" monitor, against a third of the
+ * width to stand in.
+ *
+ * **2, not `ART_PX * 0.75`.** A non-integer scale resamples every hard edge
+ * into grey fringe, which is the one thing this art cannot survive; that is
+ * the same rule that keeps sprite transforms on whole pixels. So the knob has
+ * exactly one stop below 3, and dropping to it takes the character to 32x48.
+ */
+export const ART_PX_COMPACT = 2;
+
+/**
+ * The art pixel for a scene box of `width` x `height` CSS px.
+ *
+ * **The thresholds are the two lines this codebase already draws for mobile**,
+ * not new ones: 640 is Tailwind's `sm`, which every responsive class in the app
+ * keys off, and 520 is the `max-height` query in `globals.css` that gives the
+ * HUD its compact form. Reusing them means the scene shrinks on exactly the
+ * screens the chrome around it already treats as small. It also gets landscape
+ * right, which a width query alone cannot: a landscape phone is *wide*, so
+ * width would say "desktop" precisely when the vertical room has run out.
+ *
+ * **An unmeasured box is not a small box.** A box of 0 is what both the first
+ * frame and jsdom report, and shrinking every sprite on a measurement that has
+ * not happened yet is worse than being briefly too big — so 0 answers with the
+ * desktop size, which is also what a server render has to assume.
+ */
+export function artPxFor(width: number, height: number): number {
+  if (!(width > 0) || !(height > 0)) return ART_PX;
+  return width < 640 || height < 520 ? ART_PX_COMPACT : ART_PX;
+}
