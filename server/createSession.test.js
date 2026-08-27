@@ -186,3 +186,103 @@ describe("create_session assigns pet stage from focus, not the payload", () => {
     expect(me.petStage).toBe(null);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The event boundary has to protect the real process, not only pure parsers.
+// A custom Socket.IO client can send any JSON value regardless of the shapes
+// used by Duodoro's TypeScript client.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function connectedSocket(sub) {
+  return new Promise((resolve, reject) => {
+    const socket = connect(url, {
+      auth: { token: fakeToken(sub) },
+      transports: ["websocket"],
+    });
+    const timer = setTimeout(() => {
+      socket.close();
+      reject(new Error("socket did not connect"));
+    }, 10_000);
+    socket.on("connect_error", (err) => {
+      clearTimeout(timer);
+      socket.close();
+      reject(err);
+    });
+    socket.on("connect", () => {
+      clearTimeout(timer);
+      resolve(socket);
+    });
+  });
+}
+
+function onlineFriends(socket, payload) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("no friends acknowledgement")),
+      5_000,
+    );
+    socket.emit("get_online_friends", payload, (ids) => {
+      clearTimeout(timer);
+      resolve(ids);
+    });
+  });
+}
+
+function validCreateOn(socket) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("server stopped responding")),
+      5_000,
+    );
+    socket.once("sync_state", (state) => {
+      clearTimeout(timer);
+      resolve(state);
+    });
+    socket.emit("create_session", { avatar: AVATAR, displayName: "Still here" });
+  });
+}
+
+describe("client event payload boundary", () => {
+  it("rejects non-object payloads and keeps serving the socket", async () => {
+    const socket = await connectedSocket("88888888-8888-4888-8888-888888888888");
+    try {
+      expect(await onlineFriends(socket, null)).toEqual([]);
+
+      for (const event of [
+        "send_invite",
+        "create_session",
+        "join_session",
+        "start_session",
+        "finish_flow_focus",
+        "stop_session",
+        "set_pet",
+      ]) {
+        socket.emit(event, null);
+        socket.emit(event, []);
+      }
+
+      const state = await validCreateOn(socket);
+      expect(state.players[socket.id].displayName).toBe("Still here");
+    } finally {
+      socket.close();
+    }
+  });
+
+  it("bounds and type-checks friend id lists", async () => {
+    const socket = await connectedSocket("99999999-9999-4999-8999-999999999999");
+    try {
+      expect(await onlineFriends(socket, { friendIds: "not-an-array" })).toEqual([]);
+      expect(await onlineFriends(socket, { friendIds: [null] })).toEqual([]);
+      expect(
+        await onlineFriends(socket, {
+          friendIds: Array.from({ length: 101 }, (_, i) => `${i}`),
+        }),
+      ).toEqual([]);
+
+      const state = await validCreateOn(socket);
+      expect(state.sessionId).toBeTruthy();
+    } finally {
+      socket.close();
+    }
+  });
+});

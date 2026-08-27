@@ -22,6 +22,7 @@ const {
 const { worldAt } = require('./rotation');
 const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
+const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 require('dotenv').config();
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
@@ -160,6 +161,34 @@ const rateLimits = {
   joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
   sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
 };
+
+// Register a client-originated event behind one runtime boundary. Socket.IO
+// clients are not limited to this repository's TypeScript shapes: they can
+// send null, arrays, primitives, or malformed objects. Check the container
+// before a handler reads a field, and contain both synchronous exceptions and
+// rejected promises so one bad client event cannot take down the process.
+function onPayload(socket, event, handler, options = {}) {
+  const {
+    errorEvent = 'session_error',
+    invalidMessage = 'Invalid request',
+    onInvalid = null,
+  } = options;
+
+  const reportError = (error) => {
+    console.error(`[protocol] ${event} failed for ${socket.id}:`, error);
+    if (errorEvent) socket.emit(errorEvent, { message: 'Request failed' });
+  };
+
+  socket.on(event, safeSocketHandler((payload, ...args) => {
+    if (!isPayloadObject(payload)) {
+      console.warn(`[protocol] rejected non-object ${event} payload from ${socket.id}`);
+      if (onInvalid) onInvalid(...args);
+      else if (errorEvent) socket.emit(errorEvent, { message: invalidMessage });
+      return;
+    }
+    return handler(payload, ...args);
+  }, reportError));
+}
 
 function getSession(sessionId) {
   return sessions[sessionId];
@@ -451,10 +480,18 @@ io.on('connection', (socket) => {
     console.log(`[presence] ${userId} registered (${socket.id})`);
   });
 
-  socket.on('get_online_friends', async ({ friendIds }, callback) => {
+  onPayload(socket, 'get_online_friends', async ({ friendIds }, callback) => {
     if (typeof callback !== 'function') return;
     const userId = socket.userId;
     if (!userId) { callback([]); return; }
+
+    // Bound both shape and work. A string has no Array#filter, and an
+    // attacker-controlled giant list should not become a giant Set/filter pass.
+    if (!Array.isArray(friendIds) || friendIds.length > 100 ||
+        friendIds.some((id) => typeof id !== 'string')) {
+      callback([]);
+      return;
+    }
 
     // Validate that queried IDs are actual accepted friends
     const actualFriendIds = await getFriendIds(userId);
@@ -462,10 +499,15 @@ io.on('connection', (socket) => {
     const validIds = (friendIds || []).filter(id => friendSet.has(id));
     const online = validIds.filter(id => presence.isOnline(id));
     callback(online);
+  }, {
+    errorEvent: null,
+    onInvalid: (callback) => {
+      if (typeof callback === 'function') callback([]);
+    },
   });
 
   // ── Invite relay ────────────────────────────────────────────────────────
-  socket.on('send_invite', async ({ targetUserId, sessionId, fromName }) => {
+  onPayload(socket, 'send_invite', async ({ targetUserId, sessionId, fromName }) => {
     if (!rateLimits.sendInvite(socket.id)) {
       socket.emit('invite_error', { message: 'Too many invites, slow down' });
       return;
@@ -516,7 +558,7 @@ io.on('connection', (socket) => {
       });
     }
     console.log(`[invite] ${safeName} invited ${targetUserId}`);
-  });
+  }, { errorEvent: 'invite_error' });
 
   // create_session: { avatar, displayName, pet }
   // Creates a new session with a UUID, user becomes host.
@@ -527,7 +569,7 @@ io.on('connection', (socket) => {
   // field in the payload is ignored rather than rejected, so an older client
   // still gets a session instead of an error. There is nothing left to validate
   // here because there is nothing left to trust.
-  socket.on('create_session', async ({ avatar, displayName, pet }) => {
+  onPayload(socket, 'create_session', async ({ avatar, displayName, pet }) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -577,7 +619,7 @@ io.on('connection', (socket) => {
   // join_session: { sessionId, avatar, displayName, pet }
   // Joins an existing session by its UUID.
   // userId comes from verified socket.userId (auth middleware).
-  socket.on('join_session', async ({ sessionId, avatar, displayName, pet }) => {
+  onPayload(socket, 'join_session', async ({ sessionId, avatar, displayName, pet }) => {
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -659,7 +701,7 @@ io.on('connection', (socket) => {
 
   // start_session: { sessionId, focusDuration, breakDuration, mode }
   // Solo start allowed (1 player is fine).
-  socket.on('start_session', ({ sessionId, focusDuration, breakDuration, mode }) => {
+  onPayload(socket, 'start_session', ({ sessionId, focusDuration, breakDuration, mode }) => {
     const session = getSession(sessionId);
     if (!session) return;
     if (Object.keys(session.players).length < 1) return;
@@ -704,7 +746,7 @@ io.on('connection', (socket) => {
   });
 
   // finish_flow_focus: { sessionId }
-  socket.on('finish_flow_focus', ({ sessionId }) => {
+  onPayload(socket, 'finish_flow_focus', ({ sessionId }) => {
     const session = getSession(sessionId);
     if (!session) return;
     if (session.mode !== 'flow' || session.phase !== 'focus') return;
@@ -728,7 +770,7 @@ io.on('connection', (socket) => {
   });
 
   // stop_session: { sessionId }
-  socket.on('stop_session', ({ sessionId }) => {
+  onPayload(socket, 'stop_session', ({ sessionId }) => {
     const session = getSession(sessionId);
     if (!session) return;
     if (!session.players[socket.id]) return; // Only participants can stop
@@ -756,7 +798,7 @@ io.on('connection', (socket) => {
   // Change your pet mid-session; relayed to the other player. Stage is
   // derived here, never taken from the payload, and emitted to the whole
   // room (including the sender) so the picker sees the server's size.
-  socket.on('set_pet', ({ sessionId, pet }) => {
+  onPayload(socket, 'set_pet', ({ sessionId, pet }) => {
     const session = getSession(sessionId);
     if (!session) return;
     const player = session.players[socket.id];
