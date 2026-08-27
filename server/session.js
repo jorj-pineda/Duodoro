@@ -1,6 +1,8 @@
 const { randomUUID } = require("crypto");
 const { petStageAt } = require("./petLevel");
 
+const MAX_SESSION_PLAYERS = 2;
+
 function createSessionState(world, hostSocketId) {
   return {
     id: randomUUID(),
@@ -16,6 +18,10 @@ function createSessionState(world, hostSocketId) {
     // userIds explicitly invited to this session. Knowing the session UUID is
     // not by itself permission to join — see canJoinSession in index.js.
     invitedUserIds: new Set(),
+    // New joins reserve a seat before awaiting focus-history reads. Without a
+    // synchronous reservation, two joins can both see one player, both await,
+    // and then both enter what is meant to be a two-person room.
+    pendingJoinUserIds: new Set(),
   };
 }
 
@@ -55,6 +61,38 @@ function findPlayerByUserId(session, userId) {
     if (player.userId === userId) return socketId;
   }
   return null;
+}
+
+/**
+ * Claim one of the room's two seats for a distinct new user.
+ *
+ * Existing participants do not consume another seat when reconnecting. The
+ * returned `reserved` flag tells the caller whether it owns a pending entry
+ * that must be released after the join succeeds or fails.
+ */
+function reservePlayerSlot(session, userId) {
+  if (!userId) return { ok: false, reserved: false };
+  if (findPlayerByUserId(session, userId)) {
+    return { ok: true, reserved: false };
+  }
+  if (session.pendingJoinUserIds.has(userId)) {
+    return { ok: false, reserved: false };
+  }
+  const occupied = Object.keys(session.players).length + session.pendingJoinUserIds.size;
+  if (occupied >= MAX_SESSION_PLAYERS) {
+    return { ok: false, reserved: false };
+  }
+  session.pendingJoinUserIds.add(userId);
+  return { ok: true, reserved: true };
+}
+
+function releasePlayerSlot(session, userId) {
+  return session.pendingJoinUserIds.delete(userId);
+}
+
+function hasOpenPlayerSlot(session) {
+  return Object.keys(session.players).length + session.pendingJoinUserIds.size <
+    MAX_SESSION_PLAYERS;
 }
 
 function markPlayerDisconnected(session, socketId, disconnected) {
@@ -150,6 +188,7 @@ function buildSyncPayload(session) {
 }
 
 module.exports = {
+  MAX_SESSION_PLAYERS,
   createSessionState,
   addPlayer,
   removePlayer,
@@ -158,6 +197,9 @@ module.exports = {
   inviteUser,
   isInvited,
   findPlayerByUserId,
+  reservePlayerSlot,
+  releasePlayerSlot,
+  hasOpenPlayerSlot,
   markPlayerDisconnected,
   sessionParticipantIds,
   findUserSessions,
