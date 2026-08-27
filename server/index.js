@@ -7,10 +7,11 @@ const { createClient } = require('@supabase/supabase-js');
 const { createPresenceRegistry } = require('./presence');
 const {
   createSessionState,
+  beginFocusRound,
   addPlayer,
   removePlayer,
   setPlayerPet,
-  creditFocus,
+  creditFocusRound,
   inviteUser,
   isInvited,
   findPlayerByUserId,
@@ -25,6 +26,7 @@ const {
 const { worldAt } = require('./rotation');
 const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
+const { recordFocusSession } = require('./focusRecorder');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 require('dotenv').config();
 
@@ -267,65 +269,86 @@ function broadcastPresence(userId, online) {
 
 // ── Session Recording ──────────────────────────────────────────────────────
 
+// Fire-and-forget phase transitions still need a handle during deployment.
+// Shutdown drains this set before exiting, within the process-wide deadline.
+const pendingRecordings = new Set();
+
 // participantIds lets callers pass a snapshot taken *before* they mutate
 // session.players — the abandoned-session path records the last player leaving,
 // by which point they're already gone from the live map.
 async function recordSession(sessionId, session, completed, participantIds) {
   if (!supabase) return;
 
-  const elapsed = session.phaseStartTime
-    ? Math.round((Date.now() - session.phaseStartTime) / 1000)
+  // Snapshot every input before the first await. The live session may advance,
+  // restart, lose a player, or be deleted while the database request is in
+  // flight; none of those changes may rewrite the event being persisted.
+  const recordingKey = session.focusRoundId;
+  const startedAt = session.phaseStartTime;
+  const elapsed = startedAt
+    ? Math.round((Date.now() - startedAt) / 1000)
     : 0;
   // In flow mode focusDuration is only a safety cap, never the real length —
   // the elapsed time is the actual focus, whether it completed or not.
   const actualFocus = (completed && session.mode !== 'flow')
     ? session.focusDuration
-    : Math.min(elapsed, session.focusDuration);
+    : Math.max(0, Math.min(elapsed, session.focusDuration));
 
   const userIds = participantIds ?? sessionParticipantIds(session);
 
   if (userIds.length === 0) return;
+  if (!recordingKey || !startedAt) {
+    console.error(`[${sessionId}] Cannot record focus without a round id and start time`);
+    return;
+  }
 
   try {
-    const { data: row, error } = await supabase
-      .from('sessions')
-      .insert({
-        room_code: sessionId,
-        world: session.world,
-        focus_duration: session.focusDuration,
-        break_duration: session.breakDuration,
-        actual_focus: actualFocus,
-        completed,
-        started_at: new Date(session.phaseStartTime).toISOString(),
-      })
-      .select('id')
-      .single();
+    const result = await recordFocusSession(supabase, {
+      p_recording_key: recordingKey,
+      p_room_code: sessionId,
+      p_world: session.world,
+      p_focus_duration: session.focusDuration,
+      p_break_duration: session.breakDuration,
+      p_actual_focus: actualFocus,
+      p_completed: completed,
+      p_started_at: new Date(startedAt).toISOString(),
+      p_user_ids: userIds,
+    });
 
-    if (error) {
-      console.error(`[${sessionId}] Failed to record session:`, error.message);
-      return;
-    }
+    console.log(
+      `[${sessionId}] Session ${result.inserted ? 'recorded' : 'already recorded'}: ` +
+      `${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ` +
+      `${userIds.length} participants`,
+    );
 
-    const { error: pError } = await supabase
-      .from('session_participants')
-      .insert(userIds.map(uid => ({ session_id: row.id, user_id: uid })));
-
-    if (pError) {
-      console.error(`[${sessionId}] Failed to record participants:`, pError.message);
-    } else {
-      console.log(`[${sessionId}] Session recorded: ${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ${userIds.length} participants`);
-      // Only completed rows feed get_focus_stats, so only those grow the pet.
-      // Credit the in-memory total rather than re-querying: the row was just
-      // written, and a replica lag would otherwise delay the growth by a round.
-      if (completed && sessions[sessionId]) {
-        for (const update of creditFocus(session, userIds, actualFocus)) {
-          io.to(sessionId).emit('pet_changed', update);
-        }
+    // Only completed rows feed get_focus_stats, so only those grow the pet.
+    // Credit the in-memory total rather than re-querying: the row was just
+    // written, and a replica lag would otherwise delay the growth by a round.
+    // The round key makes this safe when a lost response turns a retry into
+    // result.inserted=false even though the original write succeeded.
+    if (completed && sessions[sessionId] === session) {
+      for (const update of creditFocusRound(
+        session,
+        recordingKey,
+        userIds,
+        actualFocus,
+      )) {
+        io.to(sessionId).emit('pet_changed', update);
       }
     }
   } catch (err) {
-    console.error(`[${sessionId}] Session recording error:`, err);
+    console.error(`[${sessionId}] Session recording error:`, err.message || err);
   }
+}
+
+function queueSessionRecording(sessionId, session, completed, participantIds) {
+  const pending = recordSession(sessionId, session, completed, participantIds);
+  pendingRecordings.add(pending);
+  pending.finally(() => pendingRecordings.delete(pending));
+  return pending;
+}
+
+async function drainPendingRecordings() {
+  await Promise.allSettled([...pendingRecordings]);
 }
 
 // ── Phase Advance ──────────────────────────────────────────────────────────
@@ -349,7 +372,7 @@ function advancePhase(sessionId) {
     case 'focus':
       nextPhase = 'celebration';
       delay = CELEBRATION_MS;
-      recordSession(sessionId, session, true);
+      queueSessionRecording(sessionId, session, true);
       break;
     case 'celebration':
       nextPhase = 'break';
@@ -367,8 +390,12 @@ function advancePhase(sessionId) {
       return;
   }
 
-  session.phase = nextPhase;
-  session.phaseStartTime = Date.now();
+  if (nextPhase === 'focus') {
+    beginFocusRound(session);
+  } else {
+    session.phase = nextPhase;
+    session.phaseStartTime = Date.now();
+  }
 
   io.to(sessionId).emit('phase_change', {
     mode: session.mode,
@@ -430,7 +457,9 @@ function finalizePlayerRemoval(sessionId, socketId) {
   io.to(sessionId).emit('player_left', { playerId: socketId });
 
   if (playerCount === 0) {
-    if (session.phase === 'focus') recordSession(sessionId, session, false, participantIds);
+    if (session.phase === 'focus') {
+      queueSessionRecording(sessionId, session, false, participantIds);
+    }
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
     delete sessions[sessionId];
     console.log(`[${sessionId}] Session deleted`);
@@ -757,8 +786,7 @@ io.on('connection', (socket) => {
       session.breakDuration = safeBreak;
     }
 
-    session.phase = 'focus';
-    session.phaseStartTime = Date.now();
+    beginFocusRound(session);
 
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
 
@@ -806,7 +834,9 @@ io.on('connection', (socket) => {
     if (!session) return;
     if (!session.players[socket.id]) return; // Only participants can stop
 
-    if (session.phase === 'focus') recordSession(sessionId, session, false);
+    if (session.phase === 'focus') {
+      queueSessionRecording(sessionId, session, false);
+    }
 
     if (session.phaseTimer) {
       clearTimeout(session.phaseTimer);
@@ -815,6 +845,7 @@ io.on('connection', (socket) => {
 
     session.phase = 'waiting';
     session.phaseStartTime = null;
+    session.focusRoundId = null;
 
     io.to(sessionId).emit('phase_change', {
       mode: session.mode,
@@ -944,9 +975,13 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[shutdown] ${signal} received`);
-    await clearAllPresence('shutdown');
-    server.close(() => process.exit(0));
-    // Don't hang forever if sockets refuse to close
+    // Bound the entire drain, not only server.close(): an upstream request can
+    // otherwise hang before the old force-exit timer was even installed.
     setTimeout(() => process.exit(0), 5000).unref();
+    await Promise.allSettled([
+      drainPendingRecordings(),
+      clearAllPresence('shutdown'),
+    ]);
+    server.close(() => process.exit(0));
   });
 }
