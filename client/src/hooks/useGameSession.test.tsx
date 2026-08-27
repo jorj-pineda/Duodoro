@@ -222,6 +222,30 @@ describe("useGameSession connection lifecycle", () => {
     act(() => result.current.reconnect());
     await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
   });
+
+  it("clears an optimistic room id when the room is full", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+
+    act(() =>
+      result.current.joinSession("full-room", {
+        skinColor: "#e0ac69",
+        hairStyle: "bob",
+        hairColor: "#222222",
+        eyeStyle: "normal",
+        outfitColor: "#3355aa",
+      }),
+    );
+    expect(result.current.sessionId).toBe("full-room");
+
+    act(() => fakeSocket.fire("session_error", { message: "Session is full" }));
+
+    await waitFor(() => expect(result.current.sessionId).toBe(""));
+    expect(result.current.sessionError).toBe("Session is full");
+    expect(result.current.playerCount).toBe(0);
+  });
 });
 
 describe("useGameSession pet stage", () => {

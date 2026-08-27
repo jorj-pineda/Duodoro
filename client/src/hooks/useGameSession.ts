@@ -197,10 +197,14 @@ export function useGameSession(profile: Profile | null) {
       socket.on("session_error", ({ message }: { message: string }) => {
         console.error("Session error:", message);
         setSessionError(message);
-        // Both mean "you are not in a session" — drop any local state that
+        // These mean "you are not in a session" — drop any local state that
         // says otherwise, so we don't sit on a screen for a session we
         // aren't actually in.
-        if (message === "Session not found" || message === "This session is private") {
+        if (
+          message === "Session not found" ||
+          message === "This session is private" ||
+          message === "Session is full"
+        ) {
           // Stale resume attempt or expired invite — the server has already
           // removed us from any previous session, so mirror that here
           sessionStorage.removeItem(RESUME_KEY);
