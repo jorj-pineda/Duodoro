@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-25. PRs #35–#46 merged.
+Last updated: 2026-08-27. PRs #35–#48 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -32,6 +32,18 @@ the live database.
       no longer float, walk reads clean.
 - [x] **3b. GROUND + ART_PX** — PR #36, **merged** (rebase, 5 commits).
       The mechanical half. The density collapse moved into 7b — see below.
+
+## Post-audit hardening
+
+- [x] **14a. Socket payload boundary** — PR #48. Payload-bearing events reject
+      non-object containers before field access; synchronous exceptions and
+      async rejections stay inside the handler. Real-socket regression coverage
+      proves malformed events do not stop the process.
+- [x] **14b. Two-person session capacity** — this PR. A distinct third user is
+      rejected server-side, an existing participant can reconnect into a full
+      room, and synchronous seat reservations close the concurrent-join race.
+      Full rooms stop issuing invitations, and the rejected client clears its
+      optimistic room state instead of remaining on an empty game screen.
 
 ## Next up (recommended order)
 
