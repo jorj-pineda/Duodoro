@@ -12,6 +12,13 @@ function createSessionState(world, hostSocketId) {
     breakDuration: 5 * 60,
     phaseStartTime: null,
     phaseTimer: null,
+    // One stable database idempotency key per focus round. It is created when
+    // focus begins, not when persistence begins, so every completion/stop and
+    // every retry refers to the same real-world event.
+    focusRoundId: null,
+    // A lost RPC response can make the retry return an existing DB row. Keep
+    // pet credit idempotent in memory too; this is intentionally server-only.
+    creditedFocusRoundIds: new Set(),
     world: world || "forest",
     hostId: hostSocketId,
     players: {},
@@ -23,6 +30,17 @@ function createSessionState(world, hostSocketId) {
     // and then both enter what is meant to be a two-person room.
     pendingJoinUserIds: new Set(),
   };
+}
+
+function beginFocusRound(
+  session,
+  startedAt = Date.now(),
+  recordingKey = randomUUID(),
+) {
+  session.phase = "focus";
+  session.phaseStartTime = startedAt;
+  session.focusRoundId = recordingKey;
+  return recordingKey;
 }
 
 function inviteUser(session, userId) {
@@ -136,6 +154,12 @@ function creditFocus(session, userIds, extraSeconds) {
   return changed;
 }
 
+function creditFocusRound(session, recordingKey, userIds, extraSeconds) {
+  if (!recordingKey || session.creditedFocusRoundIds.has(recordingKey)) return [];
+  session.creditedFocusRoundIds.add(recordingKey);
+  return creditFocus(session, userIds, extraSeconds);
+}
+
 function removePlayer(session, socketId) {
   delete session.players[socketId];
   return Object.keys(session.players).length;
@@ -190,10 +214,12 @@ function buildSyncPayload(session) {
 module.exports = {
   MAX_SESSION_PLAYERS,
   createSessionState,
+  beginFocusRound,
   addPlayer,
   removePlayer,
   setPlayerPet,
   creditFocus,
+  creditFocusRound,
   inviteUser,
   isInvited,
   findPlayerByUserId,

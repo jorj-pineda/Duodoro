@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   createSessionState,
+  beginFocusRound,
   addPlayer,
   removePlayer,
   setPlayerPet,
   creditFocus,
+  creditFocusRound,
   findPlayerByUserId,
   reservePlayerSlot,
   releasePlayerSlot,
@@ -38,6 +40,28 @@ describe("createSessionState", () => {
     const a = createSessionState("space", "s1");
     const b = createSessionState("space", "s2");
     expect(a.id).not.toBe(b.id);
+  });
+});
+
+describe("focus round identity", () => {
+  it("creates one stable private key when a focus round begins", () => {
+    const s = createSessionState("forest", "host");
+
+    expect(beginFocusRound(s, 1234, "round-1")).toBe("round-1");
+    expect(s.phase).toBe("focus");
+    expect(s.phaseStartTime).toBe(1234);
+    expect(s.focusRoundId).toBe("round-1");
+    expect(buildSyncPayload(s)).not.toHaveProperty("focusRoundId");
+    expect(buildSyncPayload(s)).not.toHaveProperty("creditedFocusRoundIds");
+  });
+
+  it("uses a new key for the next focus round", () => {
+    const s = createSessionState("forest", "host");
+    const first = beginFocusRound(s);
+    const second = beginFocusRound(s);
+
+    expect(first).not.toBe(second);
+    expect(s.focusRoundId).toBe(second);
   });
 });
 
@@ -371,6 +395,23 @@ describe("creditFocus", () => {
     });
     expect(creditFocus(s, ["u1"], 3600)).toEqual([]);
     expect(s.players["p1"].petStage).toBe("full");
+  });
+
+  it("credits a successfully persisted round only once", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "p1", {
+      avatar: {},
+      displayName: "A",
+      userId: "u1",
+      pet: "cat",
+      focusSeconds: 10700,
+    });
+
+    expect(creditFocusRound(s, "round-1", ["u1"], 200)).toEqual([
+      { playerId: "p1", pet: "cat", petStage: "grown" },
+    ]);
+    expect(creditFocusRound(s, "round-1", ["u1"], 200)).toEqual([]);
+    expect(s.players.p1.focusSeconds).toBe(10900);
   });
 });
 
