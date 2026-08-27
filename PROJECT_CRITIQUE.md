@@ -88,6 +88,9 @@ Duodoro” and “I am focusing with another person.”
 
 ### 1. Validate every inbound Socket.IO payload before destructuring it
 
+**Status:** Addressed in PR #48 with the shared payload boundary, contained
+handler errors, and real-socket malformed-event coverage.
+
 **Evidence:** Most handlers in `server/index.js` destructure the event argument
 in the function signature, including `get_online_friends`, `send_invite`,
 `create_session`, `join_session`, `start_session`, `finish_flow_focus`,
@@ -109,6 +112,9 @@ not a collection of ad hoc clamps.
 
 ### 2. Enforce the product's session capacity on the server
 
+**Status:** Addressed in PR #49 with two-seat enforcement, synchronous join
+reservations, reconnect handling, and concurrent-join coverage.
+
 **Evidence:** The product and README say “two people, one timer,” while
 `join_session` never rejects a third player. The client selects only the first
 entry other than the current socket as `partner`, although `playerCount` can
@@ -128,6 +134,11 @@ full and add race tests for two joins arriving together. If group sessions are
 the actual direction, redesign the client and stats model before allowing them.
 
 ### 3. Make completed-focus recording atomic and recoverable
+
+**Status:** Addressed after PR #49 by migration 022 and the matching server
+path: one transactional RPC, stable per-round keys, bounded transient retries,
+idempotent in-memory pet credit, and shutdown draining. Applying migration 022
+before deploying that server commit remains a release requirement.
 
 **Evidence:** `recordSession()` inserts a `sessions` row and then separately
 inserts `session_participants`. If the second request fails, an orphan session

@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-27. PRs #35–#48 merged.
+Last updated: 2026-08-27. PRs #35–#49 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -14,6 +14,11 @@ the unlock button called a function that did not exist — it failed soft and
 nobody had claimed, so the window cost nothing. Nothing has claimed since
 either: `premium_grants` is empty, so the round trip is still unproven against
 the live database.
+
+Migration 022 is introduced by post-audit item 14c below and is **not yet
+recorded as applied**. Apply it before deploying the matching server commit;
+the nullable key keeps the migration-first window compatible with the old
+two-insert server.
 
 ~~Open infra issue: `ALLOWED_ORIGIN` missing the www host~~ — **fixed
 2026-08-12.** Verified: both `https://duodoro.live` and
@@ -39,11 +44,19 @@ the live database.
       non-object containers before field access; synchronous exceptions and
       async rejections stay inside the handler. Real-socket regression coverage
       proves malformed events do not stop the process.
-- [x] **14b. Two-person session capacity** — this PR. A distinct third user is
+- [x] **14b. Two-person session capacity** — PR #49. A distinct third user is
       rejected server-side, an existing participant can reconnect into a full
       room, and synchronous seat reservations close the concurrent-join race.
       Full rooms stop issuing invitations, and the rejected client clears its
       optimistic room state instead of remaining on an empty game screen.
+- [x] **14c. Atomic focus recording** — this PR. Migration 022 adds the
+      service-role-only `record_focus_session` transaction and a unique,
+      nullable per-round recording key. The server snapshots one key and one
+      payload per focus round, retries transient failures without duplicating
+      credit, rejects conflicting key reuse, and drains in-flight writes during
+      shutdown. PostgreSQL verification covered first insert, identical retry,
+      conflict rejection, participant-FK rollback, grants, invoker mode, and
+      the pinned empty search path. **Migration 022 must precede deployment.**
 
 ## Next up (recommended order)
 
