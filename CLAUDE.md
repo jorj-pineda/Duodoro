@@ -66,6 +66,11 @@ Adding a world now needs `ROTATION_WORLDS` (**both** copies), the client's `Worl
 
 Security conventions in the socket layer (preserve these when adding events):
 - `io.use()` middleware verifies the Supabase JWT and sets `socket.userId` — **never trust a client-sent userId**.
+- Every event that accepts a payload is registered through `onPayload()` in
+  `server/index.js`. It rejects null, arrays and primitives before field access,
+  and `safeSocketHandler()` in `server/socketProtocol.js` contains both thrown
+  exceptions and rejected promises. Do not attach a payload-bearing event with
+  a bare `socket.on()` or destructure its argument in the listener signature.
 - Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_PETS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`). The stronger move, where it's available, is not to take the field at all — that is what happened to `world`.
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 - Knowing a session id is not permission to use it: `join_session` requires an existing slot, an invite, or friendship with someone already in the session, and `send_invite` is friends-only. Server-side ids are read from `socketToSession`, never taken from the payload.

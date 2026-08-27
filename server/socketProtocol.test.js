@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { isPayloadObject, safeSocketHandler } from "./socketProtocol.js";
 
 describe("isPayloadObject", () => {
@@ -49,5 +50,26 @@ describe("safeSocketHandler", () => {
 
     expect(handler).toHaveBeenCalledWith({ friendIds: [] }, "callback");
     expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe("payload-bearing event registration", () => {
+  it("keeps every payload-bearing event behind onPayload", () => {
+    const source = readFileSync(new URL("./index.js", import.meta.url), "utf8");
+    const payloadEvents = [
+      "get_online_friends",
+      "send_invite",
+      "create_session",
+      "join_session",
+      "start_session",
+      "finish_flow_focus",
+      "stop_session",
+      "set_pet",
+    ];
+
+    for (const event of payloadEvents) {
+      expect(source).toContain(`onPayload(socket, '${event}'`);
+      expect(source).not.toContain(`socket.on('${event}'`);
+    }
   });
 });
