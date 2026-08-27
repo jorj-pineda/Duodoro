@@ -14,6 +14,9 @@ const {
   inviteUser,
   isInvited,
   findPlayerByUserId,
+  reservePlayerSlot,
+  releasePlayerSlot,
+  hasOpenPlayerSlot,
   markPlayerDisconnected,
   sessionParticipantIds,
   findUserSessions,
@@ -518,6 +521,10 @@ io.on('connection', (socket) => {
       socket.emit('invite_error', { message: 'You are not in this session' });
       return;
     }
+    if (sessionId && sessions[sessionId] && !hasOpenPlayerSlot(sessions[sessionId])) {
+      socket.emit('invite_error', { message: 'Session is full' });
+      return;
+    }
 
     // Friends only. get_online_friends already validates friendship; without
     // the same check here, any online user could be pushed an invite whose
@@ -651,52 +658,76 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const prevSession = socketToSession[socket.id];
-    if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
-
-    // Reconnect: this user already has a player slot in the session under an
-    // old socket id (grace-pending, or a zombie socket the server hasn't
-    // noticed dropping yet). Evict the old entry so the join below re-keys
-    // them instead of duplicating the player.
-    const oldSocketId = userId ? findPlayerByUserId(session, userId) : null;
-    if (oldSocketId && oldSocketId !== socket.id) {
-      cancelPendingDisconnect(oldSocketId);
-      removePlayer(session, oldSocketId);
-      delete socketToSession[oldSocketId];
-      // Stop broadcasting to a socket that's no longer a player (a still-open
-      // stale tab); harmless no-op when the old socket is already gone.
-      io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
-      if (session.hostId === oldSocketId) session.hostId = socket.id;
-      socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
-      console.log(`[${sessionId}] ${userId} reconnected (${oldSocketId} → ${socket.id})`);
+    // Reserve synchronously before the focus-total read below yields. A plain
+    // player-count check lets two concurrent joins both see one open seat and
+    // both enter after their database reads finish. Existing users bypass the
+    // new-seat count so reconnecting to a full room remains valid.
+    const slot = reservePlayerSlot(session, userId);
+    if (!slot.ok) {
+      socket.emit('session_error', { message: 'Session is full' });
+      return;
     }
 
-    const safePet = sanitizePet(pet);
-    const focusSeconds = await totalFocusSeconds(userId);
-    const petStage = safePet ? stageForTotal(focusSeconds) : null;
-    socket.join(sessionId);
-    socketToSession[socket.id] = sessionId;
-    const playerCount = addPlayer(session, socket.id, {
-      avatar: safeAvatar,
-      displayName: safeName,
-      userId,
-      pet: safePet,
-      petStage,
-      focusSeconds: cachedFocus(focusSeconds),
-    });
+    try {
+      const safePet = sanitizePet(pet);
+      const focusSeconds = await totalFocusSeconds(userId);
+      const petStage = safePet ? stageForTotal(focusSeconds) : null;
 
-    if (userId) setPresence(userId, sessionId, session.world);
-    console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
+      // The last live player can leave while this join is waiting on Supabase,
+      // which deletes the in-memory session. Never join the detached old object.
+      if (getSession(sessionId) !== session) {
+        socket.emit('session_error', { message: 'Session not found' });
+        return;
+      }
 
-    socket.to(sessionId).emit('player_joined', {
-      playerId: socket.id,
-      avatar: safeAvatar,
-      displayName: safeName,
-      pet: safePet,
-      petStage,
-    });
+      // Do not eject the caller from another room until this room has both
+      // authorized them and held a seat for them.
+      const prevSession = socketToSession[socket.id];
+      if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
 
-    socket.emit('sync_state', buildSyncPayload(session));
+      // Reconnect: this user already has a player slot in the session under an
+      // old socket id (grace-pending, or a zombie socket the server hasn't
+      // noticed dropping yet). Look it up after the await so concurrent
+      // reconnects always replace the freshest slot rather than duplicating it.
+      const oldSocketId = userId ? findPlayerByUserId(session, userId) : null;
+      if (oldSocketId && oldSocketId !== socket.id) {
+        cancelPendingDisconnect(oldSocketId);
+        removePlayer(session, oldSocketId);
+        delete socketToSession[oldSocketId];
+        // Stop broadcasting to a socket that's no longer a player (a still-open
+        // stale tab); harmless no-op when the old socket is already gone.
+        io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
+        if (session.hostId === oldSocketId) session.hostId = socket.id;
+        socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
+        console.log(`[${sessionId}] ${userId} reconnected (${oldSocketId} → ${socket.id})`);
+      }
+
+      socket.join(sessionId);
+      socketToSession[socket.id] = sessionId;
+      const playerCount = addPlayer(session, socket.id, {
+        avatar: safeAvatar,
+        displayName: safeName,
+        userId,
+        pet: safePet,
+        petStage,
+        focusSeconds: cachedFocus(focusSeconds),
+      });
+
+      if (userId) setPresence(userId, sessionId, session.world);
+      console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
+
+      socket.to(sessionId).emit('player_joined', {
+        playerId: socket.id,
+        avatar: safeAvatar,
+        displayName: safeName,
+        pet: safePet,
+        petStage,
+      });
+
+      socket.emit('sync_state', buildSyncPayload(session));
+    } finally {
+      if (slot.reserved) releasePlayerSlot(session, userId);
+    }
   });
 
   // start_session: { sessionId, focusDuration, breakDuration, mode }

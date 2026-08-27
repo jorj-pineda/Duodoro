@@ -101,6 +101,11 @@ export function useGameSession(profile: Profile | null) {
   // tab resume closes the WebSocket. The server removes the player on
   // disconnect, so without these we can't re-enter silently.
   const sessionIdRef = useRef<string>("");
+  // Joining is optimistic. If the server refuses a different room, keep the
+  // room this socket is still actually in so a failed switch does not orphan
+  // the client from its live session.
+  const previousSessionIdRef = useRef<string>("");
+  const pendingJoinSessionIdRef = useRef<string>("");
   const lastAvatarRef = useRef<AvatarConfig | null>(null);
   const lastDisplayNameRef = useRef<string>("Player");
   useEffect(() => {
@@ -197,12 +202,25 @@ export function useGameSession(profile: Profile | null) {
       socket.on("session_error", ({ message }: { message: string }) => {
         console.error("Session error:", message);
         setSessionError(message);
-        // Both mean "you are not in a session" — drop any local state that
-        // says otherwise, so we don't sit on a screen for a session we
-        // aren't actually in.
-        if (message === "Session not found" || message === "This session is private") {
+        // These reject a join attempt. Restore the room the socket was already
+        // in, or clear the optimistic id when there was no previous room, so
+        // the UI never sits in a session the server refused.
+        if (
+          message === "Session not found" ||
+          message === "This session is private" ||
+          message === "Session is full"
+        ) {
+          const previousSessionId = previousSessionIdRef.current;
+          previousSessionIdRef.current = "";
+          pendingJoinSessionIdRef.current = "";
+          if (previousSessionId) {
+            setSessionId(previousSessionId);
+            sessionStorage.setItem(RESUME_KEY, previousSessionId);
+            socket.emit("request_sync");
+            return;
+          }
           // Stale resume attempt or expired invite — the server has already
-          // removed us from any previous session, so mirror that here
+          // confirmed there is no room to restore, so clear the optimistic id.
           sessionStorage.removeItem(RESUME_KEY);
           setResumeSessionId(null);
           setSessionId("");
@@ -212,6 +230,16 @@ export function useGameSession(profile: Profile | null) {
       });
 
       socket.on("sync_state", (data: SyncPayload) => {
+        // A sync for the attempted room confirms the switch. A sync for the
+        // previous room can race with the join response and must not erase the
+        // rollback target.
+        if (
+          !pendingJoinSessionIdRef.current ||
+          data.sessionId === pendingJoinSessionIdRef.current
+        ) {
+          previousSessionIdRef.current = "";
+          pendingJoinSessionIdRef.current = "";
+        }
         if (data.mode) setServerMode(data.mode);
         setPhase(data.phase);
         setPhaseStartTime(data.phaseStartTime);
@@ -514,6 +542,8 @@ export function useGameSession(profile: Profile | null) {
     (sid: string, avatar: AvatarConfig) => {
       const socket = socketRef.current;
       if (!socket) return;
+      previousSessionIdRef.current = sessionIdRef.current;
+      pendingJoinSessionIdRef.current = sid;
       setSessionId(sid);
       const displayName = profile?.display_name ?? profile?.username ?? "Player";
       lastAvatarRef.current = avatar;
@@ -536,6 +566,8 @@ export function useGameSession(profile: Profile | null) {
     setPhase("waiting");
     setPlayers({});
     setSessionId("");
+    previousSessionIdRef.current = "";
+    pendingJoinSessionIdRef.current = "";
     lastAvatarRef.current = null;
     sessionStorage.removeItem(RESUME_KEY);
     setResumeSessionId(null);

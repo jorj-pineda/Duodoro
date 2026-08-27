@@ -28,7 +28,11 @@ Client (`cd client`):
 
 Server (`cd server`):
 - `npm start` — runs on port 3001 (or `npx nodemon index.js` for reload)
-- `npm run test:run` — vitest once. Most of the suite is pure helpers, but `createSession.test.js` spawns the real server as a child process with `PORT=0` and talks to it over a real socket (`socket.io-client`, a devDependency) — so that run binds an ephemeral port and scrapes the boot log for it
+- `npm run test:run` — vitest once. Most of the suite is pure helpers, but
+  `createSession.test.js` and `sessionCapacity.test.js` spawn the real server as
+  a child process with `PORT=0` and talk to it over real sockets
+  (`socket.io-client`, a devDependency) — so those runs bind ephemeral ports and
+  scrape the boot log for them
 - Without `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` set, the server runs in dev mode: JWT verification and all persistence are skipped. In production those vars are required (it exits otherwise).
 
 Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Server env: see `server/.env.example`.
@@ -50,6 +54,13 @@ Sessions are keyed by UUID. Phase state machine driven by `setTimeout` chains in
 Two timer modes: `pomodoro` (fixed durations, server auto-advances) and `flow` (open-ended focus; client emits `finish_flow_focus`, break is computed as ~1/5 of elapsed focus). Focus is recorded to the DB when a focus phase completes or is stopped/abandoned early (`recordSession`, with `completed` flag).
 
 A dropped socket doesn't eject its player immediately: authenticated players keep their slot for a reconnect grace window (`RECONNECT_GRACE_MS`, default 60 s), and `join_session` from the same `userId` re-keys the existing slot to the new socket instead of duplicating the player. The client mirrors the active session id into `sessionStorage` and auto-rejoins after a page reload.
+
+Sessions have exactly two seats. A distinct third user gets `Session is full`,
+while an existing user's reconnect is allowed to replace its current socket in
+a full room. New joins reserve a seat synchronously in `server/session.js`
+before awaiting the focus-total RPC; a plain count check before that await has a
+race where two joins can both see the final seat. Every reservation is released
+in `finally`, and it is private server state that never enters `sync_state`.
 
 ### The world rotation
 

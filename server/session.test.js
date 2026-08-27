@@ -6,6 +6,9 @@ import {
   setPlayerPet,
   creditFocus,
   findPlayerByUserId,
+  reservePlayerSlot,
+  releasePlayerSlot,
+  hasOpenPlayerSlot,
   markPlayerDisconnected,
   inviteUser,
   isInvited,
@@ -177,6 +180,52 @@ describe("findPlayerByUserId", () => {
     const s = createSessionState("forest", "host");
     addPlayer(s, "sock-a", { avatar: {}, displayName: "A", userId: null });
     expect(findPlayerByUserId(s, null)).toBe(null);
+  });
+});
+
+describe("two-person seat reservations", () => {
+  it("reserves the second seat and reports the room full", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "host", { avatar: {}, displayName: "A", userId: "u1" });
+
+    expect(hasOpenPlayerSlot(s)).toBe(true);
+    expect(reservePlayerSlot(s, "u2")).toEqual({ ok: true, reserved: true });
+    expect(hasOpenPlayerSlot(s)).toBe(false);
+    expect(reservePlayerSlot(s, "u3")).toEqual({ ok: false, reserved: false });
+  });
+
+  it("allows an existing participant to reconnect to a full room", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "host", { avatar: {}, displayName: "A", userId: "u1" });
+    addPlayer(s, "partner", { avatar: {}, displayName: "B", userId: "u2" });
+
+    expect(hasOpenPlayerSlot(s)).toBe(false);
+    expect(reservePlayerSlot(s, "u2")).toEqual({ ok: true, reserved: false });
+  });
+
+  it("releases a failed join so another user can take the seat", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "host", { avatar: {}, displayName: "A", userId: "u1" });
+    expect(reservePlayerSlot(s, "u2").ok).toBe(true);
+
+    expect(releasePlayerSlot(s, "u2")).toBe(true);
+    expect(hasOpenPlayerSlot(s)).toBe(true);
+    expect(reservePlayerSlot(s, "u3").ok).toBe(true);
+  });
+
+  it("does not let duplicate in-flight joins reserve twice", () => {
+    const s = createSessionState("forest", "host");
+    addPlayer(s, "host", { avatar: {}, displayName: "A", userId: "u1" });
+
+    expect(reservePlayerSlot(s, "u2").ok).toBe(true);
+    expect(reservePlayerSlot(s, "u2")).toEqual({ ok: false, reserved: false });
+    expect(s.pendingJoinUserIds.size).toBe(1);
+  });
+
+  it("does not expose reservations in the sync payload", () => {
+    const s = createSessionState("forest", "host");
+    reservePlayerSlot(s, "u2");
+    expect(buildSyncPayload(s)).not.toHaveProperty("pendingJoinUserIds");
   });
 });
 

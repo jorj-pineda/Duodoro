@@ -222,6 +222,81 @@ describe("useGameSession connection lifecycle", () => {
     act(() => result.current.reconnect());
     await waitFor(() => expect(fakeSocket.connectCalls).toBeGreaterThan(before));
   });
+
+  it("clears an optimistic room id when the room is full", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+
+    act(() =>
+      result.current.joinSession("full-room", {
+        skinColor: "#e0ac69",
+        hairStyle: "bob",
+        hairColor: "#222222",
+        eyeStyle: "normal",
+        outfitColor: "#3355aa",
+      }),
+    );
+    expect(result.current.sessionId).toBe("full-room");
+
+    act(() => fakeSocket.fire("session_error", { message: "Session is full" }));
+
+    await waitFor(() => expect(result.current.sessionId).toBe(""));
+    expect(result.current.sessionError).toBe("Session is full");
+    expect(result.current.playerCount).toBe(0);
+  });
+
+  it("restores the current room when switching to a full one is rejected", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() =>
+      fakeSocket.fire("sync_state", {
+        mode: "pomodoro",
+        phase: "waiting",
+        focusDuration: 1500,
+        breakDuration: 300,
+        phaseStartTime: null,
+        world: "forest",
+        players: {},
+        playerCount: 1,
+        sessionId: "current-room",
+      }),
+    );
+    await waitFor(() => expect(result.current.sessionId).toBe("current-room"));
+
+    act(() =>
+      result.current.joinSession("full-room", {
+        skinColor: "#e0ac69",
+        hairStyle: "bob",
+        hairColor: "#222222",
+        eyeStyle: "normal",
+        outfitColor: "#3355aa",
+      }),
+    );
+    // A visibility-triggered sync from the current room can arrive while the
+    // attempted join is still awaiting authorization.
+    act(() =>
+      fakeSocket.fire("sync_state", {
+        mode: "pomodoro",
+        phase: "waiting",
+        focusDuration: 1500,
+        breakDuration: 300,
+        phaseStartTime: null,
+        world: "forest",
+        players: {},
+        playerCount: 1,
+        sessionId: "current-room",
+      }),
+    );
+    act(() => fakeSocket.fire("session_error", { message: "Session is full" }));
+
+    await waitFor(() => expect(result.current.sessionId).toBe("current-room"));
+    expect(sessionStorage.getItem("duodoro:session")).toBe("current-room");
+    expect(fakeSocket.emittedNames()).toContain("request_sync");
+  });
 });
 
 describe("useGameSession pet stage", () => {
