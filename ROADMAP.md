@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-27. PRs #35–#51 merged.
+Last updated: 2026-08-27. PRs #35–#52 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -15,10 +15,12 @@ nobody had claimed, so the window cost nothing. Nothing has claimed since
 either: `premium_grants` is empty, so the round trip is still unproven against
 the live database.
 
-Migration 022 is introduced by post-audit item 14c below and is **not yet
-recorded as applied**. Apply it before deploying the matching server commit;
-the nullable key keeps the migration-first window compatible with the old
-two-insert server.
+Migration 022 was applied to production and recorded by Supabase as
+`20260828021445_atomic_focus_recording` on 2026-08-27. Production verification
+confirmed its nullable UUID key, partial unique index, invoker mode, empty
+search path, and service-role-only execution. A completed two-account focus is
+still a required manual release check; schema inspection is not a substitute
+for exercising the deployed client → server → database flow.
 
 ~~Open infra issue: `ALLOWED_ORIGIN` missing the www host~~ — **fixed
 2026-08-12.** Verified: both `https://duodoro.live` and
