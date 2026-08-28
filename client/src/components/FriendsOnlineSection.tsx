@@ -9,6 +9,8 @@ const WORLD_LABEL: Record<string, string> = Object.fromEntries(
 
 interface Props {
   onlineFriends: Profile[];
+  error: string | null;
+  retry: () => void;
   onOpenFriends: () => void;
   onJoinSession: (sessionId: string) => void;
   onInvite: (friendId: string) => void;
@@ -16,10 +18,36 @@ interface Props {
 
 export default function FriendsOnlineSection({
   onlineFriends,
+  error,
+  retry,
   onOpenFriends,
   onJoinSession,
   onInvite,
 }: Props) {
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="flex items-center gap-3 bg-surface border border-danger/30 rounded-2xl px-4 py-3"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-danger text-xs font-semibold">
+            Friend presence is unavailable
+          </p>
+          <p className="text-faint text-[11px] mt-0.5">
+            Your friend list was not reported as empty.
+          </p>
+        </div>
+        <button
+          onClick={retry}
+          className="text-xs bg-raise hover:bg-line text-muted font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (onlineFriends.length === 0) return null;
 
   return (

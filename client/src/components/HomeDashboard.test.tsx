@@ -40,7 +40,12 @@ vi.mock("@/hooks/useTasks", () => ({
 }));
 
 vi.mock("@/hooks/useOnlineFriends", () => ({
-  useOnlineFriends: () => ({ friends: [], onlineFriendIds: [] }),
+  useOnlineFriends: () => ({
+    friends: [],
+    onlineFriendIds: [],
+    error: null,
+    retry: vi.fn(),
+  }),
 }));
 
 const profile: Profile = {

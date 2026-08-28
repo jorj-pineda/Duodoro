@@ -20,10 +20,15 @@ export function useOnlineFriends(
   const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(
     new Set(),
   );
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const sb = getSupabase();
 
   const fetchFriends = useCallback(async () => {
-    const { data } = await sb
+    setLoading(true);
+    setError(null);
+    const { data, error: fetchError } = await sb
       .from("friendships")
       .select(
         `
@@ -33,13 +38,20 @@ export function useOnlineFriends(
       `,
       )
       .eq("status", "accepted");
-    if (data) {
-      setFriends(
-        (data as unknown as FriendshipRow[])
-          .map((f) => (f.requester_id === userId ? f.addressee : f.requester))
-          .filter((p): p is Profile => Boolean(p)),
-      );
+    if (fetchError) {
+      setError("Couldn't load friend presence.");
+      setLoading(false);
+      return false;
     }
+
+    const nextFriends = ((data ?? []) as unknown as FriendshipRow[])
+      .map((f) => (f.requester_id === userId ? f.addressee : f.requester))
+      .filter((p): p is Profile => Boolean(p));
+    setFriends(nextFriends);
+    if (nextFriends.length === 0) setOnlineFriendIds(new Set());
+    setLoaded(true);
+    setLoading(false);
+    return true;
   }, [sb, userId]);
 
   useEffect(() => {
@@ -50,6 +62,25 @@ export function useOnlineFriends(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFriends();
   }, [fetchFriends]);
+
+  useEffect(() => {
+    const channel = sb
+      .channel("online-friends-rt")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships" },
+        fetchFriends,
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles" },
+        fetchFriends,
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [sb, fetchFriends]);
 
   useEffect(() => {
     const socket = socketRef.current;
@@ -81,5 +112,12 @@ export function useOnlineFriends(
     };
   }, [socketRef, friends]);
 
-  return { friends, onlineFriendIds };
+  return {
+    friends,
+    onlineFriendIds,
+    loading,
+    loaded,
+    error,
+    retry: fetchFriends,
+  };
 }

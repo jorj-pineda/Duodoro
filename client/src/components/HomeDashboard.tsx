@@ -112,7 +112,12 @@ export default function HomeDashboard({
     clearError: clearTaskError,
   } = useTasks(profile.id);
 
-  const { friends, onlineFriendIds } = useOnlineFriends(profile.id, socketRef);
+  const {
+    friends,
+    onlineFriendIds,
+    error: friendsError,
+    retry: retryFriends,
+  } = useOnlineFriends(profile.id, socketRef);
 
   const displayName = profile.display_name ?? profile.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();
@@ -335,6 +340,8 @@ export default function HomeDashboard({
 
           <FriendsOnlineSection
             onlineFriends={onlineFriends}
+            error={friendsError}
+            retry={retryFriends}
             onOpenFriends={onOpenFriends}
             onJoinSession={onJoinSession}
             onInvite={onInvite}
