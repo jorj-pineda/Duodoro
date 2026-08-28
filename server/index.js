@@ -27,6 +27,7 @@ const { worldAt } = require('./rotation');
 const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
 const { recordFocusSession } = require('./focusRecorder');
+const { deleteAccountData } = require('./accountDeletion');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 require('dotenv').config();
 
@@ -126,6 +127,7 @@ io.use(async (socket, next) => {
       return next(new Error('Invalid or expired token'));
     }
     socket.userId = user.id;
+    socket.userEmail = user.email || null;
     next();
   } catch (err) {
     return next(new Error('Authentication failed'));
@@ -494,6 +496,37 @@ function leaveSession(socket, sessionId) {
   finalizePlayerRemoval(sessionId, socket.id);
 }
 
+// Account deletion is not a disconnect: reconnect grace would deliberately
+// preserve every slot for another minute. Remove all of the user's tabs from
+// live rooms immediately and do not record an abandoned round for an identity
+// whose history was just deleted.
+function removeUserFromLiveSessions(userId) {
+  for (const [sessionId, session] of Object.entries(sessions)) {
+    const socketIds = Object.entries(session.players)
+      .filter(([, player]) => player.userId === userId)
+      .map(([socketId]) => socketId);
+
+    for (const socketId of socketIds) {
+      cancelPendingDisconnect(socketId);
+      delete socketToSession[socketId];
+      io.sockets.sockets.get(socketId)?.leave(sessionId);
+      removePlayer(session, socketId);
+      io.to(sessionId).emit('player_left', { playerId: socketId });
+    }
+
+    releasePlayerSlot(session, userId);
+    if (socketIds.includes(session.hostId)) {
+      session.hostId = Object.keys(session.players)[0] || null;
+    }
+
+    if (Object.keys(session.players).length === 0) {
+      if (session.phaseTimer) clearTimeout(session.phaseTimer);
+      delete sessions[sessionId];
+      console.log(`[${sessionId}] Session deleted with account ${userId}`);
+    }
+  }
+}
+
 // ── Socket Handlers ────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
@@ -510,6 +543,54 @@ io.on('connection', (socket) => {
     const cameOnline = presence.add(userId, socket.id);
     if (cameOnline) broadcastPresence(userId, true);
     console.log(`[presence] ${userId} registered (${socket.id})`);
+  });
+
+  // Permanent self-service deletion. Identity comes only from the verified
+  // handshake; the payload cannot name another account. The exact confirmation
+  // phrase prevents an accidental click or stale UI event from doing this.
+  onPayload(socket, 'delete_account', async ({ confirmation }, respond) => {
+    if (typeof respond !== 'function') return;
+    if (confirmation !== 'DELETE') {
+      respond({ ok: false, message: 'Type DELETE to confirm' });
+      return;
+    }
+    if (!socket.userId || socket.accountDeletionPending) {
+      respond({ ok: false, message: 'Account deletion is unavailable' });
+      return;
+    }
+
+    socket.accountDeletionPending = true;
+    const userId = socket.userId;
+    try {
+      await deleteAccountData(supabase, {
+        userId,
+        email: socket.userEmail,
+      });
+      removeUserFromLiveSessions(userId);
+      respond({ ok: true });
+
+      // Let the acknowledgement reach the requesting tab before terminating
+      // every socket for this now-deleted account.
+      setImmediate(() => {
+        for (const client of io.sockets.sockets.values()) {
+          if (client.userId === userId) client.disconnect(true);
+        }
+      });
+    } catch (error) {
+      socket.accountDeletionPending = false;
+      console.error(`[account] Failed to delete ${userId}:`, error.message || error);
+      respond({
+        ok: false,
+        message: 'Could not delete your account. Please try again.',
+      });
+    }
+  }, {
+    errorEvent: null,
+    onInvalid: (respond) => {
+      if (typeof respond === 'function') {
+        respond({ ok: false, message: 'Invalid deletion request' });
+      }
+    },
   });
 
   onPayload(socket, 'get_online_friends', async ({ friendIds }, callback) => {
