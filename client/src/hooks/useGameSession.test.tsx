@@ -21,14 +21,18 @@ function createFakeSocket() {
     id: "sock-1",
     connected: false,
     auth: {} as Record<string, unknown>,
-    emitted: [] as { ev: string; payload: unknown }[],
+    emitted: [] as {
+      ev: string;
+      payload: unknown;
+      callback?: (...args: unknown[]) => void;
+    }[],
     connectCalls: 0,
 
     on: add(handlers),
     off: remove(handlers),
     once: add(handlers),
-    emit(ev: string, payload?: unknown) {
-      socket.emitted.push({ ev, payload });
+    emit(ev: string, payload?: unknown, callback?: (...args: unknown[]) => void) {
+      socket.emitted.push({ ev, payload, callback });
     },
     disconnect() {
       socket.connected = false;
@@ -296,6 +300,46 @@ describe("useGameSession connection lifecycle", () => {
     await waitFor(() => expect(result.current.sessionId).toBe("current-room"));
     expect(sessionStorage.getItem("duodoro:session")).toBe("current-room");
     expect(fakeSocket.emittedNames()).toContain("request_sync");
+  });
+
+  it("joins with an opaque share token without treating it as a room id", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+
+    act(() =>
+      result.current.joinShareInvite("A".repeat(43), {
+        skinColor: "#e0ac69",
+        hairStyle: "bob",
+        hairColor: "#222222",
+        eyeStyle: "normal",
+        outfitColor: "#3355aa",
+      }),
+    );
+
+    const join = fakeSocket.emitted.find((entry) => entry.ev === "join_session");
+    expect(join?.payload).toMatchObject({ shareToken: "A".repeat(43) });
+    expect(join?.payload).not.toHaveProperty("sessionId");
+    expect(result.current.sessionId).toBe("");
+  });
+
+  it("requests a share token for the current server-confirmed room", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("session_created", { sessionId: "sess-1" }));
+    await waitFor(() => expect(result.current.sessionId).toBe("sess-1"));
+
+    let tokenPromise!: Promise<string | null>;
+    act(() => {
+      tokenPromise = result.current.createShareInvite();
+    });
+    const request = fakeSocket.emitted.find(
+      (entry) => entry.ev === "create_share_invite",
+    );
+    expect(request?.payload).toEqual({ sessionId: "sess-1" });
+    act(() => request?.callback?.({ ok: true, token: "A".repeat(43) }));
+    await expect(tokenPromise).resolves.toBe("A".repeat(43));
   });
 });
 
