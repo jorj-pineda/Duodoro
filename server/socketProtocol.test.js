@@ -65,6 +65,7 @@ describe("payload-bearing event registration", () => {
       "finish_flow_focus",
       "stop_session",
       "set_pet",
+      "delete_account",
     ];
 
     for (const event of payloadEvents) {
