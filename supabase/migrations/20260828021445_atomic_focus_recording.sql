@@ -190,3 +190,4 @@ GRANT EXECUTE ON FUNCTION public.record_focus_session(
 --   );
 --   DROP INDEX public.sessions_recording_key_unique;
 --   ALTER TABLE public.sessions DROP COLUMN recording_key;
+-- Canonical timestamp version for legacy migration 022.

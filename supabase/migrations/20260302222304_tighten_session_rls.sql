@@ -12,3 +12,4 @@ DROP POLICY IF EXISTS "sp_insert" ON session_participants;
 -- No replacement INSERT policies needed — the server uses the service role key
 -- which bypasses RLS. Authenticated users can still SELECT their own sessions
 -- via the existing "sessions_read_own" and "sp_read_own" policies.
+-- Canonical timestamp version for legacy migration 004.

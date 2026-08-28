@@ -140,3 +140,4 @@ GRANT EXECUTE ON FUNCTION toggle_shared_task(uuid, boolean) TO authenticated;
 --          has_function_privilege('anon',
 --            'toggle_shared_task(uuid, boolean)', 'EXECUTE') AS anon;
 --   -- expect: t, f
+-- Canonical timestamp version for legacy migration 017.

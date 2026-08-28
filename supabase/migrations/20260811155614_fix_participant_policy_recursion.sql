@@ -106,3 +106,4 @@ CREATE INDEX IF NOT EXISTS session_participants_session_user_idx
 --
 --    Before this migration both raise SQLSTATE 42P17. After, both return a
 --    count.
+-- Canonical timestamp version for legacy migration 018.

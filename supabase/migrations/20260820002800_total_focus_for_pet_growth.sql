@@ -71,3 +71,4 @@ GRANT EXECUTE ON FUNCTION total_focus_seconds(UUID) TO service_role;
 -- 3. Expect this to agree with what the user's own stats page shows them:
 --
 --   SELECT total_focus_seconds(id), username FROM profiles LIMIT 5;
+-- Canonical timestamp version for legacy migration 021.

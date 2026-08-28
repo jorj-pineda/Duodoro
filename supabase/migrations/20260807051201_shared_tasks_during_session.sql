@@ -58,3 +58,4 @@ CREATE INDEX IF NOT EXISTS sessions_room_code_idx ON sessions (room_code);
 --
 --   SELECT indexname FROM pg_indexes WHERE tablename = 'sessions';
 --   SELECT policyname FROM pg_policies WHERE tablename = 'tasks' AND cmd = 'SELECT';
+-- Canonical timestamp version for legacy migration 013.

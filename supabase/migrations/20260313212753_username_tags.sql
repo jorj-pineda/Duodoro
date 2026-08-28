@@ -153,3 +153,4 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Canonical timestamp version for legacy migration 005.

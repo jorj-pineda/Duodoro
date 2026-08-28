@@ -100,3 +100,4 @@ CREATE POLICY "friendships_delete" ON friendships FOR DELETE TO authenticated
 --
 --   SELECT policyname, cmd FROM pg_policies
 --    WHERE tablename = 'friendships' ORDER BY policyname;
+-- Canonical timestamp version for legacy migration 010.

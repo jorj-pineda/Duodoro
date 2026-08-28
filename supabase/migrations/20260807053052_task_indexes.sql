@@ -32,3 +32,4 @@ CREATE INDEX IF NOT EXISTS tasks_room_code_idx ON tasks (room_code)
 -- ─────────────────────────────────────────────────────────────────────────────
 --
 --   SELECT indexname FROM pg_indexes WHERE tablename = 'tasks' ORDER BY 1;
+-- Canonical timestamp version for legacy migration 014.

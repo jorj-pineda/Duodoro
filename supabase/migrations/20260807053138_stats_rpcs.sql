@@ -230,3 +230,4 @@ GRANT EXECUTE ON FUNCTION get_focus_stats(TEXT)       TO authenticated;
 GRANT EXECUTE ON FUNCTION get_duo_stats()             TO authenticated;
 GRANT EXECUTE ON FUNCTION get_recent_sessions(INT)    TO authenticated;
 GRANT EXECUTE ON FUNCTION get_daily_focus(INT, TEXT)  TO authenticated;
+-- Canonical timestamp version for legacy migration 015.
