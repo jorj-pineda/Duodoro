@@ -12,6 +12,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  database:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+
+      # Start only the PostgreSQL service: the migration chain needs Supabase's
+      # roles/auth schema/publication, but not Studio or the HTTP services.
+      - name: Start disposable PostgreSQL 17 database
+        run: >-
+          supabase start -x
+          gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Rebuild from the committed migration chain
+        run: supabase db reset --local --no-seed
+
+      - name: Lint the rebuilt schema
+        run: supabase db lint --local --level warning --fail-on error
+
+      - name: Verify the schema contract
+        run: supabase test db
+
+      - name: Stop disposable database
+        if: always()
+        run: supabase stop --no-backup
+
   server:
     name: Server tests
     runs-on: ubuntu-latest
