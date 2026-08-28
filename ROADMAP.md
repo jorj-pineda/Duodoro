@@ -49,7 +49,7 @@ two-insert server.
       room, and synchronous seat reservations close the concurrent-join race.
       Full rooms stop issuing invitations, and the rejected client clears its
       optimistic room state instead of remaining on an empty game screen.
-- [x] **14c. Atomic focus recording** — this PR. Migration 022 adds the
+- [x] **14c. Atomic focus recording** — PR #50. Migration 022 adds the
       service-role-only `record_focus_session` transaction and a unique,
       nullable per-round recording key. The server snapshots one key and one
       payload per focus round, retries transient failures without duplicating
@@ -57,6 +57,13 @@ two-insert server.
       shutdown. PostgreSQL verification covered first insert, identical retry,
       conflict rejection, participant-FK rollback, grants, invoker mode, and
       the pinned empty search path. **Migration 022 must precede deployment.**
+- [x] **14d. Release confidence gate** — this PR. A blocking Playwright job
+      boots the production client and realtime server, then checks health,
+      public sign-in entry points, social metadata, framework/browser errors,
+      and portrait/landscape phone overflow. Failures retain screenshots,
+      video, traces, and an HTML report. `docs/RELEASE_CHECKLIST.md` owns the
+      credentialed two-account, live-data, real-device, OAuth, pet-art, and
+      link-preview checks that CI cannot honestly prove.
 
 ## Next up (recommended order)
 

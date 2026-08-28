@@ -1,0 +1,141 @@
+# Duodoro release checklist
+
+Use this for every production release, after CI passes and before calling the
+release complete. The browser smoke suite covers stable public behavior; this
+checklist covers authenticated, two-account, live-database, device, and visual
+behavior that dummy CI credentials cannot prove.
+
+Record evidence without copying private task text, access tokens, OAuth codes,
+or real user data into issues or pull requests. A failed required check blocks
+the release until it is fixed or explicitly rolled back.
+
+## Release record
+
+- Commit or PR:
+- Preview URL:
+- Production URL:
+- Tester:
+- UTC date:
+- Browser/device versions:
+- Supabase migrations applied through:
+- Result: PASS / FAIL / BLOCKED
+- Evidence links:
+- Follow-up issues:
+
+## 1. Automated gate
+
+- [ ] GitHub `Server tests` passes.
+- [ ] GitHub `Client tests & build` passes.
+- [ ] GitHub `Browser release smoke` passes.
+- [ ] The browser-smoke job confirms the app and realtime health endpoints,
+      public landing content, Google and Discord entry points, canonical Open
+      Graph/Twitter metadata, absence of browser errors/framework overlays,
+      and no horizontal overflow in phone portrait or landscape.
+- [ ] If browser smoke fails, inspect its uploaded screenshot, video, trace,
+      and HTML report before retrying.
+
+Local reproduction from a completed production build:
+
+```sh
+cd client
+npx playwright install chromium
+NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-dummy-anon-key \
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001 \
+npm run build
+NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-dummy-anon-key \
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001 \
+npm run test:e2e
+```
+
+## 2. Deployment and schema
+
+- [ ] Every migration required by the release is applied before dependent
+      application code. Record the highest migration above.
+- [ ] `https://duodoro.live` loads the intended commit.
+- [ ] The Render root and `/health` endpoints return success.
+- [ ] Both `https://duodoro.live` and `https://www.duodoro.live` receive a
+      matching CORS allow-origin response from the realtime server.
+- [ ] No new errors appear in Vercel, Render, or Supabase logs during smoke.
+
+## 3. Authentication and account lifecycle
+
+Use designated test accounts, not personal accounts with private data.
+
+- [ ] Google sign-in returns to the production domain and reaches the expected
+      first-run or home screen.
+- [ ] Discord sign-in returns to the production domain and reaches the expected
+      first-run or home screen.
+- [ ] A first-run account claims a username and saves its avatar/display name.
+- [ ] Refresh restores the signed-in profile and avatar.
+- [ ] Sign-out returns to the landing page; signing back in restores the same
+      account rather than creating a duplicate profile.
+
+## 4. Two-account focus flow
+
+Use account A in one browser profile and account B in another.
+
+- [ ] A sends B a friend request; B accepts; both friend lists agree.
+- [ ] A creates a room and invites B; B joins the intended room.
+- [ ] A third distinct test account is rejected from the two-seat room.
+- [ ] Starting focus synchronizes mode, duration, world, and countdown.
+- [ ] A normal focus completion advances both clients through celebration,
+      break, returning, and the next focus round.
+- [ ] Stopping focus early returns both clients to waiting.
+- [ ] Leaving removes the correct player and clears their presence.
+- [ ] Refresh during focus rejoins within the reconnect grace window.
+- [ ] Background a phone tab for at least 90 seconds, return, and confirm timer
+      and room state resynchronize.
+
+## 5. Durable collaboration data
+
+- [ ] A completed focus appears once—not zero or twice—in both participants'
+      history/stats.
+- [ ] An early stop appears with the expected incomplete duration and does not
+      increase completed-focus pet progress.
+- [ ] A creates a shared goal; B completes it; both clients show B's persisted
+      completion byline after refresh.
+- [ ] Temporarily interrupting a read shows an unavailable/retry state rather
+      than an empty-history or empty-friends claim.
+
+## 6. Premium and pet progression
+
+- [ ] With a designated test account, run the premium claim against production
+      and verify both `premium_grants` and `profiles.is_premium`.
+- [ ] Reload and confirm premium remains enabled.
+- [ ] Select and change a pet; both participants see the same pet and stage.
+- [ ] Using controlled focus history, inspect young, grown, and full maps for
+      every pet at whole-pixel density with no clipping.
+- [ ] Remove or clearly label any controlled test rows after verification.
+
+## 7. Phone and visual checks
+
+Run on a real phone in portrait and landscape; browser emulation alone does not
+prove safe areas, browser chrome, touch reachability, or background-tab behavior.
+
+- [ ] Landing, avatar, home, waiting, focus, break, stats, friends, tasks, and
+      premium screens have no clipped or unreachable controls.
+- [ ] Close/back/leave/stop controls remain reachable around notches and home
+      indicators.
+- [ ] Character, pet, terrain, timer, and break-prop pixels remain crisp.
+- [ ] Young/grown/full pets read as the intended animal beside a character.
+- [ ] Theme toggle and sound mute persist after reload.
+
+## 8. Launch surface
+
+- [ ] Fetch the deployed Open Graph image directly and visually inspect it.
+- [ ] Fetch the production URL with a real link-preview debugger or messaging
+      client and confirm title, description, image, and canonical URL.
+- [ ] Manifest, icon, install splash, and light/dark theme colors match the
+      current Duodoro identity.
+- [ ] Terms and Privacy links resolve and match the data practices in the
+      current release.
+
+## Release decision
+
+- **PASS:** every required box is checked and no unresolved blocker exists.
+- **FAIL:** a required behavior is wrong; fix or roll back before release.
+- **BLOCKED:** credentials, provider access, device access, or production
+  visibility is unavailable. A blocked check is not a pass and must name its
+  owner and follow-up date in the release record.
