@@ -197,7 +197,7 @@ two-account checklist for OAuth, background-tab behavior, and visual taste.
 
 ### 5. Do not claim agreement to terms that users cannot inspect
 
-**Status:** Addressed after PR #51 with public Terms and Privacy pages linked
+**Status:** Addressed in PR #52 with public Terms and Privacy pages linked
 before sign-in, an authenticated Privacy & account screen, reversible marketing
 consent, and permanent self-service account deletion. The server derives the
 account from the verified socket, hard-deletes Supabase Auth so schema cascades

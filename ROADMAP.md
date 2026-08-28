@@ -64,7 +64,7 @@ two-insert server.
       video, traces, and an HTML report. `docs/RELEASE_CHECKLIST.md` owns the
       credentialed two-account, live-data, real-device, OAuth, pet-art, and
       link-preview checks that CI cannot honestly prove.
-- [x] **14e. Legal trust baseline** — this PR. Inspectable Terms and Privacy
+- [x] **14e. Legal trust baseline** — PR #52. Inspectable Terms and Privacy
       pages now sit beside sign-in; authenticated users can review and withdraw
       marketing consent or permanently delete their account and linked data.
       The server accepts only the verified socket identity, removes the legacy
