@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import AvatarCreator from "./AvatarCreator";
 import GameWorld from "./GameWorld";
@@ -20,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
 
 export default function DuoTimer() {
+  const router = useRouter();
   const auth = useAuth();
   const game = useGameSession(auth.profile);
 
@@ -69,6 +71,9 @@ export default function DuoTimer() {
   // empty game screen reading "Setting up…". Show it and send them home.
   useEffect(() => {
     if (!game.sessionError) return;
+    // This effect deliberately promotes an external socket event from the
+    // session hook into parent-owned toast/navigation state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     showError(game.sessionError);
     game.clearSessionError();
     if (!game.sessionId) setAppStep((step) => (step === "game" ? "home" : step));
@@ -300,7 +305,7 @@ export default function DuoTimer() {
             localStorage.removeItem("duodoro_profile");
             sessionStorage.removeItem("duodoro:session");
             await sb.auth.signOut({ scope: "local" });
-            window.location.assign("/");
+            router.replace("/");
           }}
           onOpenFriends={() => {
             setFriendsOpen(true);
