@@ -1,3 +1,4 @@
+-- Canonical timestamp version for legacy migration 001.
 -- ─────────────────────────────────────────────────────────────────────────────
 -- DuoFocus — Initial Schema
 -- Run this in your Supabase project's SQL editor.

@@ -19,3 +19,4 @@ ALTER FUNCTION public.claim_username(text)         SET search_path = public, pg_
 ALTER FUNCTION public.change_display_name(text)    SET search_path = public, pg_temp;
 ALTER FUNCTION public.generate_discriminator(text) SET search_path = public, pg_temp;
 ALTER FUNCTION public.handle_new_user()            SET search_path = public, pg_temp;
+-- Canonical timestamp version for legacy migration 009.

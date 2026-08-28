@@ -53,3 +53,4 @@ CREATE INDEX IF NOT EXISTS friendships_addressee_idx ON friendships (addressee_i
 --
 --   SELECT indexname FROM pg_indexes
 --    WHERE tablename = 'friendships' ORDER BY indexname;
+-- Canonical timestamp version for legacy migration 012.

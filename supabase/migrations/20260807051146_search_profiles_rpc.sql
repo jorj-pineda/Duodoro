@@ -65,3 +65,4 @@ END $$;
 
 REVOKE ALL ON FUNCTION search_profiles(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION search_profiles(TEXT) TO authenticated;
+-- Canonical timestamp version for legacy migration 011.

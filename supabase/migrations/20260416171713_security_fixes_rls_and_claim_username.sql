@@ -60,3 +60,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_world_check;
 ALTER TABLE sessions ADD CONSTRAINT sessions_world_check
   CHECK (world IN ('forest', 'space', 'beach', 'city'));
+-- Canonical timestamp version for legacy migration 007.

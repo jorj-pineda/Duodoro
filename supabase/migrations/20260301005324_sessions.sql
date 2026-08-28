@@ -70,3 +70,4 @@ CREATE POLICY "sp_read_own" ON session_participants FOR SELECT TO authenticated
 DROP POLICY IF EXISTS "sp_insert" ON session_participants;
 CREATE POLICY "sp_insert" ON session_participants FOR INSERT TO authenticated
   WITH CHECK (true);
+-- Canonical timestamp version for legacy migration 002.

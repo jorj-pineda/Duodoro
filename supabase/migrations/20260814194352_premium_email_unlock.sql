@@ -161,3 +161,4 @@ GRANT EXECUTE ON FUNCTION claim_premium(boolean) TO authenticated;
 --
 --   SELECT p.username, p.is_premium, g.email, g.marketing_opt_in, g.source
 --     FROM profiles p JOIN premium_grants g ON g.user_id = p.id;
+-- Canonical timestamp version for legacy migration 020.

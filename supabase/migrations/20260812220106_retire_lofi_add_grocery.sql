@@ -28,3 +28,4 @@ ALTER TABLE sessions ADD CONSTRAINT sessions_world_check
 -- getWorld() falls back to forest for an unknown id so this is cosmetic, but a
 -- stale value would show friends a room that no longer exists.
 UPDATE profiles SET current_world_id = NULL WHERE current_world_id = 'lofi';
+-- Canonical timestamp version for legacy migration 019.

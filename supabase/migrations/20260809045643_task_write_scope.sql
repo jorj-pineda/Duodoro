@@ -72,3 +72,4 @@ ALTER TABLE tasks VALIDATE CONSTRAINT tasks_content_length;
 --
 -- If VALIDATE fails, some existing row is over 500 chars. Find them with:
 --   SELECT id, char_length(content) FROM tasks WHERE char_length(content) > 500;
+-- Canonical timestamp version for legacy migration 016.

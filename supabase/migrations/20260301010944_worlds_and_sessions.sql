@@ -14,3 +14,4 @@ ALTER TABLE tasks
 
 -- Optional: index for "my tasks in this session"
 CREATE INDEX IF NOT EXISTS tasks_session_id_idx ON tasks (session_id) WHERE session_id IS NOT NULL;
+-- Canonical timestamp version for legacy migration 003.

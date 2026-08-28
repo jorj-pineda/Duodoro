@@ -43,3 +43,4 @@ BEGIN
   );
 END;
 $$;
+-- Canonical timestamp version for legacy migration 006.
