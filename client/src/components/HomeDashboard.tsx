@@ -10,6 +10,7 @@ import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
 import WorldNowCard from "./WorldNowCard";
 import Button from "./Button";
+import AccountSettingsModal from "./AccountSettingsModal";
 import {
   UsersIcon,
   ChartIcon,
@@ -39,6 +40,7 @@ interface Props {
   onChangeUsername: () => void;
   onChangeDisplayName: () => void;
   onSignOut: () => void;
+  onAccountDeleted: () => void | Promise<void>;
   onOpenFriends: () => void;
   onOpenStats: () => void;
 }
@@ -81,10 +83,12 @@ export default function HomeDashboard({
   onChangeUsername,
   onChangeDisplayName,
   onSignOut,
+  onAccountDeleted,
   onOpenFriends,
   onOpenStats,
 }: Props) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const {
     personalStats,
     loading,
@@ -233,6 +237,15 @@ export default function HomeDashboard({
                 )}
                 <button
                   onClick={() => {
+                    setAccountSettingsOpen(true);
+                    setProfileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 text-left text-xs text-muted hover:text-ink py-1.5 transition-colors"
+                >
+                  Privacy & account
+                </button>
+                <button
+                  onClick={() => {
                     onSignOut();
                     setProfileMenuOpen(false);
                   }}
@@ -346,6 +359,13 @@ export default function HomeDashboard({
           </div>
         </div>
       </div>
+      {accountSettingsOpen ? (
+        <AccountSettingsModal
+          onClose={() => setAccountSettingsOpen(false)}
+          onDeleted={onAccountDeleted}
+          socketRef={socketRef}
+        />
+      ) : null}
     </div>
   );
 }
