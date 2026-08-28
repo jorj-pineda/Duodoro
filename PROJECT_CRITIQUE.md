@@ -161,6 +161,12 @@ saved yet” state to participants.
 
 ### 4. Turn the accumulated browser-verification debt into a release gate
 
+**Status:** Addressed after PR #50 with a blocking production-build Playwright
+smoke job plus `docs/RELEASE_CHECKLIST.md`. CI owns stable public, metadata,
+realtime-health, error-overlay, and responsive-overflow checks; OAuth,
+two-account, live-data, real-phone, and visual checks remain explicit manual
+release requirements rather than unverified claims.
+
 **Evidence:** The roadmap marks pet stages, the emoji purge, pixel chrome,
 mobile sprite scaling, rotating-world behavior, social-card output, and older
 shared-goal/reconnect/sound flows as not browser-verified. Several require two

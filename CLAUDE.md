@@ -145,8 +145,15 @@ there is no deploy workflow in this repo:
 CI is separate from deploys: `.github/workflows/ci.yml` runs on PRs and pushes to `main` —
 server tests, then client `tsc --noEmit` + **blocking** `npm run lint` + tests +
 `next build` (with dummy `NEXT_PUBLIC_*` values, since they're inlined at build time).
-Lint is at zero violations and the job is hard-failing; keep it that way rather than
-adding suppressions in bulk.
+It also builds the production client in a dedicated browser-smoke job and runs Playwright
+against both the client and realtime health endpoint at desktop, phone portrait, and phone
+landscape sizes. Failure evidence is uploaded for seven days. Lint is at zero violations
+and every job is hard-failing; keep it that way rather than adding suppressions in bulk.
+
+CI cannot prove OAuth, two real accounts, live Supabase state, background-tab behavior,
+safe areas on hardware, or visual taste. `docs/RELEASE_CHECKLIST.md` is the required manual
+half of the release gate; record a result and evidence instead of turning a blocked check
+into a pass.
 
 See `MIGRATE_TO_VERCEL.md` for the full migration history and gotchas. The old GCP VM /
 Docker-Compose/Nginx/GHCR pipeline has been retired.
@@ -167,8 +174,10 @@ The repo owner has settled on these; follow them without being asked.
   the fix — and say so in the PR. Tests that pass both ways are guards; label them as such
   rather than presenting them as evidence. For SQL, run the whole migration chain against
   Postgres 17 in Docker and show the before/after output.
-- **Report honestly.** State what was not verified. Nothing in this repo has been
-  browser-tested by an agent; say so rather than implying it works.
+- **Report honestly.** State what was not verified. The public production build has a
+  Playwright smoke gate; that is not evidence for authenticated, two-account, live-data,
+  real-device, or subjective visual behavior. Use the release checklist and name blocked
+  checks rather than implying they work.
 - **Verify claims before acting on them.** Findings handed over from an audit or a previous
   session are frequently wrong on specifics. Three reported sprite defects (eye centring,
   duplicate `long` hair, palm misalignment) turned out not to exist on inspection. Check
