@@ -74,6 +74,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {}
       onChangeUsername={vi.fn()}
       onChangeDisplayName={vi.fn()}
       onSignOut={vi.fn()}
+      onAccountDeleted={vi.fn()}
       onOpenFriends={vi.fn()}
       onOpenStats={vi.fn()}
     />,

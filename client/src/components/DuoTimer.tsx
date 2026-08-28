@@ -296,6 +296,12 @@ export default function DuoTimer() {
             const { signOut } = await import("@/lib/supabase");
             await signOut();
           }}
+          onAccountDeleted={async () => {
+            localStorage.removeItem("duodoro_profile");
+            sessionStorage.removeItem("duodoro:session");
+            await sb.auth.signOut({ scope: "local" });
+            window.location.assign("/");
+          }}
           onOpenFriends={() => {
             setFriendsOpen(true);
             setStatsOpen(false);
