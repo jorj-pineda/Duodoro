@@ -71,6 +71,13 @@ Use designated test accounts, not personal accounts with private data.
 - [ ] Refresh restores the signed-in profile and avatar.
 - [ ] Sign-out returns to the landing page; signing back in restores the same
       account rather than creating a duplicate profile.
+- [ ] Privacy & account loads the current marketing preference; turning it off
+      persists `marketing_opt_in = false` without removing premium access.
+- [ ] A designated disposable account can type the exact confirmation phrase,
+      delete itself, return to the landing page, and cannot reconnect or sign
+      back into the deleted Duodoro account. Confirm its profile, friendships,
+      owned tasks, participant links, premium grant, and matching waitlist row
+      are gone without inspecting or recording another user's private data.
 
 ## 4. Two-account focus flow
 

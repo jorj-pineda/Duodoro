@@ -197,6 +197,14 @@ two-account checklist for OAuth, background-tab behavior, and visual taste.
 
 ### 5. Do not claim agreement to terms that users cannot inspect
 
+**Status:** Addressed after PR #51 with public Terms and Privacy pages linked
+before sign-in, an authenticated Privacy & account screen, reversible marketing
+consent, and permanent self-service account deletion. The server derives the
+account from the verified socket, hard-deletes Supabase Auth so schema cascades
+remove linked application rows, and explicitly removes the email-keyed legacy
+waitlist row. The published copy is a product-authored trust baseline, not a
+substitute for jurisdiction-specific review by qualified counsel.
+
 **Evidence:** The landing page says, “By signing in you agree to our terms of
 service,” but the repository has no Terms of Service or Privacy Policy page or
 link. The app stores identity/profile data, friendship data, tasks, focus
