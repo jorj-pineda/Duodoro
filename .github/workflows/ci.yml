@@ -24,6 +24,8 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
         working-directory: server
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: server
       - run: npm run test:run
         working-directory: server
 
@@ -38,6 +40,8 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+        working-directory: client
+      - run: npm audit --omit=dev --audit-level=high
         working-directory: client
 
       - run: npx tsc --noEmit
