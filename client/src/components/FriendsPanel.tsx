@@ -129,7 +129,18 @@ export default function FriendsPanel({
   onInviteFriend,
 }: Props) {
   const [tab, setTab] = useState<Tab>("friends");
-  const { friends, requests, acceptRequest, declineRequest, error: listError, clearError: clearListError } = useFriendsList(myProfile.id, open);
+  const {
+    friends,
+    requests,
+    acceptRequest,
+    declineRequest,
+    loading: listLoading,
+    loaded: listLoaded,
+    loadError,
+    retry: retryList,
+    error: listError,
+    clearError: clearListError,
+  } = useFriendsList(myProfile.id, open);
   const { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest, error: searchError, clearError: clearSearchError } = useFriendSearch(myProfile.id);
 
   const friendIds = new Set(friends.map((f) => f.id));
@@ -212,12 +223,34 @@ export default function FriendsPanel({
                 </div>
               )}
 
+              {loadError && (
+                <div
+                  role="alert"
+                  className="flex items-center gap-2 px-3 py-2.5 bg-danger/10 border-b border-danger/30 text-xs"
+                >
+                  <span className="flex-1 text-danger">{loadError}</span>
+                  <button
+                    onClick={retryList}
+                    disabled={listLoading}
+                    className="font-bold text-danger hover:opacity-70 disabled:opacity-40"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-3">
                 {/* Friends tab */}
                 {tab === "friends" && (
                   <div>
-                    {friends.length === 0 ? (
+                    {!listLoaded ? (
+                      <p className="text-faint text-sm text-center py-8">
+                        {listLoading || !loadError
+                          ? "Loading friends…"
+                          : "Friends are unavailable right now."}
+                      </p>
+                    ) : friends.length === 0 ? (
                       <p className="text-faint text-sm text-center py-8">
                         No friends yet.
                         <br />
@@ -239,7 +272,13 @@ export default function FriendsPanel({
                 {/* Requests tab */}
                 {tab === "requests" && (
                   <div className="space-y-2">
-                    {requests.length === 0 ? (
+                    {!listLoaded ? (
+                      <p className="text-faint text-sm text-center py-8">
+                        {listLoading || !loadError
+                          ? "Loading requests…"
+                          : "Requests are unavailable right now."}
+                      </p>
+                    ) : requests.length === 0 ? (
                       <p className="text-faint text-sm text-center py-8">
                         No pending requests
                       </p>
