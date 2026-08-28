@@ -35,6 +35,13 @@ test("production landing surface is usable and crawler-ready", async ({
   await expect(
     page.getByRole("button", { name: "Continue with Discord" }),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Terms" })).toHaveAttribute(
+    "href",
+    "/terms",
+  );
+  await expect(
+    page.getByRole("link", { name: "Privacy Policy" }),
+  ).toHaveAttribute("href", "/privacy");
 
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     "content",
@@ -54,6 +61,25 @@ test("production landing surface is usable and crawler-ready", async ({
       "[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay",
     ).count(),
   ).toBe(0);
+  expect(browserErrors).toEqual([]);
+});
+
+test("public legal documents are inspectable before sign-in", async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page);
+
+  await page.goto("/terms", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("heading", { name: "Terms of Service" }),
+  ).toBeVisible();
+  await expect(page.getByText("Effective August 27, 2026")).toBeVisible();
+  await expect(page.getByRole("link", { name: /jorgepineda0310/ })).toBeVisible();
+
+  await page.goto("/privacy", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy" }),
+  ).toBeVisible();
+  await expect(page.getByText(/permanently remove your sign-in/)).toBeVisible();
+  await expect(page.getByText(/Marketing email is optional/)).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
