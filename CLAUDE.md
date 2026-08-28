@@ -12,7 +12,7 @@ Two independent npm packages (each with its own `package.json` and lockfile), pl
 
 - `client/` — Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, framer-motion). Single-page app: `app/page.tsx` just renders `DuoTimer`.
 - `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. The transport/handler layer is `server/index.js`; pure session-state helpers live in `server/session.js`.
-- `supabase/migrations/` — Numbered SQL migrations (`001_initial.sql` onward). These are run manually in the Supabase SQL editor, not via a migration tool. Add new ones as the next number in sequence.
+- `supabase/migrations/` — Canonical timestamped SQL migrations managed by Supabase CLI. Create new files with `supabase migration new <name>`; never apply repository migrations by hand in the SQL editor.
 - `docker-compose.yml` — local/self-hosted Docker setup (client + server, no nginx); kept for local dev, not used by the current deploy.
 - The root `package.json` is vestigial — don't add dependencies there; install into `client/` or `server/`.
 
@@ -28,6 +28,14 @@ Client (`cd client`):
 
 Server (`cd server`):
 - `npm start` — runs on port 3001 (or `npx nodemon index.js` for reload)
+
+Database (repository root, Docker + Supabase CLI 2.116.0):
+- `supabase start` — starts the project-scoped local stack on the 5532x ports.
+- `supabase db reset --local --no-seed` — rebuilds PostgreSQL 17 from every committed migration.
+- `supabase db lint --local --level warning --fail-on error` — rejects schema errors.
+- `supabase test db` — runs the pgTAP schema contract.
+- `supabase migration new <name>` — the only way to create the next migration filename.
+- Follow `docs/DATABASE_WORKFLOW.md` for remote dry-run, push, verification, and rollback. Never use `db reset --linked`, `db push --include-all`, or remote Dashboard schema edits.
 - `npm run test:run` — vitest once. Most of the suite is pure helpers, but
   `createSession.test.js` and `sessionCapacity.test.js` spawn the real server as
   a child process with `PORT=0` and talk to it over real sockets
