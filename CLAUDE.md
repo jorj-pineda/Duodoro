@@ -167,6 +167,12 @@ safe areas on hardware, or visual taste. `docs/RELEASE_CHECKLIST.md` is the requ
 half of the release gate; record a result and evidence instead of turning a blocked check
 into a pass.
 
+Both package jobs run `npm audit --omit=dev --audit-level=high` immediately after
+install. Treat a new high/critical production advisory as a release blocker: update the
+smallest compatible dependency set, commit every affected lockfile, and rerun the full
+package plus browser gates. The root manifest is a legacy duplicate and is not deployed,
+but keep its lockfile clean until that manifest is deliberately retired.
+
 See `MIGRATE_TO_VERCEL.md` for the full migration history and gotchas. The old GCP VM /
 Docker-Compose/Nginx/GHCR pipeline has been retired.
 
