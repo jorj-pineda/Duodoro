@@ -90,6 +90,8 @@ interface SessionHUDProps {
   onStart: () => void;
   onStop: () => void;
   onFinishFlow: () => void;
+  onShareInvite: () => void;
+  shareInviteBusy: boolean;
   onLeave: () => void;
 }
 
@@ -122,6 +124,8 @@ export default function SessionHUD({
   onStart,
   onStop,
   onFinishFlow,
+  onShareInvite,
+  shareInviteBusy,
   onLeave,
 }: SessionHUDProps) {
   const showTimer = phase === "focus" || phase === "break";
@@ -260,9 +264,19 @@ export default function SessionHUD({
             </Button>
           )}
           {playerCount < 2 && phase === "waiting" && (
-            <p className="text-faint text-xs text-center">
-              Friends can join from their dashboard
-            </p>
+            <div className="flex flex-col items-center gap-1.5">
+              <Button
+                variant="surface"
+                size="sm"
+                onClick={onShareInvite}
+                disabled={shareInviteBusy}
+              >
+                {shareInviteBusy ? "Creating link…" : "Copy invite link"}
+              </Button>
+              <p className="text-faint text-xs text-center">
+                One use · expires in 15 minutes
+              </p>
+            </div>
           )}
           {phase === "focus" && serverMode === "flow" && (
             <Button variant="calm" className="mt-2" onClick={onFinishFlow}>
