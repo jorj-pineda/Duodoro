@@ -75,7 +75,7 @@ for exercising the deployed client → server → database flow.
       describes actual processors, retention, deletion, contact, and marketing
       behavior. It remains product-authored and needs jurisdiction-specific
       review by qualified counsel before being treated as legal advice.
-- [x] **14f. Production dependency advisories** — this PR. Next.js moved from
+- [x] **14f. Production dependency advisories** — PR #54. Next.js moved from
       16.1.6 to the patched 16.3.3 release, React and its types moved to their
       matching patch versions, and compatible lockfile refreshes moved the
       Socket.IO, Engine.IO, `ws`, Express, PostCSS, Sharp, and Nano ID trees
