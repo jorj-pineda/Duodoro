@@ -131,6 +131,18 @@ The game screen is a fixed app shell (`h-dvh` + `overflow-hidden`) with an inter
 - Postgres is not the only place a permission check lives. A client that renders an action the database will refuse is a bug even when the refusal is correct — `StickyNote` drew a ✕ on notes only the owner can delete for as long as the feature existed. The mirror of that: an action the database has no way to perform is worse. `is_premium` was unwritable by anything (010 revoked it, nothing else set it) while the UI sold it, so premium was false for every user for the life of the feature.
 - **Trust `auth.users`, not the client, for anything the client could otherwise assert about itself.** `claim_premium` (020) grants premium on a *confirmed* email address, and reads both the address and `email_confirmed_at` from `auth.users` inside a `SECURITY DEFINER` function — `authenticated` cannot read that table at all. Taking the address as an argument would have made the check meaningless: you would be confirming whatever the caller just typed. Every user arrives via Google or Discord OAuth, so the address is already provider-verified and no confirmation email is sent or needed; the column is still checked, so enabling email/password sign-in later doesn't quietly open a hole.
 - Personal data doesn't belong on `profiles`. Friends can read profile rows (012 narrows it, but not to nothing), so email addresses live in `premium_grants`, readable only by their owner. Premium itself stays a boolean on `profiles` because that *is* shown to others.
+- Account deletion is a verified server operation, never a client-side table sweep. The
+  `delete_account` socket event takes only the exact confirmation phrase; identity and email
+  come from the authenticated handshake. `auth.admin.deleteUser(..., false)` hard-deletes
+  the Auth root and existing `ON DELETE` rules remove profiles, friendships, owned tasks,
+  participant links, and premium consent. The legacy `waitlist` has no account foreign key,
+  so `server/accountDeletion.js` removes its matching normalized email explicitly first.
+  Keep the public Privacy page accurate whenever a new personal-data root or processor is
+  added.
+- Marketing consent is independent of premium. Migration 020's idempotent `claim_premium`
+  RPC is also the authenticated update path for `marketing_opt_in`; withdrawing consent
+  must not revoke pets or premium access. Never send commercial email without honoring the
+  stored preference and an unsubscribe mechanism.
 
 ## Deployment
 

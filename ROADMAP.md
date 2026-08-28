@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-27. PRs #35–#49 merged.
+Last updated: 2026-08-27. PRs #35–#51 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -57,13 +57,22 @@ two-insert server.
       shutdown. PostgreSQL verification covered first insert, identical retry,
       conflict rejection, participant-FK rollback, grants, invoker mode, and
       the pinned empty search path. **Migration 022 must precede deployment.**
-- [x] **14d. Release confidence gate** — this PR. A blocking Playwright job
+- [x] **14d. Release confidence gate** — PR #51. A blocking Playwright job
       boots the production client and realtime server, then checks health,
       public sign-in entry points, social metadata, framework/browser errors,
       and portrait/landscape phone overflow. Failures retain screenshots,
       video, traces, and an HTML report. `docs/RELEASE_CHECKLIST.md` owns the
       credentialed two-account, live-data, real-device, OAuth, pet-art, and
       link-preview checks that CI cannot honestly prove.
+- [x] **14e. Legal trust baseline** — this PR. Inspectable Terms and Privacy
+      pages now sit beside sign-in; authenticated users can review and withdraw
+      marketing consent or permanently delete their account and linked data.
+      The server accepts only the verified socket identity, removes the legacy
+      email-keyed waitlist row, hard-deletes Supabase Auth, and relies on the
+      audited foreign-key cascades for application records. Public legal copy
+      describes actual processors, retention, deletion, contact, and marketing
+      behavior. It remains product-authored and needs jurisdiction-specific
+      review by qualified counsel before being treated as legal advice.
 
 ## Next up (recommended order)
 
