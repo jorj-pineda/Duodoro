@@ -38,7 +38,7 @@ Two npm packages, plus Supabase:
 |---|---|
 | `client/` | Next.js 16, React 19, Tailwind 4. Deploys to Vercel. |
 | `server/` | Express + Socket.IO (plain Node, CommonJS). Deploys to Render. |
-| `supabase/migrations/` | Numbered SQL, applied by hand in the SQL editor. |
+| `supabase/migrations/` | Timestamped SQL, rebuilt and contract-tested by the Supabase CLI in CI. |
 
 Auth and persistence (profiles, friends, tasks, completed session history)
 are Supabase. Live session state is in-memory on the server and dies with
@@ -73,6 +73,12 @@ npm run dev            # http://localhost:3000
 
 Tests: `npm run test:run` inside `client/` or `server/`. Lint and `tsc`
 live in `client/`.
+
+Database work uses Docker and Supabase CLI 2.116.0. From the repository root,
+`supabase start`, `supabase db reset --local --no-seed`, and
+`supabase test db` rebuild and verify the PostgreSQL 17 schema. See
+[`docs/DATABASE_WORKFLOW.md`](docs/DATABASE_WORKFLOW.md) before creating or
+deploying a migration.
 
 `docker-compose.yml` is a leftover local/self-hosted setup (no nginx). The
 live site is Vercel + Render, not that file.

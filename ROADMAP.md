@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-27. PRs #35–#53 merged.
+Last updated: 2026-08-28. PRs #35–#55 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -89,6 +89,14 @@ for exercising the deployed client → server → database flow.
       result and can recover on retry or a realtime change. Accepting a friend
       request must return the updated row, so an RLS-filtered zero-row update
       is no longer treated as success.
+- [x] **14h. Reproducible Supabase migrations** — this PR. The legacy files
+      now have canonical timestamp versions, a committed PostgreSQL 17 local
+      project rebuilds the entire chain, and CI blocks on reset, schema lint,
+      and a 37-assertion pgTAP contract. Production passed the corresponding
+      read-only contract check before its 12 schema-present/history-missing
+      versions were repaired; repository and production now list the same 22
+      versions. `docs/DATABASE_WORKFLOW.md` owns creation, dry-run, deployment,
+      verification, and rollback rules going forward.
 
 ## Next up (recommended order)
 
