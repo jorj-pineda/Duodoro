@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
@@ -231,8 +232,16 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <p className="text-faint text-xs max-w-xs text-center">
-            By signing in you agree to our terms of service. No spam, ever.
+          <p className="text-faint text-xs max-w-xs text-center leading-relaxed">
+            By continuing, you agree to the{" "}
+            <Link className="text-muted underline hover:text-ink" href="/terms">
+              Terms
+            </Link>{" "}
+            and acknowledge the{" "}
+            <Link className="text-muted underline hover:text-ink" href="/privacy">
+              Privacy Policy
+            </Link>
+            . Marketing email is optional.
           </p>
         </div>
       </main>
