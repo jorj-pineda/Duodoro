@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-27. PRs #35–#52 merged.
+Last updated: 2026-08-27. PRs #35–#53 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -75,6 +75,13 @@ for exercising the deployed client → server → database flow.
       describes actual processors, retention, deletion, contact, and marketing
       behavior. It remains product-authored and needs jurisdiction-specific
       review by qualified counsel before being treated as legal advice.
+- [x] **14f. Production dependency advisories** — this PR. Next.js moved from
+      16.1.6 to the patched 16.3.3 release, React and its types moved to their
+      matching patch versions, and compatible lockfile refreshes moved the
+      Socket.IO, Engine.IO, `ws`, Express, PostCSS, Sharp, and Nano ID trees
+      beyond their reported ranges. Production audits now report zero findings
+      in the client, server, and legacy root manifest. Client/server CI fails
+      on future high or critical production advisories.
 
 ## Next up (recommended order)
 
