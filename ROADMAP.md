@@ -82,6 +82,13 @@ for exercising the deployed client → server → database flow.
       beyond their reported ranges. Production audits now report zero findings
       in the client, server, and legacy root manifest. Client/server CI fails
       on future high or critical production advisories.
+- [x] **14g. Social reads fail visibly** — this PR. Friend and request reads
+      now publish explicit loading, loaded, and retryable failure states, and
+      replace both lists atomically only after both queries succeed. The home
+      presence summary reports an outage instead of disappearing like an empty
+      result and can recover on retry or a realtime change. Accepting a friend
+      request must return the updated row, so an RLS-filtered zero-row update
+      is no longer treated as success.
 
 ## Next up (recommended order)
 
