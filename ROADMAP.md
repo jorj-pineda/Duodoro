@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-28. PRs #35–#55 merged.
+Last updated: 2026-08-28. PRs #35–#56 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -97,6 +97,14 @@ for exercising the deployed client → server → database flow.
       versions were repaired; repository and production now list the same 22
       versions. `docs/DATABASE_WORKFLOW.md` owns creation, dry-run, deployment,
       verification, and rollback rules going forward.
+- [x] **14i. Shareable first-session invites** — PR #57. A participant can
+      copy a clean `/join/<token>` URL from the waiting room. Its opaque
+      256-bit bearer token expires after 15 minutes, rotates when another link
+      is created, is consumed with exactly one new-seat reservation, and never
+      exposes the room UUID. The recipient's tab retains the invite across
+      OAuth and first-run avatar setup, then redeems it automatically when the
+      authenticated socket is ready. Expired, replayed, full-room, and
+      non-participant attempts fail visibly.
 
 ## Next up (recommended order)
 
