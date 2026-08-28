@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   createSessionState,
+  SHARE_INVITE_TTL_MS,
+  createShareInvite,
+  hasValidShareInvite,
+  findSessionByShareInvite,
+  consumeShareInvite,
   beginFocusRound,
   addPlayer,
   removePlayer,
@@ -183,6 +188,37 @@ describe("invite allowlist", () => {
     const s = createSessionState("forest", "host");
     inviteUser(s, "u1");
     expect(buildSyncPayload(s)).not.toHaveProperty("invitedUserIds");
+  });
+});
+
+describe("share invite tokens", () => {
+  it("creates a 256-bit opaque invite with a bounded lifetime", () => {
+    const s = createSessionState("forest", "host");
+    const invite = createShareInvite(s, 1_000);
+
+    expect(invite.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(invite.expiresAt).toBe(1_000 + SHARE_INVITE_TTL_MS);
+    expect(hasValidShareInvite(s, invite.token, invite.expiresAt - 1)).toBe(true);
+    expect(hasValidShareInvite(s, invite.token, invite.expiresAt)).toBe(false);
+  });
+
+  it("rotates the previous link and finds only the live token", () => {
+    const s = createSessionState("forest", "host");
+    const sessions = { [s.id]: s };
+    const first = createShareInvite(s, 1_000, "first-token");
+    const second = createShareInvite(s, 2_000, "second-token");
+
+    expect(findSessionByShareInvite(sessions, first.token, 2_001)).toBe(null);
+    expect(findSessionByShareInvite(sessions, second.token, 2_001)).toBe(s);
+  });
+
+  it("is single-use and stays out of sync payloads", () => {
+    const s = createSessionState("forest", "host");
+    const invite = createShareInvite(s, 1_000, "one-use-token");
+
+    expect(buildSyncPayload(s)).not.toHaveProperty("shareInvite");
+    expect(consumeShareInvite(s, invite.token, 1_001)).toBe(true);
+    expect(consumeShareInvite(s, invite.token, 1_002)).toBe(false);
   });
 });
 
