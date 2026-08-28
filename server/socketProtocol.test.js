@@ -60,6 +60,7 @@ describe("payload-bearing event registration", () => {
       "get_online_friends",
       "send_invite",
       "create_session",
+      "create_share_invite",
       "join_session",
       "start_session",
       "finish_flow_focus",
