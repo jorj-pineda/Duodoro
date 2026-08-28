@@ -89,7 +89,7 @@ for exercising the deployed client → server → database flow.
       result and can recover on retry or a realtime change. Accepting a friend
       request must return the updated row, so an RLS-filtered zero-row update
       is no longer treated as success.
-- [x] **14h. Reproducible Supabase migrations** — this PR. The legacy files
+- [x] **14h. Reproducible Supabase migrations** — PR #56. The legacy files
       now have canonical timestamp versions, a committed PostgreSQL 17 local
       project rebuilds the entire chain, and CI blocks on reset, schema lint,
       and a 37-assertion pgTAP contract. Production passed the corresponding
