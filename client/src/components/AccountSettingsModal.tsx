@@ -150,7 +150,7 @@ export default function AccountSettingsModal({
               />
               <span className="text-sm text-muted">
                 Email me occasionally about Duodoro. Turning this off does not
-                remove premium or your pets.
+                remove companion access or your pets.
               </span>
             </label>
           )}
@@ -165,9 +165,10 @@ export default function AccountSettingsModal({
           <h3 className="font-bold text-danger">Delete account</h3>
           <p className="text-sm text-muted mt-2">
             Permanently removes your sign-in, profile, friendships, tasks,
-            participant links, premium grant, marketing consent, and matching
-            waitlist address. Session records needed for another participant’s
-            history may remain without a link to your deleted identity.
+            participant links, companion access record, marketing consent, and
+            matching waitlist address. Session records needed for another
+            participant’s history may remain without a link to your deleted
+            identity.
           </p>
           <label className="block text-xs font-semibold text-muted mt-4">
             Type DELETE to confirm

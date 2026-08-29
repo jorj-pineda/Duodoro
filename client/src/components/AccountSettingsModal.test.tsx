@@ -74,7 +74,7 @@ describe("AccountSettingsModal", () => {
     );
   });
 
-  it("withdraws marketing consent without removing premium", async () => {
+  it("withdraws marketing consent without removing companion access", async () => {
     open();
     const checkbox = await screen.findByRole("checkbox");
     expect(checkbox).toBeChecked();
@@ -86,7 +86,9 @@ describe("AccountSettingsModal", () => {
       }),
     );
     expect(await screen.findByText("Marketing email off.")).toBeInTheDocument();
-    expect(screen.getByText(/does not remove premium/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not remove companion access/),
+    ).toBeInTheDocument();
   });
 
   it("does not invent consent when no premium grant exists", async () => {

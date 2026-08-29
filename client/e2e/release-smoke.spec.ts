@@ -71,6 +71,9 @@ test("public legal documents are inspectable before sign-in", async ({ page }) =
   await expect(
     page.getByRole("heading", { name: "Terms of Service" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Companion access and email" }),
+  ).toBeVisible();
   await expect(page.getByText("Effective August 27, 2026")).toBeVisible();
   await expect(page.getByRole("link", { name: /jorgepineda0310/ })).toBeVisible();
 
@@ -80,6 +83,7 @@ test("public legal documents are inspectable before sign-in", async ({ page }) =
   ).toBeVisible();
   await expect(page.getByText(/permanently remove your sign-in/)).toBeVisible();
   await expect(page.getByText(/Marketing email is optional/)).toBeVisible();
+  await expect(page.getByText(/keep companion access/)).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 

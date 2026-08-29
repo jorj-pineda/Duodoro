@@ -55,11 +55,12 @@ export default function TermsPage() {
       </section>
 
       <section>
-        <h2>5. Premium and email</h2>
+        <h2>5. Companion access and email</h2>
         <p>
-          Duodoro’s current premium unlock is free and does not collect payment
-          information. Marketing email requires a separate choice and may be
-          turned off in Privacy &amp; account without losing premium access.
+          Duodoro’s current companion unlock is free and does not collect
+          payment information. A confirmed account email is required to unlock
+          companions. Marketing email is a separate, optional choice and may be
+          turned off in Privacy &amp; account without losing companion access.
           Future paid features will come with their own price and terms before
           you purchase them.
         </p>
