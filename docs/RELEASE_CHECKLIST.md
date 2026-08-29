@@ -74,12 +74,13 @@ Use designated test accounts, not personal accounts with private data.
 - [ ] Sign-out returns to the landing page; signing back in restores the same
       account rather than creating a duplicate profile.
 - [ ] Privacy & account loads the current marketing preference; turning it off
-      persists `marketing_opt_in = false` without removing premium access.
+      persists `marketing_opt_in = false` without removing companion access.
 - [ ] A designated disposable account can type the exact confirmation phrase,
       delete itself, return to the landing page, and cannot reconnect or sign
       back into the deleted Duodoro account. Confirm its profile, friendships,
-      owned tasks, participant links, premium grant, and matching waitlist row
-      are gone without inspecting or recording another user's private data.
+      owned tasks, participant links, companion access grant, and matching
+      waitlist row are gone without inspecting or recording another user's
+      private data.
 
 ## 4. Two-account focus flow
 
@@ -113,11 +114,11 @@ Use account A in one browser profile and account B in another.
 - [ ] Temporarily interrupting a read shows an unavailable/retry state rather
       than an empty-history or empty-friends claim.
 
-## 6. Premium and pet progression
+## 6. Companion access and pet progression
 
-- [ ] With a designated test account, run the premium claim against production
-      and verify both `premium_grants` and `profiles.is_premium`.
-- [ ] Reload and confirm premium remains enabled.
+- [ ] With a designated test account, run the companion-access claim against
+      production and verify both `premium_grants` and `profiles.is_premium`.
+- [ ] Reload and confirm companion access remains enabled.
 - [ ] Select and change a pet; both participants see the same pet and stage.
 - [ ] Using controlled focus history, inspect young, grown, and full maps for
       every pet at whole-pixel density with no clipping.
@@ -129,7 +130,7 @@ Run on a real phone in portrait and landscape; browser emulation alone does not
 prove safe areas, browser chrome, touch reachability, or background-tab behavior.
 
 - [ ] Landing, avatar, home, waiting, focus, break, stats, friends, tasks, and
-      premium screens have no clipped or unreachable controls.
+      companion-access screens have no clipped or unreachable controls.
 - [ ] Close/back/leave/stop controls remain reachable around notches and home
       indicators.
 - [ ] Character, pet, terrain, timer, and break-prop pixels remain crisp.
