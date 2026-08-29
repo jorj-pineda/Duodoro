@@ -104,6 +104,37 @@ function joinRoom(socket, sessionId, displayName) {
   });
 }
 
+function createShareInvite(socket, sessionId) {
+  return new Promise((resolve) => {
+    socket.emit("create_share_invite", { sessionId }, resolve);
+  });
+}
+
+function joinSharedRoom(socket, shareToken, displayName) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("shared join did not settle"));
+    }, 10_000);
+    const onSync = (state) => {
+      cleanup();
+      resolve({ ok: true, state });
+    };
+    const onError = ({ message }) => {
+      cleanup();
+      resolve({ ok: false, message });
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off("sync_state", onSync);
+      socket.off("session_error", onError);
+    };
+    socket.on("sync_state", onSync);
+    socket.on("session_error", onError);
+    socket.emit("join_session", { shareToken, avatar: AVATAR, displayName });
+  });
+}
+
 function nextEvent(socket, event) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`no ${event}`)), 10_000);
@@ -200,6 +231,44 @@ describe("two-person session capacity", () => {
     } finally {
       host.close();
       partner.close();
+    }
+  });
+
+  it("issues an opaque link token that grants exactly one new seat", async () => {
+    const host = await connectClient("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    const partner = await connectClient("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+    const replay = await connectClient("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
+    try {
+      const created = await createRoom(host);
+      const invite = await createShareInvite(host, created.sessionId);
+
+      expect(invite).toMatchObject({ ok: true });
+      expect(invite.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(invite).not.toHaveProperty("sessionId");
+      expect((await joinSharedRoom(partner, invite.token, "Partner")).ok).toBe(true);
+      expect(await joinSharedRoom(replay, invite.token, "Replay")).toEqual({
+        ok: false,
+        message: "Invite link is invalid or expired",
+      });
+    } finally {
+      host.close();
+      partner.close();
+      replay.close();
+    }
+  });
+
+  it("only lets a participant create a link", async () => {
+    const host = await connectClient("ffffffff-ffff-4fff-8fff-ffffffffffff");
+    const outsider = await connectClient("12121212-1212-4212-8212-121212121212");
+    try {
+      const created = await createRoom(host);
+      expect(await createShareInvite(outsider, created.sessionId)).toEqual({
+        ok: false,
+        message: "You are not in this session",
+      });
+    } finally {
+      host.close();
+      outsider.close();
     }
   });
 });

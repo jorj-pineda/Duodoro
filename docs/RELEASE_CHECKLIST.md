@@ -85,6 +85,11 @@ Use account A in one browser profile and account B in another.
 
 - [ ] A sends B a friend request; B accepts; both friend lists agree.
 - [ ] A creates a room and invites B; B joins the intended room.
+- [ ] A copies a waiting-room invite link; a signed-out B opens it, completes
+      OAuth and first-run avatar setup if required, and automatically joins
+      A's intended room without becoming friends first.
+- [ ] Reopening that consumed link fails visibly; creating a second link
+      invalidates the first; a link older than 15 minutes reports expiry.
 - [ ] A third distinct test account is rejected from the two-seat room.
 - [ ] Starting focus synchronizes mode, duration, world, and countdown.
 - [ ] A normal focus completion advances both clients through celebration,

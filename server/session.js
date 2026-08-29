@@ -1,7 +1,8 @@
-const { randomUUID } = require("crypto");
+const { randomBytes, randomUUID } = require("crypto");
 const { petStageAt } = require("./petLevel");
 
 const MAX_SESSION_PLAYERS = 2;
+const SHARE_INVITE_TTL_MS = 15 * 60 * 1000;
 
 function createSessionState(world, hostSocketId) {
   return {
@@ -29,7 +30,43 @@ function createSessionState(world, hostSocketId) {
     // synchronous reservation, two joins can both see one player, both await,
     // and then both enter what is meant to be a two-person room.
     pendingJoinUserIds: new Set(),
+    // One opaque bearer invite for the remaining seat. It is deliberately
+    // server-only: the room UUID is not permission to join, and sync payloads
+    // must never leak a token to every participant automatically.
+    shareInvite: null,
   };
+}
+
+function createShareInvite(
+  session,
+  now = Date.now(),
+  token = randomBytes(32).toString("base64url"),
+) {
+  session.shareInvite = { token, expiresAt: now + SHARE_INVITE_TTL_MS };
+  return session.shareInvite;
+}
+
+function hasValidShareInvite(session, token, now = Date.now()) {
+  if (typeof token !== "string" || !token || !session.shareInvite) return false;
+  if (session.shareInvite.expiresAt <= now) {
+    session.shareInvite = null;
+    return false;
+  }
+  return session.shareInvite.token === token;
+}
+
+function findSessionByShareInvite(sessions, token, now = Date.now()) {
+  if (typeof token !== "string" || !token) return null;
+  for (const session of Object.values(sessions)) {
+    if (hasValidShareInvite(session, token, now)) return session;
+  }
+  return null;
+}
+
+function consumeShareInvite(session, token, now = Date.now()) {
+  if (!hasValidShareInvite(session, token, now)) return false;
+  session.shareInvite = null;
+  return true;
 }
 
 function beginFocusRound(
@@ -213,7 +250,12 @@ function buildSyncPayload(session) {
 
 module.exports = {
   MAX_SESSION_PLAYERS,
+  SHARE_INVITE_TTL_MS,
   createSessionState,
+  createShareInvite,
+  hasValidShareInvite,
+  findSessionByShareInvite,
+  consumeShareInvite,
   beginFocusRound,
   addPlayer,
   removePlayer,

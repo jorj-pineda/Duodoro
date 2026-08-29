@@ -7,6 +7,9 @@ const { createClient } = require('@supabase/supabase-js');
 const { createPresenceRegistry } = require('./presence');
 const {
   createSessionState,
+  createShareInvite,
+  findSessionByShareInvite,
+  consumeShareInvite,
   beginFocusRound,
   addPlayer,
   removePlayer,
@@ -167,6 +170,7 @@ const rateLimits = {
   createSession: createRateLimiter(5, 60_000),   // 5 per minute
   joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
   sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
+  shareInvite:   createRateLimiter(10, 60_000),   // 10 per minute
 };
 
 // Register a client-originated event behind one runtime boundary. Socket.IO
@@ -733,10 +737,49 @@ io.on('connection', (socket) => {
     socket.emit('sync_state', buildSyncPayload(session));
   });
 
-  // join_session: { sessionId, avatar, displayName, pet }
-  // Joins an existing session by its UUID.
+  // create_share_invite: { sessionId }, acknowledgement: { ok, token, expiresAt }
+  // Rotates a short-lived, single-use bearer token for the remaining seat.
+  // The room UUID itself remains private and is never embedded in a link.
+  onPayload(socket, 'create_share_invite', ({ sessionId }, respond) => {
+    const reply = typeof respond === 'function' ? respond : () => {};
+    if (!rateLimits.shareInvite(socket.id)) {
+      reply({ ok: false, message: 'Too many requests, slow down' });
+      return;
+    }
+    if (typeof sessionId !== 'string') {
+      reply({ ok: false, message: 'Invalid session ID' });
+      return;
+    }
+    const session = getSession(sessionId);
+    if (!session) {
+      reply({ ok: false, message: 'Session not found' });
+      return;
+    }
+    if (!session.players[socket.id]) {
+      reply({ ok: false, message: 'You are not in this session' });
+      return;
+    }
+    if (!hasOpenPlayerSlot(session)) {
+      reply({ ok: false, message: 'Session is full' });
+      return;
+    }
+
+    const invite = createShareInvite(session);
+    reply({ ok: true, token: invite.token, expiresAt: invite.expiresAt });
+  }, {
+    errorEvent: null,
+    onInvalid: (respond) => {
+      if (typeof respond === 'function') {
+        respond({ ok: false, message: 'Invalid request' });
+      }
+    },
+  });
+
+  // join_session: { sessionId | shareToken, avatar, displayName, pet }
+  // A session UUID still requires the normal friend/invite authorization. An
+  // opaque share token is its own short-lived authorization for one new seat.
   // userId comes from verified socket.userId (auth middleware).
-  onPayload(socket, 'join_session', async ({ sessionId, avatar, displayName, pet }) => {
+  onPayload(socket, 'join_session', async ({ sessionId: requestedSessionId, shareToken, avatar, displayName, pet }) => {
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -747,14 +790,29 @@ io.on('connection', (socket) => {
       socket.emit('session_error', { message: 'Invalid avatar' });
       return;
     }
-    if (typeof sessionId !== 'string') {
-      socket.emit('session_error', { message: 'Invalid session ID' });
+    const joiningByLink = typeof shareToken === 'string';
+    if (joiningByLink && (shareToken.length < 20 || shareToken.length > 128)) {
+      socket.emit('session_error', { message: 'Invite link is invalid or expired' });
       return;
     }
 
-    const session = getSession(sessionId);
+    let session;
+    let sessionId;
+    if (joiningByLink) {
+      session = findSessionByShareInvite(sessions, shareToken);
+      sessionId = session?.id;
+    } else {
+      if (typeof requestedSessionId !== 'string') {
+        socket.emit('session_error', { message: 'Invalid session ID' });
+        return;
+      }
+      sessionId = requestedSessionId;
+      session = getSession(sessionId);
+    }
     if (!session) {
-      socket.emit('session_error', { message: 'Session not found' });
+      socket.emit('session_error', {
+        message: joiningByLink ? 'Invite link is invalid or expired' : 'Session not found',
+      });
       return;
     }
 
@@ -762,7 +820,7 @@ io.on('connection', (socket) => {
 
     // Authorize *before* touching any existing state — a refused join must not
     // eject the caller from the session they're already in.
-    if (!(await canJoinSession(session, userId))) {
+    if (!joiningByLink && !(await canJoinSession(session, userId))) {
       socket.emit('session_error', { message: 'This session is private' });
       console.log(`[${sessionId}] refused join from ${userId}`);
       return;
@@ -775,6 +833,16 @@ io.on('connection', (socket) => {
     const slot = reservePlayerSlot(session, userId);
     if (!slot.ok) {
       socket.emit('session_error', { message: 'Session is full' });
+      return;
+    }
+
+    // Claim the bearer token synchronously with the seat reservation. There is
+    // no await between lookup, reservation, and consumption, so two recipients
+    // cannot both redeem one link. A reconnecting participant does not consume
+    // the link because it does not claim a new seat.
+    if (joiningByLink && slot.reserved && !consumeShareInvite(session, shareToken)) {
+      releasePlayerSlot(session, userId);
+      socket.emit('session_error', { message: 'Invite link is invalid or expired' });
       return;
     }
 

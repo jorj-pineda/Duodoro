@@ -19,11 +19,18 @@ import UsernameChangeModal from "./UsernameChangeModal";
 import DisplayNameChangeModal from "./DisplayNameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
+import {
+  clearPendingShareInvite,
+  readPendingShareInvite,
+  shareInviteUrl,
+} from "@/lib/shareInvite";
 
 export default function DuoTimer() {
   const router = useRouter();
   const auth = useAuth();
   const game = useGameSession(auth.profile);
+  const gameConnectionState = game.connectionState;
+  const joinShareInvite = game.joinShareInvite;
 
   // ── UI panel state ──────────────────────────────────────────────────────
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -35,6 +42,12 @@ export default function DuoTimer() {
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const [displayNameModalOpen, setDisplayNameModalOpen] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [shareInviteBusy, setShareInviteBusy] = useState(false);
+  const [shareInviteCopied, setShareInviteCopied] = useState(false);
+  const [pendingShareInvite, setPendingShareInvite] = useState<string | null>(
+    () => readPendingShareInvite(),
+  );
+  const shareJoinAttemptRef = useRef<string | null>(null);
 
   const showError = (message: string) => {
     setErrorToast(message);
@@ -66,11 +79,36 @@ export default function DuoTimer() {
     if (!game.sessionId) setAppStep("game");
   };
 
+  const handleShareInvite = async () => {
+    setShareInviteBusy(true);
+    try {
+      const token = await game.createShareInvite();
+      const url = token ? shareInviteUrl(token, window.location.origin) : null;
+      if (!url) return;
+      if (!navigator.clipboard?.writeText) {
+        showError("Clipboard access is unavailable in this browser");
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareInviteCopied(true);
+      window.setTimeout(() => setShareInviteCopied(false), 2500);
+    } catch {
+      showError("Couldn't copy the invite link. Please try again.");
+    } finally {
+      setShareInviteBusy(false);
+    }
+  };
+
   // ── Socket-reported errors ──────────────────────────────────────────────
   // A refused or stale join used to be console-only, stranding the user on an
   // empty game screen reading "Setting up…". Show it and send them home.
   useEffect(() => {
     if (!game.sessionError) return;
+    if (shareJoinAttemptRef.current) {
+      shareJoinAttemptRef.current = null;
+      clearPendingShareInvite();
+      setPendingShareInvite(null);
+    }
     // This effect deliberately promotes an external socket event from the
     // session hook into parent-owned toast/navigation state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -81,17 +119,47 @@ export default function DuoTimer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.sessionError]);
 
+  // A /join/<token> route stores the opaque token in sessionStorage before it
+  // reaches this page. That survives OAuth and first-run avatar setup; as soon
+  // as auth, profile, avatar, and the socket are ready, redeem it once.
+  useEffect(() => {
+    if (
+      appStep !== "home" ||
+      !pendingShareInvite ||
+      gameConnectionState !== "connected" ||
+      shareJoinAttemptRef.current === pendingShareInvite
+    ) {
+      return;
+    }
+    shareJoinAttemptRef.current = pendingShareInvite;
+    joinShareInvite(pendingShareInvite, myAvatar);
+    setAppStep("game");
+  }, [
+    appStep,
+    pendingShareInvite,
+    gameConnectionState,
+    joinShareInvite,
+    myAvatar,
+    setAppStep,
+  ]);
+  useEffect(() => {
+    if (!shareJoinAttemptRef.current || !game.sessionId) return;
+    shareJoinAttemptRef.current = null;
+    clearPendingShareInvite();
+    setPendingShareInvite(null);
+  }, [game.sessionId]);
+
   // ── Resume after a page reload ──────────────────────────────────────────
   // The server holds our spot during its reconnect grace window; once we're
   // back on home with an avatar loaded, silently rejoin the stored session —
   // and jump straight back into the game screen if the timer is running.
   const resumingRef = useRef(false);
   useEffect(() => {
-    if (appStep !== "home" || !game.resumeSessionId) return;
+    if (appStep !== "home" || pendingShareInvite || !game.resumeSessionId) return;
     resumingRef.current = true;
     game.joinSession(game.resumeSessionId, myAvatar);
     game.consumeResumeSession();
-  }, [appStep, game, myAvatar]);
+  }, [appStep, game, myAvatar, pendingShareInvite]);
   useEffect(() => {
     if (resumingRef.current && game.sessionStarted && appStep === "home") {
       resumingRef.current = false;
@@ -138,14 +206,14 @@ export default function DuoTimer() {
         />
       )}
       <AnimatePresence>
-        {game.inviteSentName && (
+        {(game.inviteSentName || shareInviteCopied) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-go text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg"
           >
-            Invite sent!
+            {shareInviteCopied ? "Invite link copied!" : "Invite sent!"}
           </motion.div>
         )}
       </AnimatePresence>
@@ -451,6 +519,8 @@ export default function DuoTimer() {
           onStart={game.startSession}
           onStop={game.stopSession}
           onFinishFlow={game.finishFlowFocus}
+          onShareInvite={handleShareInvite}
+          shareInviteBusy={shareInviteBusy}
           onLeave={handleLeaveSession}
         />
       </div>

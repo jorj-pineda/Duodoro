@@ -21,6 +21,7 @@ const SOCKET_URL =
 // sessionStorage key mirroring the active session id, so a full page reload
 // can silently rejoin within the server's reconnect grace window.
 const RESUME_KEY = "duodoro:session";
+const SHARE_JOIN_PENDING = "__share_invite__";
 
 export type { InviteData };
 
@@ -208,7 +209,8 @@ export function useGameSession(profile: Profile | null) {
         if (
           message === "Session not found" ||
           message === "This session is private" ||
-          message === "Session is full"
+          message === "Session is full" ||
+          message === "Invite link is invalid or expired"
         ) {
           const previousSessionId = previousSessionIdRef.current;
           previousSessionIdRef.current = "";
@@ -233,10 +235,11 @@ export function useGameSession(profile: Profile | null) {
         // A sync for the attempted room confirms the switch. A sync for the
         // previous room can race with the join response and must not erase the
         // rollback target.
-        if (
-          !pendingJoinSessionIdRef.current ||
-          data.sessionId === pendingJoinSessionIdRef.current
-        ) {
+        const pendingTarget = pendingJoinSessionIdRef.current;
+        const sharedJoinConfirmed =
+          pendingTarget === SHARE_JOIN_PENDING &&
+          data.sessionId !== previousSessionIdRef.current;
+        if (!pendingTarget || data.sessionId === pendingTarget || sharedJoinConfirmed) {
           previousSessionIdRef.current = "";
           pendingJoinSessionIdRef.current = "";
         }
@@ -558,6 +561,56 @@ export function useGameSession(profile: Profile | null) {
     [profile],
   );
 
+  const joinShareInvite = useCallback(
+    (shareToken: string, avatar: AvatarConfig) => {
+      const socket = socketRef.current;
+      if (!socket) return;
+      previousSessionIdRef.current = sessionIdRef.current;
+      pendingJoinSessionIdRef.current = SHARE_JOIN_PENDING;
+      const displayName = profile?.display_name ?? profile?.username ?? "Player";
+      lastAvatarRef.current = avatar;
+      lastDisplayNameRef.current = displayName;
+      socket.emit("join_session", {
+        shareToken,
+        avatar,
+        displayName,
+        pet: myPetRef.current,
+      });
+    },
+    [profile],
+  );
+
+  const createShareInvite = useCallback(
+    () =>
+      new Promise<string | null>((resolve) => {
+        const socket = socketRef.current;
+        if (!socket || !sessionId) {
+          setSessionError("Create a session before sharing an invite");
+          resolve(null);
+          return;
+        }
+
+        const timeout = window.setTimeout(() => {
+          setSessionError("Invite link request timed out");
+          resolve(null);
+        }, 5_000);
+        socket.emit(
+          "create_share_invite",
+          { sessionId },
+          (response: { ok: boolean; token?: string; message?: string }) => {
+            window.clearTimeout(timeout);
+            if (response?.ok && response.token) {
+              resolve(response.token);
+              return;
+            }
+            setSessionError(response?.message || "Couldn't create invite link");
+            resolve(null);
+          },
+        );
+      }),
+    [sessionId],
+  );
+
   const leaveSession = useCallback(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -673,6 +726,8 @@ export function useGameSession(profile: Profile | null) {
     consumeResumeSession,
     createSession,
     joinSession,
+    joinShareInvite,
+    createShareInvite,
     leaveSession,
     startSession,
     finishFlowFocus,

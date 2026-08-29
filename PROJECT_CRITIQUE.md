@@ -260,6 +260,13 @@ and grants. Deploy schema before code that requires it, and keep a small
 
 ### 1. Reduce the path from discovery to the first duo session
 
+**Status:** Addressed in PR #57. The implementation uses a server-held random
+256-bit bearer token instead of a self-contained signed token, which keeps the
+room id out of the URL and makes immediate rotation and one-time consumption
+straightforward. The link survives same-tab authentication and onboarding,
+then auto-joins once the profile, avatar, and socket are ready. Funnel
+instrumentation remains a separate product-analytics decision.
+
 Today the happy path asks both people to authenticate, finish a profile and
 avatar, find each other by username, exchange/accept a friend request, be online
 at the same time, and then send an in-app invite. That is a lot of coordination
