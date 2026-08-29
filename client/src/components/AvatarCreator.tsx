@@ -152,6 +152,7 @@ export default function AvatarCreator({
                 Your name
               </p>
               <input
+                aria-label="Display name"
                 className="w-full px-3 py-2 bg-raise border border-line rounded-lg text-ink text-sm placeholder-faint focus:outline-none focus:border-accent transition-colors"
                 placeholder="e.g. Jorge"
                 value={displayName}
@@ -164,6 +165,7 @@ export default function AvatarCreator({
                 Username
               </p>
               <input
+                aria-label="Username"
                 className={`w-full px-3 py-2 bg-raise border rounded-lg text-ink text-sm font-mono placeholder-faint focus:outline-none transition-colors ${
                   usernameError ? "border-danger focus:border-danger" : "border-line focus:border-accent"
                 }`}

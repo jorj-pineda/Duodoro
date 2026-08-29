@@ -131,7 +131,7 @@ describe("HomeDashboard world rotation", () => {
 describe("HomeDashboard premium entry point", () => {
   /** Open the avatar menu, where the upgrade button lives. */
   function openProfileMenu() {
-    fireEvent.click(screen.getByRole("button", { name: "J" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
   }
 
   it("opens the premium modal from the home screen", () => {

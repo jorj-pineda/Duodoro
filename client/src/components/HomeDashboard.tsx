@@ -154,12 +154,15 @@ export default function HomeDashboard({
             <div
               className="w-2 h-2 rounded-full bg-gold animate-pulse"
               title="Session in progress"
+              role="status"
+              aria-label="Session in progress"
             />
           )}
         </div>
 
         <div className="flex items-center gap-1">
           <button
+            aria-label="Open friends"
             onClick={(e) => {
               e.stopPropagation();
               onOpenFriends();
@@ -169,6 +172,7 @@ export default function HomeDashboard({
             <UsersIcon /> <span className="hidden sm:inline">Friends</span>
           </button>
           <button
+            aria-label="Open stats"
             onClick={(e) => {
               e.stopPropagation();
               onOpenStats();
@@ -181,6 +185,9 @@ export default function HomeDashboard({
           <ThemeToggle />
           <div className="relative ml-1">
             <button
+              aria-label="Open account menu"
+              aria-expanded={profileMenuOpen}
+              aria-controls="home-account-menu"
               onClick={(e) => {
                 e.stopPropagation();
                 setProfileMenuOpen((o) => !o);
@@ -191,6 +198,8 @@ export default function HomeDashboard({
             </button>
             {profileMenuOpen && (
               <div
+                id="home-account-menu"
+                aria-label="Account menu"
                 className="absolute top-10 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48"
                 onClick={(e) => e.stopPropagation()}
               >

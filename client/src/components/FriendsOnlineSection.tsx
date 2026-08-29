@@ -101,7 +101,7 @@ export default function FriendsOnlineSection({
               ) : (
                 <button
                   onClick={() => onInvite(f.id)}
-                  className="text-[10px] bg-raise hover:bg-line text-muted font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                  className="text-[10px] bg-raise hover:bg-line text-muted font-bold px-2.5 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                 >
                   Invite
                 </button>

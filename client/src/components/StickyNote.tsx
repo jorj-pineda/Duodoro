@@ -124,6 +124,7 @@ function AddTaskInput({
   return (
     <div className="flex gap-2 mt-3 pt-3 border-t border-black/10">
       <input
+        aria-label="New task"
         className="flex-1 bg-transparent text-sm placeholder-amber-500/60 focus:outline-none font-mono"
         style={{ color: accent }}
         placeholder="Add a task..."
@@ -133,6 +134,7 @@ function AddTaskInput({
         maxLength={120}
       />
       <button
+        aria-label="Add task"
         onClick={submit}
         disabled={!value.trim()}
         className="font-bold text-xl transition-opacity disabled:opacity-30"

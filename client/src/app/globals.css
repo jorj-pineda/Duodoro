@@ -80,6 +80,15 @@ body {
   background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
+/* A keyboard focus indicator must not depend on each component remembering a
+   Tailwind utility. Mouse users keep the existing visuals through
+   :focus-visible, while keyboard users get the same high-contrast ring on
+   every native interactive control. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--calm);
+  outline-offset: 3px;
+}
+
 /* Subtle dot-grid texture for large empty backgrounds */
 .texture-dots {
   background-image: radial-gradient(var(--line) 1px, transparent 1px);
@@ -253,6 +262,16 @@ body {
    Reduced motion — freeze decorative loops; characters keep their pose
 ───────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
   .pixel-idle,
   .pixel-jump,
   .pixel-float,

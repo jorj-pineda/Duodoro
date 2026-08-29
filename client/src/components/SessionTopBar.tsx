@@ -20,6 +20,8 @@ function SessionStatusDot({ phase }: { phase: GamePhase }) {
   return (
     <div
       className={`w-2 h-2 ${color} ${phase !== "waiting" ? "animate-pulse" : ""}`}
+      role="status"
+      aria-label={`Session phase: ${phase}`}
     />
   );
 }
@@ -81,6 +83,9 @@ export default function SessionTopBar({
       {/* Left: Friends */}
       <div className="flex items-center justify-end pr-2">
         <button
+          aria-label="Toggle friends panel"
+          aria-expanded={friendsOpen}
+          aria-controls="friends-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleFriends();
@@ -93,6 +98,7 @@ export default function SessionTopBar({
 
       {/* Center: Duodoro + status dot */}
       <button
+        aria-label="Return to dashboard"
         onClick={(e) => {
           e.stopPropagation();
           onGoHome();
@@ -108,6 +114,9 @@ export default function SessionTopBar({
       {/* Right: Notes, Stats, Sound, Theme, Account */}
       <div className="flex items-center gap-1.5 pl-2">
         <button
+          aria-label="Toggle notes panel"
+          aria-expanded={notesOpen}
+          aria-controls="notes-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleNotes();
@@ -117,6 +126,9 @@ export default function SessionTopBar({
           <NoteIcon /> <span className="hidden sm:inline">Notes</span>
         </button>
         <button
+          aria-label="Toggle stats panel"
+          aria-expanded={statsOpen}
+          aria-controls="stats-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleStats();
@@ -130,6 +142,9 @@ export default function SessionTopBar({
         <div className="flex-1" />
         <div className="relative">
           <button
+            aria-label="Toggle account menu"
+            aria-expanded={profileMenuOpen}
+            aria-controls="session-account-menu"
             onClick={(e) => {
               e.stopPropagation();
               onToggleProfileMenu();
@@ -140,6 +155,8 @@ export default function SessionTopBar({
           </button>
           {profileMenuOpen && (
             <div
+              id="session-account-menu"
+              aria-label="Account menu"
               className="absolute top-9 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48"
               onClick={(e) => e.stopPropagation()}
             >
