@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { getSupabase } from "@/lib/supabase";
 import { PREMIUM_IS_FREE } from "@/lib/billing";
 import Button from "./Button";
@@ -32,6 +33,7 @@ export default function PremiumModal({
   isPremium,
   onClaimed,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const [email, setEmail] = useState<string | null>(null);
   const [optIn, setOptIn] = useState(true);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(
@@ -97,6 +99,8 @@ export default function PremiumModal({
             transition={{ type: "spring", duration: 0.4 }}
           >
             <div
+              ref={dialogRef}
+              tabIndex={-1}
               className="bg-surface border border-line rounded-2xl p-8 max-w-sm w-full shadow-2xl relative"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
@@ -104,6 +108,7 @@ export default function PremiumModal({
               aria-label="Duodoro Premium"
             >
               <button
+                data-autofocus
                 onClick={onClose}
                 aria-label="Close"
                 className="absolute top-2 right-2 sm:top-4 sm:right-4 w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center text-faint hover:text-ink transition-colors"
@@ -183,7 +188,7 @@ export default function PremiumModal({
               )}
 
               {message && (
-                <p className="text-danger text-xs text-center mt-3">{message}</p>
+                <p role="alert" className="text-danger text-xs text-center mt-3">{message}</p>
               )}
             </div>
           </motion.div>

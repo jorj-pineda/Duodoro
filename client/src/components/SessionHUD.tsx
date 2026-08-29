@@ -22,7 +22,7 @@ function DurationSlider({
   unit: string;
 }) {
   return (
-    <div className="flex items-center gap-3 w-full">
+    <label className="flex items-center gap-3 w-full">
       <span className="text-muted text-xs font-medium w-14 text-right shrink-0">
         {label}
       </span>
@@ -36,11 +36,11 @@ function DurationSlider({
         className="flex-1 h-1.5"
         style={{ accentColor: "var(--accent)" }}
       />
-      <span className="text-accent text-xs font-mono font-bold w-12 shrink-0">
+      <span aria-hidden="true" className="text-accent text-xs font-mono font-bold w-12 shrink-0">
         {value}
         {unit}
       </span>
-    </div>
+    </label>
   );
 }
 
@@ -166,6 +166,7 @@ export default function SessionHUD({
           <div className="w-full max-w-xs space-y-4 mt-1">
             <div className="flex bg-raise p-1 border-2 border-line">
               <button
+                aria-pressed={timerMode === "pomodoro"}
                 onClick={() => onTimerModeChange("pomodoro")}
                 className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "pomodoro"
@@ -176,6 +177,7 @@ export default function SessionHUD({
                 Pomodoro
               </button>
               <button
+                aria-pressed={timerMode === "flow"}
                 onClick={() => onTimerModeChange("flow")}
                 className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "flow"

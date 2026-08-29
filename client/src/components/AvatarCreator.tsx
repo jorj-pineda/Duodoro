@@ -38,6 +38,8 @@ function ColorSwatch({
         <button
           key={hex}
           title={label}
+          aria-label={label}
+          aria-pressed={selected === hex}
           onClick={() => onSelect(hex)}
           className="w-11 h-11 sm:w-7 sm:h-7 rounded border-2 transition-all"
           style={{
@@ -75,6 +77,7 @@ function CycleRow<T extends string>({
       <div className="flex items-center gap-2">
         <button
           onClick={prev}
+          aria-label={`Previous ${label.toLowerCase()}`}
           className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ‹
@@ -84,6 +87,7 @@ function CycleRow<T extends string>({
         </span>
         <button
           onClick={next}
+          aria-label={`Next ${label.toLowerCase()}`}
           className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ›

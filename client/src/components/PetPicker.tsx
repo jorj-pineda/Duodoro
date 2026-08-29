@@ -27,12 +27,15 @@ export default function PetPicker({
         }`}
         title="No pet"
         aria-label="No pet"
+        aria-pressed={selected === null}
       >
         <CloseIcon className="w-3.5 h-3.5" />
       </button>
       {PET_OPTIONS.map(({ type, label }) => (
         <button
           key={type}
+          aria-label={isPremium ? label : `${label} (Premium)`}
+          aria-pressed={selected === type}
           onClick={() => (isPremium ? onSelect(type) : onPremiumClick())}
           className={`w-7 h-7 border flex items-end justify-center overflow-hidden transition-all ${
             selected === type

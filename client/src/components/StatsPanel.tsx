@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
@@ -115,6 +116,7 @@ export default function StatsPanel({
   userId,
   onViewFullStats,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const [tab, setTab] = useState<Tab>("personal");
   const {
     personalStats, duoStats, recentSessions, loading, fetchStats,
@@ -138,6 +140,12 @@ export default function StatsPanel({
           />
           <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-stretch justify-end py-3 pointer-events-none">
             <motion.div
+              ref={dialogRef}
+              id="stats-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="stats-panel-title"
+              tabIndex={-1}
               className="pointer-events-auto w-full sm:w-80 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: 60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -146,10 +154,11 @@ export default function StatsPanel({
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-4 border-b border-line">
-                <h2 className="font-display text-lg text-ink tracking-wide">
+                <h2 id="stats-panel-title" className="font-display text-lg text-ink tracking-wide">
                   Stats
                 </h2>
                 <button
+                  data-autofocus
                   onClick={onClose}
                   aria-label="Close"
                   className="text-faint hover:text-ink transition-colors"
@@ -159,10 +168,14 @@ export default function StatsPanel({
               </div>
 
               {/* Tabs */}
-              <div className="flex border-b border-line">
+              <div role="tablist" aria-label="Stats sections" className="flex border-b border-line">
                 {(["personal", "duo", "history"] as Tab[]).map((t) => (
                   <button
                     key={t}
+                    id={`stats-tab-${t}`}
+                    role="tab"
+                    aria-selected={tab === t}
+                    aria-controls="stats-tab-panel"
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
@@ -176,7 +189,12 @@ export default function StatsPanel({
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-3">
+              <div
+                id="stats-tab-panel"
+                role="tabpanel"
+                aria-labelledby={`stats-tab-${tab}`}
+                className="flex-1 overflow-y-auto p-3"
+              >
                 {loading && (
                   <p className="text-faint text-sm text-center py-8">
                     Loading...

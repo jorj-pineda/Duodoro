@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { useStickyNotes } from "@/hooks/useStickyNotes";
 import type { Task } from "@/lib/types";
 import { CloseIcon } from "./Icons";
@@ -154,6 +155,7 @@ export default function StickyNote({
   partnerUserId,
   partnerName,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const {
     tab,
     setTab,
@@ -200,6 +202,12 @@ export default function StickyNote({
               the right edge. */}
           <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-center pointer-events-none">
             <motion.div
+              ref={dialogRef}
+              id="notes-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="notes-panel-title"
+              tabIndex={-1}
               className="pointer-events-auto w-full sm:w-80 flex flex-col rounded-2xl shadow-2xl overflow-hidden"
               style={{
                 background: color.gradient,
@@ -216,6 +224,7 @@ export default function StickyNote({
               {/* Header */}
               <div className="flex items-center justify-between px-4 pt-6 pb-3 border-b-2 border-black/10">
                 <h2
+                  id="notes-panel-title"
                   className="font-black font-mono tracking-widest text-sm"
                   style={{ color: color.accent }}
                 >
@@ -225,6 +234,9 @@ export default function StickyNote({
                   {/* Options (⋮) */}
                   <div className="relative" ref={optionsRef}>
                     <button
+                      aria-label="Open note options"
+                      aria-expanded={showOptions}
+                      aria-controls="note-options-menu"
                       onClick={() => setShowOptions((o) => !o)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-lg font-bold transition-opacity hover:opacity-60"
                       style={{ color: color.accent }}
@@ -234,6 +246,8 @@ export default function StickyNote({
                     </button>
                     {showOptions && (
                       <div
+                        id="note-options-menu"
+                        aria-label="Note options"
                         className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-3 min-w-44"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -255,6 +269,8 @@ export default function StickyNote({
                               }`}
                               style={{ background: c.gradient }}
                               title={c.label}
+                              aria-label={`Use ${c.label} note color`}
+                              aria-pressed={colorIdx === i}
                             />
                           ))}
                         </div>
@@ -270,6 +286,7 @@ export default function StickyNote({
                   </div>
                   {/* Close */}
                   <button
+                    data-autofocus
                     onClick={onClose}
                     aria-label="Close"
                     className="w-7 h-7 flex items-center justify-center rounded-none text-base transition-opacity hover:opacity-60"
@@ -281,10 +298,14 @@ export default function StickyNote({
               </div>
 
               {/* Tabs */}
-              <div className="flex border-b-2 border-black/10">
+              <div role="tablist" aria-label="Task lists" className="flex border-b-2 border-black/10">
                 {(["mine", "shared"] as const).map((t) => (
                   <button
                     key={t}
+                    id={`tasks-tab-${t}`}
+                    role="tab"
+                    aria-selected={tab === t}
+                    aria-controls="tasks-tab-panel"
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2 text-xs font-mono font-bold transition-all ${
                       tab === t ? "border-b-2" : "opacity-50 hover:opacity-70"
@@ -364,7 +385,12 @@ export default function StickyNote({
                   </button>
                 </div>
               )}
-              <div className="flex-1 overflow-y-auto px-4 py-2">
+              <div
+                id="tasks-tab-panel"
+                role="tabpanel"
+                aria-labelledby={`tasks-tab-${tab}`}
+                className="flex-1 overflow-y-auto px-4 py-2"
+              >
                 {tab === "shared" && !roomCode ? (
                   <p
                     className="text-sm font-mono text-center py-8 leading-relaxed"

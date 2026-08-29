@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,7 @@ export default function DisplayNameChangeModal({
   onSubmit,
   onClose,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -57,11 +59,16 @@ export default function DisplayNameChangeModal({
         onClick={onClose}
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="display-name-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface border border-line rounded-2xl p-6 shadow-2xl w-[calc(100vw-1rem)] sm:w-80"
       >
-        <h3 className="font-display text-ink tracking-wide text-base mb-1">
+        <h3 id="display-name-modal-title" className="font-display text-ink tracking-wide text-base mb-1">
           Change display name
         </h3>
         <p className="text-faint text-xs mb-4">
@@ -80,6 +87,8 @@ export default function DisplayNameChangeModal({
         ) : (
           <>
             <input
+              aria-label="New display name"
+              aria-describedby={`display-name-modal-help${error ? " display-name-modal-error" : ""}`}
               className={`w-full px-3 py-3 sm:py-2 bg-raise border rounded-lg text-ink text-sm placeholder-faint focus:outline-none transition-colors mb-1 ${
                 error
                   ? "border-danger focus:border-danger"
@@ -95,11 +104,11 @@ export default function DisplayNameChangeModal({
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               autoFocus
             />
-            <p className="text-faint text-[10px] mb-3">
+            <p id="display-name-modal-help" className="text-faint text-[10px] mb-3">
               1-week cooldown after changing.
             </p>
             {error && (
-              <p className="text-danger text-xs mb-3">{error}</p>
+              <p id="display-name-modal-error" role="alert" className="text-danger text-xs mb-3">{error}</p>
             )}
             <div className="flex gap-2">
               <button
