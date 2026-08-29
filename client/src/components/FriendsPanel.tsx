@@ -411,11 +411,6 @@ export default function FriendsPanel({
                     @{myProfile.discriminator ? formatTag(myProfile.username, myProfile.discriminator) : myProfile.username}
                   </button>
                 </div>
-                {myProfile.is_premium && (
-                  <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full">
-                    PRO
-                  </span>
-                )}
               </div>
             </motion.div>
           </div>

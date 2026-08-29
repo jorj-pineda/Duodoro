@@ -48,7 +48,7 @@ describe("PremiumModal", () => {
   it("claims premium through the RPC, passing the opt-in", async () => {
     const { onClaimed } = open();
     await screen.findByText("jorge@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Unlock pets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unlock companions" }));
     await waitFor(() => expect(onClaimed).toHaveBeenCalledTimes(1));
     expect(rpc).toHaveBeenCalledWith("claim_premium", {
       p_marketing_opt_in: true,
@@ -61,7 +61,7 @@ describe("PremiumModal", () => {
     const { onClaimed } = open();
     await screen.findByText("jorge@example.com");
     fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Unlock pets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unlock companions" }));
     await waitFor(() => expect(onClaimed).toHaveBeenCalledTimes(1));
     expect(rpc).toHaveBeenCalledWith("claim_premium", {
       p_marketing_opt_in: false,
@@ -74,8 +74,8 @@ describe("PremiumModal", () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     const { onClaimed } = open();
     await screen.findByText("jorge@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Unlock pets" }));
-    expect(await screen.findByText(/Couldn't unlock premium/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unlock companions" }));
+    expect(await screen.findByText(/Couldn't unlock companions/)).toBeInTheDocument();
     expect(onClaimed).not.toHaveBeenCalled();
   });
 
@@ -86,7 +86,7 @@ describe("PremiumModal", () => {
     });
     open();
     await screen.findByText("jorge@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Unlock pets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unlock companions" }));
     expect(
       await screen.findByText(/doesn't have a confirmed email address/),
     ).toBeInTheDocument();
@@ -94,7 +94,9 @@ describe("PremiumModal", () => {
 
   it("does not offer to unlock what someone already has", async () => {
     open({ isPremium: true });
-    expect(screen.queryByRole("button", { name: "Unlock pets" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Unlock companions" }),
+    ).toBeNull();
     expect(screen.getByText(/You're all set/)).toBeInTheDocument();
   });
 
@@ -104,6 +106,7 @@ describe("PremiumModal", () => {
     // Notification API appears nowhere in the codebase, world themes stopped
     // being a choice in PR #38, and there are no premium skins.
     open();
+    await screen.findByText("jorge@example.com");
     for (const fiction of [
       /world themes/i,
       /session history/i,
@@ -112,14 +115,24 @@ describe("PremiumModal", () => {
     ]) {
       expect(screen.queryByText(fiction)).toBeNull();
     }
-    expect(screen.getByText(/companions/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Companions" }),
+    ).toBeInTheDocument();
   });
 
   it("never mentions a price, because there isn't one", async () => {
     // billing.ts is a seam, not a product. Nothing here may imply a charge.
     const { container } = open();
+    await screen.findByText("jorge@example.com");
     expect(container.textContent).not.toMatch(/\$|\/mo|subscri|payment|card/i);
     expect(container.textContent).toMatch(/free/i);
+  });
+
+  it("does not present companion access as a paid tier", async () => {
+    const { container } = open();
+    await screen.findByText("jorge@example.com");
+    expect(container.textContent).not.toMatch(/premium|upgrade|pro\b/i);
+    expect(container.textContent).toMatch(/marketing is optional/i);
   });
 
   it("draws a companion instead of a paw-print emoji", () => {

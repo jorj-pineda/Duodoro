@@ -34,7 +34,7 @@ export default function PetPicker({
       {PET_OPTIONS.map(({ type, label }) => (
         <button
           key={type}
-          aria-label={isPremium ? label : `${label} (Premium)`}
+          aria-label={isPremium ? label : `${label} (unlock companions)`}
           aria-pressed={selected === type}
           onClick={() => (isPremium ? onSelect(type) : onPremiumClick())}
           className={`w-7 h-7 border flex items-end justify-center overflow-hidden transition-all ${
@@ -42,7 +42,7 @@ export default function PetPicker({
               ? "border-accent bg-accent/15"
               : "border-line bg-surface hover:border-faint"
           } ${!isPremium ? "opacity-50" : ""}`}
-          title={isPremium ? label : `${label} (Premium)`}
+          title={isPremium ? label : `${label} (unlock companions)`}
         >
           {isPremium ? (
             <PetCharacter type={type} stage="grown" size={2} />
