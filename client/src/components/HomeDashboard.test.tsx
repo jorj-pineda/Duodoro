@@ -4,6 +4,7 @@ import HomeDashboard from "./HomeDashboard";
 import { WORLDS } from "@/lib/avatarData";
 import { worldAt } from "@/lib/rotation";
 import type { Profile } from "@/lib/types";
+import { expectNoAxeViolations } from "@/test/axe";
 
 // Home used to open with an eight-thumbnail world picker and hand the choice
 // to onFocus. With the rotation the choice doesn't exist: there is one world,
@@ -97,6 +98,11 @@ afterEach(() => {
 });
 
 describe("HomeDashboard world rotation", () => {
+  it("has no detectable semantic accessibility violations", async () => {
+    const { container } = renderHome();
+    await expectNoAxeViolations(container);
+  });
+
   it("offers no world to choose", () => {
     renderHome();
     expect(screen.queryByText("Choose a world")).not.toBeInTheDocument();
