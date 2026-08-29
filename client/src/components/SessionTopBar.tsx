@@ -198,7 +198,7 @@ export default function SessionTopBar({
                   onClick={onOpenPremium}
                   className="w-full flex items-center gap-2 text-left text-xs text-gold hover:text-gold-deep py-1.5 transition-colors"
                 >
-                  <StarIcon className="w-3.5 h-3.5" /> Upgrade to Premium
+                  <StarIcon className="w-3.5 h-3.5" /> Unlock companions — free
                 </button>
               )}
               <button

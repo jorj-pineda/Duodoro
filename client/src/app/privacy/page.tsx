@@ -36,8 +36,8 @@ export default function PrivacyPage() {
             statistics derived from completed sessions.
           </li>
           <li>
-            <strong>Premium and email data:</strong> your premium grant, email
-            address, and separate marketing preference.
+            <strong>Companion access and email data:</strong> your companion
+            access record, email address, and separate marketing preference.
           </li>
           <li>
             <strong>Technical data:</strong> authentication sessions, realtime
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
         <h2>5. Marketing choice</h2>
         <p>
           Marketing email is optional and is not required to use Duodoro or
-          keep premium access. You can withdraw consent at any time from
+          keep companion access. You can withdraw consent at any time from
           Privacy &amp; account. Any Duodoro marketing message will also provide
           a way to opt out. Service and security messages are not marketing.
         </p>
@@ -85,11 +85,11 @@ export default function PrivacyPage() {
       <section>
         <h2>6. Retention and deletion</h2>
         <p>
-          Account-linked profile, social, task, focus-participant, premium, and
-          consent records are generally kept while your account exists. Choose
-          Privacy &amp; account → Delete account to permanently remove your
-          sign-in and linked account data, including a matching legacy waitlist
-          address. This cannot be undone.
+          Account-linked profile, social, task, focus-participant, companion
+          access, and consent records are generally kept while your account
+          exists. Choose Privacy &amp; account → Delete account to permanently
+          remove your sign-in and linked account data, including a matching
+          legacy waitlist address. This cannot be undone.
         </p>
         <p>
           A shared session record needed for another participant’s history may

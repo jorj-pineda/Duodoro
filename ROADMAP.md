@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-28. PRs #35–#57 merged.
+Last updated: 2026-08-28. PRs #35–#58 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -115,6 +115,13 @@ for exercising the deployed client → server → database flow.
       light/dark surfaces and semantic component scans cover authenticated
       home, friends, account, and invite states. Light and dark semantic color
       tokens meet AA contrast on their application surfaces.
+- [x] **14k. Honest companion positioning** — PR #59. Customer-facing Premium,
+      Upgrade, and Pro language is replaced by one accurate offer: companion
+      access is free with the OAuth-confirmed account email, while marketing is
+      separate and optional. Home, session, pet locks, account settings, Terms,
+      Privacy, and the release checklist now agree. Internal `is_premium`,
+      `premium_grants`, and `claim_premium` names remain stable to avoid a
+      cosmetic schema migration.
 
 ## Next up (recommended order)
 

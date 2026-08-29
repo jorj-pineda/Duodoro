@@ -281,6 +281,13 @@ first completed focus.
 
 ### 2. Resolve the “Premium, but free” product contradiction
 
+**Status:** Addressed in PR #59. Customer-facing surfaces now call the feature
+“Companions” or “companion access,” consistently describe it as free with the
+signed-in account email, and state that marketing is a separate optional
+choice. The paid-tier-sounding Pro badge is gone. Legacy premium names remain
+internal to the database and code so product-language cleanup does not create
+an unnecessary entitlement migration.
+
 The home menu says “Unlock pets — free,” while the in-session menu says
 “Upgrade to Premium.” Any authenticated user can claim it, no payment exists,
 and pets are the only gated feature. That adds a conversion modal and an email

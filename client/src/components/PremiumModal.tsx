@@ -24,7 +24,7 @@ interface Props {
 const FEATURES = [
   "Four pixel companions that walk with you",
   "They stay with you across every session",
-  "More on the way — you'll hear about it first",
+  "They grow as you complete focus sessions",
 ];
 
 export default function PremiumModal({
@@ -71,7 +71,7 @@ export default function PremiumModal({
       setMessage(
         error.message.includes("confirmed email")
           ? "Your account doesn't have a confirmed email address yet."
-          : "Couldn't unlock premium just now. Try again in a moment.",
+          : "Couldn't unlock companions just now. Try again in a moment.",
       );
       return;
     }
@@ -105,7 +105,7 @@ export default function PremiumModal({
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
-              aria-label="Duodoro Premium"
+              aria-label="Companions"
             >
               <button
                 data-autofocus
@@ -120,14 +120,12 @@ export default function PremiumModal({
                 <div className="flex justify-center mb-3">
                   <PetCharacter type="cat" stage="grown" />
                 </div>
-                <h2 className="font-display text-2xl text-ink">
-                  Duodoro Premium
-                </h2>
+                <h2 className="font-display text-2xl text-ink">Companions</h2>
                 <p className="text-muted text-sm mt-1">
                   {isPremium || status === "done"
                     ? "You're all set — pick a pet in your next session."
                     : PREMIUM_IS_FREE
-                      ? "Free while we're small. All it costs is your email."
+                      ? "Free while we're small. Your signed-in email unlocks them; marketing is optional."
                       : "Unlock companions for your sessions."}
                 </p>
               </div>
@@ -170,8 +168,8 @@ export default function PremiumModal({
                       className="mt-0.5 accent-accent w-4 h-4 flex-shrink-0"
                     />
                     <span className="text-xs text-muted">
-                      Email me occasionally about Duodoro. Unticking this still
-                      unlocks pets — it only decides whether we write to you.
+                      Email me occasionally about Duodoro. This is optional and
+                      does not affect companion access.
                     </span>
                   </label>
 
@@ -182,7 +180,7 @@ export default function PremiumModal({
                     disabled={status === "loading" || !email}
                     onClick={claim}
                   >
-                    {status === "loading" ? "Unlocking…" : "Unlock pets"}
+                    {status === "loading" ? "Unlocking…" : "Unlock companions"}
                   </Button>
                 </>
               )}

@@ -158,7 +158,7 @@ describe("HomeDashboard premium entry point", () => {
     // the in-session button next to it worked.
     const { onOpenPremium } = renderHome();
     openProfileMenu();
-    fireEvent.click(screen.getByRole("button", { name: /Unlock pets/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Unlock companions/ }));
     expect(onOpenPremium).toHaveBeenCalledTimes(1);
   });
 
@@ -167,13 +167,13 @@ describe("HomeDashboard premium entry point", () => {
     renderHome();
     openProfileMenu();
     expect(screen.getByText("Change display name")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Unlock pets/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Unlock companions/ }));
     expect(screen.queryByText("Change display name")).not.toBeInTheDocument();
   });
 
   it("does not offer the unlock to someone who already has it", () => {
     renderHome({ profile: { ...profile, is_premium: true } });
     openProfileMenu();
-    expect(screen.queryByText(/Unlock pets/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unlock companions/)).not.toBeInTheDocument();
   });
 });

@@ -22,12 +22,12 @@ work.
 - **Worlds rotate.** There is no picker. New sessions land in whichever of
   the eight worlds the UTC clock is on (hourly, on the :30). A session keeps
   the world it started in.
-- **Pets grow with focus.** Premium unlocks a companion. Size is derived from
-  completed focus time (young at the start, grown after 3 hours, full after
-  15), not stored as its own column.
-- **Premium is currently free** in exchange for the OAuth-confirmed email.
-  Pets are the gated feature; there is no world unlock, because nobody picks
-  a world.
+- **Companions grow with focus.** Free companion access unlocks a pet whose
+  size is derived from completed focus time (young at the start, grown after 3
+  hours, full after 15), not stored as its own column.
+- **Companion access is currently free** with an OAuth-confirmed account email.
+  Marketing email is a separate, optional choice. There is no world unlock,
+  because nobody picks a world.
 - Friends, invites, sticky-note tasks, and session stats sit on top.
 
 ## Stack
