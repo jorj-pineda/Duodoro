@@ -301,6 +301,16 @@ invent benefits afterward.
 
 ### 3. Add observability for the realtime server and critical RPCs
 
+**Status:** Addressed in PR #60. Direct server console calls are replaced by
+privacy-safe JSON events with opaque correlation references. Critical RPC
+attempts expose outcome, retry intent, latency, and safe error classification;
+minute snapshots aggregate connection, room, reconnect, rejection,
+persistence, presence, and protocol signals. `/health` remains liveness and a
+cached, bounded `/ready` probe reports database availability separately. The
+repository defines alert conditions and response steps; the external
+notification destination still has to be configured in the deployment's log
+platform.
+
 The server currently relies on unstructured `console.log/error`, and several
 presence writes intentionally discard their result. There is no visible error
 tracking, latency metric, active-session gauge, persistence success rate, or

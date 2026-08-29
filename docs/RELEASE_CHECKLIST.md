@@ -56,7 +56,12 @@ npm run test:e2e
 - [ ] Every migration required by the release is applied before dependent
       application code. Record the highest migration above.
 - [ ] `https://duodoro.live` loads the intended commit.
-- [ ] The Render root and `/health` endpoints return success.
+- [ ] The Render root and `/health` endpoints return success; `/ready` returns
+      200 with `dependencies.database = "ready"`.
+- [ ] Render logs show `server_started` and a `runtime_snapshot` as valid JSON,
+      without raw account, socket, session, email, token, or payload values.
+- [ ] The connected log platform alerts on `focus_record_failed` and repeated
+      failed `database_readiness_probe` events; the destination is current.
 - [ ] Both `https://duodoro.live` and `https://www.duodoro.live` receive a
       matching CORS allow-origin response from the realtime server.
 - [ ] No new errors appear in Vercel, Render, or Supabase logs during smoke.
@@ -107,6 +112,9 @@ Use account A in one browser profile and account B in another.
 
 - [ ] A completed focus appears once—not zero or twice—in both participants'
       history/stats.
+- [ ] That completion emits a successful `record_focus_session`
+      `supabase_rpc_attempt` and one `focus_record_completed` event sharing the
+      same opaque `room_ref` used by the session lifecycle logs.
 - [ ] An early stop appears with the expected incomplete duration and does not
       increase completed-focus pet progress.
 - [ ] A creates a shared goal; B completes it; both clients show B's persisted

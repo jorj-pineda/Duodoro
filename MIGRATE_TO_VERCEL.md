@@ -62,7 +62,9 @@ The steps below assume **Render**.
      scheme included, no trailing slash, and `www.duodoro.live` is a *different* origin.
      The server exits at boot if the Supabase vars are missing, so a "deploy failed" here
      is usually just a missing env var.
-4. Deploy, then verify: `https://<your-server>.onrender.com/health` returns `{"ok":true}`.
+4. Deploy, then verify: `https://<your-server>.onrender.com/health` returns
+   `{"ok":true}` and `/ready` returns 200 with
+   `{"ok":true,"dependencies":{"database":"ready"}}`.
 5. Note the URL — it becomes `NEXT_PUBLIC_SOCKET_URL`.
 
 Render doesn't use your `server/Dockerfile` with the settings above (native Node runtime
