@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { WORLDS } from "@/lib/avatarData";
 import type { Profile } from "@/lib/types";
 import { formatTag } from "@/lib/format";
@@ -18,6 +20,7 @@ interface Props {
 }
 
 type Tab = "friends" | "requests" | "find";
+const TABS: readonly Tab[] = ["friends", "requests", "find"];
 
 const WORLD_LABEL: Record<string, string> = Object.fromEntries(
   WORLDS.map((w) => [w.id, w.label]),
@@ -128,6 +131,7 @@ export default function FriendsPanel({
   onJoinSession,
   onInviteFriend,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const [tab, setTab] = useState<Tab>("friends");
   const {
     friends,
@@ -164,6 +168,12 @@ export default function FriendsPanel({
           {/* Vertically-centered panel on the left */}
           <div className="fixed inset-x-2 sm:inset-x-auto sm:left-4 top-0 bottom-0 z-40 flex items-stretch py-3 pointer-events-none">
             <motion.div
+              ref={dialogRef}
+              id="friends-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="friends-panel-title"
+              tabIndex={-1}
               className="pointer-events-auto w-full sm:w-80 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: -60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -172,10 +182,11 @@ export default function FriendsPanel({
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-4 border-b border-line">
-                <h2 className="font-display text-lg text-ink tracking-wide">
+                <h2 id="friends-panel-title" className="font-display text-lg text-ink tracking-wide">
                   Friends
                 </h2>
                 <button
+                  data-autofocus
                   onClick={onClose}
                   aria-label="Close"
                   className="text-faint hover:text-ink transition-colors"
@@ -185,10 +196,24 @@ export default function FriendsPanel({
               </div>
 
               {/* Tabs */}
-              <div className="flex border-b border-line">
-                {(["friends", "requests", "find"] as Tab[]).map((t) => (
+              <div role="tablist" aria-label="Friends sections" className="flex border-b border-line">
+                {TABS.map((t) => (
                   <button
                     key={t}
+                    id={`friends-tab-${t}`}
+                    role="tab"
+                    aria-selected={tab === t}
+                    aria-controls="friends-tab-panel"
+                    tabIndex={tab === t ? 0 : -1}
+                    onKeyDown={(event) =>
+                      handleTabKeyNavigation(
+                        event,
+                        TABS,
+                        tab,
+                        setTab,
+                        (next) => `friends-tab-${next}`,
+                      )
+                    }
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
@@ -240,7 +265,12 @@ export default function FriendsPanel({
               )}
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-3">
+              <div
+                id="friends-tab-panel"
+                role="tabpanel"
+                aria-labelledby={`friends-tab-${tab}`}
+                className="flex-1 overflow-y-auto p-3"
+              >
                 {/* Friends tab */}
                 {tab === "friends" && (
                   <div>
@@ -301,6 +331,7 @@ export default function FriendsPanel({
                   <div>
                     <div className="flex gap-2 mb-3">
                       <input
+                        aria-label="Search for friends"
                         className="flex-1 bg-raise border border-line rounded-xl px-3 py-2 text-ink text-sm placeholder-faint focus:outline-none focus:border-accent"
                         placeholder="Search name or tag#0000"
                         value={searchQuery}

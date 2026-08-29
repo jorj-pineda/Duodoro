@@ -14,6 +14,8 @@ function base(className?: string) {
     strokeLinecap: "square" as const,
     strokeLinejoin: "miter" as const,
     className: className ?? "w-4 h-4",
+    "aria-hidden": true,
+    focusable: false,
   };
 }
 

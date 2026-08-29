@@ -83,6 +83,7 @@ export default function TaskSection({
             >
               <button
                 onClick={() => toggleTask(task.id, true)}
+                aria-label={`Mark ${task.content} complete`}
                 className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-line hover:border-go flex items-center justify-center transition-colors"
               />
               <p className="flex-1 text-sm text-ink truncate">
@@ -91,7 +92,7 @@ export default function TaskSection({
               <button
                 onClick={() => deleteTask(task.id)}
                 aria-label="Delete task"
-                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
+                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
               >
                 <CloseIcon className="w-3.5 h-3.5" />
               </button>
@@ -108,6 +109,7 @@ export default function TaskSection({
             >
               <button
                 onClick={() => toggleTask(task.id, false)}
+                aria-label={`Mark ${task.content} incomplete`}
                 className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-go bg-go flex items-center justify-center"
               >
                 <span className="text-white text-[10px]">{"✓"}</span>
@@ -118,7 +120,7 @@ export default function TaskSection({
               <button
                 onClick={() => deleteTask(task.id)}
                 aria-label="Delete task"
-                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 transition-all"
+                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
               >
                 <CloseIcon className="w-3.5 h-3.5" />
               </button>
@@ -135,6 +137,7 @@ export default function TaskSection({
 
       <div className="flex gap-2 mt-3 pt-3 border-t border-line">
         <input
+          aria-label="New goal"
           className="flex-1 bg-transparent text-sm text-ink placeholder-faint focus:outline-none"
           placeholder="Add a goal..."
           value={newTask}
@@ -143,6 +146,7 @@ export default function TaskSection({
           maxLength={120}
         />
         <button
+          aria-label="Add goal"
           onClick={addTask}
           disabled={!newTask.trim()}
           className="text-accent font-bold text-lg disabled:opacity-30 transition-opacity"

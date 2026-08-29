@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { getSupabase } from "@/lib/supabase";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { CloseIcon } from "./Icons";
 
 interface Props {
@@ -19,6 +20,7 @@ export default function AccountSettingsModal({
   onDeleted,
   socketRef,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(true, onClose);
   const [marketingOptIn, setMarketingOptIn] = useState<boolean | null>(null);
   const [loadingConsent, setLoadingConsent] = useState(true);
   const [savingConsent, setSavingConsent] = useState(false);
@@ -97,12 +99,15 @@ export default function AccountSettingsModal({
         aria-label="Close account settings"
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-settings-title"
         className="relative bg-surface border border-line rounded-2xl p-6 max-w-md w-full max-h-[90dvh] overflow-y-auto shadow-2xl"
       >
         <button
+          data-autofocus
           onClick={onClose}
           aria-label="Close"
           className="absolute top-3 right-3 w-10 h-10 flex items-center justify-center text-faint hover:text-ink"

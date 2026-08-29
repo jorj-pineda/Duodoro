@@ -318,6 +318,14 @@ effect. Add a static-server-render test like the existing rotating-world test.
 
 ### 5. Establish an accessibility baseline
 
+**Status:** Addressed in PR #58. Critical controls now keep accessible names at
+mobile widths, status changes use live semantics, and the main panels/modals
+share Escape, focus containment, initial focus, and opener restoration. Native
+focus-visible and reduced-motion behavior applies globally. Axe runs WCAG A/AA
+checks on public light/dark surfaces in Playwright and semantic scans on core
+authenticated components in jsdom. The release checklist still requires a
+real keyboard and screen-reader pass; automation cannot certify usability.
+
 Many controls hide their text at mobile widths without supplying an accessible
 name, including Friends, Stats, Notes, and account buttons. Several overlays
 are visually modal without consistent dialog semantics, focus trapping,

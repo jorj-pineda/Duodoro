@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -119,6 +120,7 @@ function BigStatCard({
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function StatsScreen({ open, onClose, userId }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const {
     personalStats, duoStats, recentSessions, dailyFocus, loading, fetchStats,
     error: statsError, loaded, retry,
@@ -132,6 +134,11 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stats-screen-title"
+          tabIndex={-1}
           className="fixed inset-0 z-50 bg-bg overflow-y-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -139,10 +146,11 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
         >
           {/* Header */}
           <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-line px-6 py-4 flex items-center justify-between">
-            <h1 className="font-display text-ink tracking-wide text-xl">
+            <h1 id="stats-screen-title" className="font-display text-ink tracking-wide text-xl">
               Your stats
             </h1>
             <button
+              data-autofocus
               onClick={onClose}
               aria-label="Close"
               className="text-faint hover:text-ink transition-colors"

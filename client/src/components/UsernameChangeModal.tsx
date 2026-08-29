@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 
 interface Props {
   open: boolean;
@@ -15,6 +16,7 @@ export default function UsernameChangeModal({
   onSubmit,
   onClose,
 }: Props) {
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -47,17 +49,24 @@ export default function UsernameChangeModal({
         onClick={onClose}
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="username-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface border border-line rounded-2xl p-6 shadow-2xl w-[calc(100vw-1rem)] sm:w-80"
       >
-        <h3 className="font-display text-ink tracking-wide text-base mb-1">
+        <h3 id="username-modal-title" className="font-display text-ink tracking-wide text-base mb-1">
           Change username
         </h3>
         <p className="text-faint text-xs font-mono mb-4">
           Current: @{currentUsername} — you can only do this once!
         </p>
         <input
+          aria-label="New username"
+          aria-describedby={`username-modal-help${error ? " username-modal-error" : ""}`}
           className={`w-full px-3 py-3 sm:py-2 bg-raise border rounded-lg text-ink text-sm font-mono placeholder-faint focus:outline-none transition-colors mb-1 ${
             error
               ? "border-danger focus:border-danger"
@@ -74,11 +83,11 @@ export default function UsernameChangeModal({
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           autoFocus
         />
-        <p className="text-faint text-[10px] mb-3">
+        <p id="username-modal-help" className="text-faint text-[10px] mb-3">
           A new #tag will be generated automatically.
         </p>
         {error && (
-          <p className="text-danger text-xs mb-3">{error}</p>
+          <p id="username-modal-error" role="alert" className="text-danger text-xs mb-3">{error}</p>
         )}
         <div className="flex gap-2">
           <button

@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-28. PRs #35–#56 merged.
+Last updated: 2026-08-28. PRs #35–#57 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -105,6 +105,16 @@ for exercising the deployed client → server → database flow.
       OAuth and first-run avatar setup, then redeems it automatically when the
       authenticated socket is ready. Expired, replayed, full-room, and
       non-participant attempts fail visibly.
+- [x] **14j. Accessibility baseline** — PR #58. Mobile-hidden and icon-only
+      controls retain accessible names; form controls, selection states,
+      progress, phase changes, timers, errors, and success notices expose
+      native or ARIA semantics. Critical overlays manage initial focus, trap
+      Tab, close on Escape, and restore the opener; account popovers also
+      support Escape. A global focus-visible ring and reduced-motion rules
+      cover the full interface. WCAG A/AA axe scans now block the public
+      light/dark surfaces and semantic component scans cover authenticated
+      home, friends, account, and invite states. Light and dark semantic color
+      tokens meet AA contrast on their application surfaces.
 
 ## Next up (recommended order)
 

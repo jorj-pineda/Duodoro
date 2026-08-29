@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import type { GamePhase } from "./GameWorld";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
@@ -20,6 +23,8 @@ function SessionStatusDot({ phase }: { phase: GamePhase }) {
   return (
     <div
       className={`w-2 h-2 ${color} ${phase !== "waiting" ? "animate-pulse" : ""}`}
+      role="status"
+      aria-label={`Session phase: ${phase}`}
     />
   );
 }
@@ -65,6 +70,22 @@ export default function SessionTopBar({
   onOpenPremium,
   onSignOut,
 }: SessionTopBarProps) {
+  const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const onToggleProfileMenuRef = useRef(onToggleProfileMenu);
+  useEffect(() => {
+    onToggleProfileMenuRef.current = onToggleProfileMenu;
+  }, [onToggleProfileMenu]);
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onToggleProfileMenuRef.current();
+      profileMenuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [profileMenuOpen]);
   const tabClass = (open: boolean) =>
     `flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
       open
@@ -81,6 +102,9 @@ export default function SessionTopBar({
       {/* Left: Friends */}
       <div className="flex items-center justify-end pr-2">
         <button
+          aria-label="Toggle friends panel"
+          aria-expanded={friendsOpen}
+          aria-controls="friends-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleFriends();
@@ -93,6 +117,7 @@ export default function SessionTopBar({
 
       {/* Center: Duodoro + status dot */}
       <button
+        aria-label="Return to dashboard"
         onClick={(e) => {
           e.stopPropagation();
           onGoHome();
@@ -108,6 +133,9 @@ export default function SessionTopBar({
       {/* Right: Notes, Stats, Sound, Theme, Account */}
       <div className="flex items-center gap-1.5 pl-2">
         <button
+          aria-label="Toggle notes panel"
+          aria-expanded={notesOpen}
+          aria-controls="notes-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleNotes();
@@ -117,6 +145,9 @@ export default function SessionTopBar({
           <NoteIcon /> <span className="hidden sm:inline">Notes</span>
         </button>
         <button
+          aria-label="Toggle stats panel"
+          aria-expanded={statsOpen}
+          aria-controls="stats-panel"
           onClick={(e) => {
             e.stopPropagation();
             onToggleStats();
@@ -130,6 +161,11 @@ export default function SessionTopBar({
         <div className="flex-1" />
         <div className="relative">
           <button
+            ref={profileMenuButtonRef}
+            aria-label="Toggle account menu"
+            aria-haspopup="true"
+            aria-expanded={profileMenuOpen}
+            aria-controls="session-account-menu"
             onClick={(e) => {
               e.stopPropagation();
               onToggleProfileMenu();
@@ -140,6 +176,8 @@ export default function SessionTopBar({
           </button>
           {profileMenuOpen && (
             <div
+              id="session-account-menu"
+              aria-label="Account menu"
               className="absolute top-9 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48"
               onClick={(e) => e.stopPropagation()}
             >

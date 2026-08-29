@@ -38,6 +38,8 @@ function ColorSwatch({
         <button
           key={hex}
           title={label}
+          aria-label={label}
+          aria-pressed={selected === hex}
           onClick={() => onSelect(hex)}
           className="w-11 h-11 sm:w-7 sm:h-7 rounded border-2 transition-all"
           style={{
@@ -75,6 +77,7 @@ function CycleRow<T extends string>({
       <div className="flex items-center gap-2">
         <button
           onClick={prev}
+          aria-label={`Previous ${label.toLowerCase()}`}
           className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ‹
@@ -84,6 +87,7 @@ function CycleRow<T extends string>({
         </span>
         <button
           onClick={next}
+          aria-label={`Next ${label.toLowerCase()}`}
           className="w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center bg-line hover:bg-faint rounded text-ink font-bold text-lg sm:text-sm transition-colors"
         >
           ›
@@ -152,6 +156,7 @@ export default function AvatarCreator({
                 Your name
               </p>
               <input
+                aria-label="Display name"
                 className="w-full px-3 py-2 bg-raise border border-line rounded-lg text-ink text-sm placeholder-faint focus:outline-none focus:border-accent transition-colors"
                 placeholder="e.g. Jorge"
                 value={displayName}
@@ -164,6 +169,7 @@ export default function AvatarCreator({
                 Username
               </p>
               <input
+                aria-label="Username"
                 className={`w-full px-3 py-2 bg-raise border rounded-lg text-ink text-sm font-mono placeholder-faint focus:outline-none transition-colors ${
                   usernameError ? "border-danger focus:border-danger" : "border-line focus:border-accent"
                 }`}

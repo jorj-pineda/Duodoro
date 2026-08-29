@@ -39,6 +39,7 @@ export default function ConnectionBanner({ state, inSession, onRetry }: Props) {
           className="fixed top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2.5 rounded-xl px-4 py-2.5 shadow-lg font-mono text-xs font-bold text-white bg-black/80 backdrop-blur-sm"
         >
           <span
+            aria-hidden="true"
             className={`w-2 h-2 rounded-full ${
               offline ? "bg-danger" : "bg-amber-400 animate-pulse"
             }`}

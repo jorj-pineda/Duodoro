@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Socket } from "socket.io-client";
 import AccountSettingsModal from "./AccountSettingsModal";
+import { expectNoAxeViolations } from "@/test/axe";
 
 const rpc = vi.fn();
 const maybeSingle = vi.fn();
@@ -49,6 +50,18 @@ beforeEach(() => {
 });
 
 describe("AccountSettingsModal", () => {
+  it("has no detectable semantic accessibility violations", async () => {
+    const { container } = render(
+      <AccountSettingsModal
+        onClose={vi.fn()}
+        onDeleted={vi.fn()}
+        socketRef={{ current: fakeSocket() as unknown as Socket }}
+      />,
+    );
+    await screen.findByRole("checkbox");
+    await expectNoAxeViolations(container);
+  });
+
   it("links to inspectable Terms and Privacy documents", async () => {
     open();
     expect(await screen.findByRole("link", { name: "Privacy Policy" })).toHaveAttribute(

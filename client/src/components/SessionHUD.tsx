@@ -22,7 +22,7 @@ function DurationSlider({
   unit: string;
 }) {
   return (
-    <div className="flex items-center gap-3 w-full">
+    <label className="flex items-center gap-3 w-full">
       <span className="text-muted text-xs font-medium w-14 text-right shrink-0">
         {label}
       </span>
@@ -36,11 +36,11 @@ function DurationSlider({
         className="flex-1 h-1.5"
         style={{ accentColor: "var(--accent)" }}
       />
-      <span className="text-accent text-xs font-mono font-bold w-12 shrink-0">
+      <span aria-hidden="true" className="text-accent text-xs font-mono font-bold w-12 shrink-0">
         {value}
         {unit}
       </span>
-    </div>
+    </label>
   );
 }
 
@@ -53,7 +53,14 @@ function PhaseProgressBar({
   phase: "focus" | "break";
 }) {
   return (
-    <div className="w-full max-w-[240px] h-1.5 rounded-sm bg-raise border border-line overflow-hidden">
+    <div
+      role="progressbar"
+      aria-label={`${phase === "break" ? "Break" : "Focus"} progress`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress * 100)}
+      className="w-full max-w-[240px] h-1.5 rounded-sm bg-raise border border-line overflow-hidden"
+    >
       <div
         className={`h-full ${phase === "break" ? "bg-calm" : "bg-accent"}`}
         style={{
@@ -138,7 +145,7 @@ export default function SessionHUD({
     // indicator instead of sitting under it.
     <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
       <div className="hud-card bg-surface border-2 border-line border-b-4 px-6 sm:px-8 py-5 flex flex-col items-center gap-3 mb-4">
-        <div className="font-display text-lg tracking-wide text-ink">
+        <div role="status" aria-live="polite" className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
         </div>
 
@@ -148,7 +155,15 @@ export default function SessionHUD({
         )}
 
         {showTimer && (
-          <div className="hud-timer text-5xl sm:text-6xl font-display font-bold tabular-nums tracking-wide flex flex-col items-center">
+          <div
+            role="timer"
+            aria-label={`${phase === "break" ? "Break" : "Focus"} time ${
+              phase === "focus" && serverMode === "flow"
+                ? formatTime(Math.round(flowElapsed))
+                : formatTime(timeLeft)
+            }`}
+            className="hud-timer text-5xl sm:text-6xl font-display font-bold tabular-nums tracking-wide flex flex-col items-center"
+          >
             {phase === "focus" && serverMode === "flow" && (
               <span className="text-xs text-calm mb-1 tracking-widest font-bold uppercase">
                 Flow elapsed
@@ -166,6 +181,7 @@ export default function SessionHUD({
           <div className="w-full max-w-xs space-y-4 mt-1">
             <div className="flex bg-raise p-1 border-2 border-line">
               <button
+                aria-pressed={timerMode === "pomodoro"}
                 onClick={() => onTimerModeChange("pomodoro")}
                 className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "pomodoro"
@@ -176,6 +192,7 @@ export default function SessionHUD({
                 Pomodoro
               </button>
               <button
+                aria-pressed={timerMode === "flow"}
                 onClick={() => onTimerModeChange("flow")}
                 className={`flex-1 py-2 sm:py-1 text-xs font-bold transition-colors ${
                   timerMode === "flow"

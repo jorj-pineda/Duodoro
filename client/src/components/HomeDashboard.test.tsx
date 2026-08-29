@@ -4,6 +4,7 @@ import HomeDashboard from "./HomeDashboard";
 import { WORLDS } from "@/lib/avatarData";
 import { worldAt } from "@/lib/rotation";
 import type { Profile } from "@/lib/types";
+import { expectNoAxeViolations } from "@/test/axe";
 
 // Home used to open with an eight-thumbnail world picker and hand the choice
 // to onFocus. With the rotation the choice doesn't exist: there is one world,
@@ -97,6 +98,11 @@ afterEach(() => {
 });
 
 describe("HomeDashboard world rotation", () => {
+  it("has no detectable semantic accessibility violations", async () => {
+    const { container } = renderHome();
+    await expectNoAxeViolations(container);
+  });
+
   it("offers no world to choose", () => {
     renderHome();
     expect(screen.queryByText("Choose a world")).not.toBeInTheDocument();
@@ -131,8 +137,19 @@ describe("HomeDashboard world rotation", () => {
 describe("HomeDashboard premium entry point", () => {
   /** Open the avatar menu, where the upgrade button lives. */
   function openProfileMenu() {
-    fireEvent.click(screen.getByRole("button", { name: "J" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
   }
+
+  it("closes the account menu with Escape and restores trigger focus", () => {
+    renderHome();
+    const trigger = screen.getByRole("button", { name: "Open account menu" });
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText("Account menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByLabelText("Account menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
 
   it("opens the premium modal from the home screen", () => {
     // The bug: this button's entire onClick was setProfileMenuOpen(false).
