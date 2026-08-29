@@ -144,6 +144,11 @@ function sanitizeAvatar(avatar) {
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
+    metrics.increment('authentication_rejections_total');
+    logger.warn('authentication_rejected', {
+      socket_ref: correlationRef('socket', socket.id),
+      reason: 'missing_token',
+    });
     return next(new Error('Authentication required'));
   }
   if (!supabase) {
@@ -160,12 +165,23 @@ io.use(async (socket, next) => {
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
+      metrics.increment('authentication_rejections_total');
+      logger.warn('authentication_rejected', {
+        socket_ref: correlationRef('socket', socket.id),
+        reason: 'invalid_or_expired',
+        ...safeErrorFields(error),
+      });
       return next(new Error('Invalid or expired token'));
     }
     socket.userId = user.id;
     socket.userEmail = user.email || null;
     next();
   } catch (err) {
+    metrics.increment('authentication_failures_total');
+    logger.error('authentication_failed', {
+      socket_ref: correlationRef('socket', socket.id),
+      ...safeErrorFields(err),
+    });
     return next(new Error('Authentication failed'));
   }
 });
@@ -246,6 +262,15 @@ function onPayload(socket, event, handler, options = {}) {
 
 function getSession(sessionId) {
   return sessions[sessionId];
+}
+
+function reportJoinRejection(reason, sessionId = null, userId = null) {
+  metrics.increment('session_join_rejections_total');
+  logger.warn('session_join_rejected', {
+    reason,
+    room_ref: correlationRef('room', sessionId),
+    account_ref: correlationRef('account', userId),
+  });
 }
 
 // ── Supabase Presence Helpers ──────────────────────────────────────────────
@@ -900,19 +925,23 @@ io.on('connection', (socket) => {
   // opaque share token is its own short-lived authorization for one new seat.
   // userId comes from verified socket.userId (auth middleware).
   onPayload(socket, 'join_session', async ({ sessionId: requestedSessionId, shareToken, avatar, displayName, pet }) => {
+    const userId = socket.userId || null;
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
+      reportJoinRejection('rate_limited', requestedSessionId, userId);
       return;
     }
     const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
     const safeAvatar = sanitizeAvatar(avatar);
     if (!safeAvatar) {
       socket.emit('session_error', { message: 'Invalid avatar' });
+      reportJoinRejection('invalid_avatar', requestedSessionId, userId);
       return;
     }
     const joiningByLink = typeof shareToken === 'string';
     if (joiningByLink && (shareToken.length < 20 || shareToken.length > 128)) {
       socket.emit('session_error', { message: 'Invite link is invalid or expired' });
+      reportJoinRejection('invalid_share_token', null, userId);
       return;
     }
 
@@ -924,6 +953,7 @@ io.on('connection', (socket) => {
     } else {
       if (typeof requestedSessionId !== 'string') {
         socket.emit('session_error', { message: 'Invalid session ID' });
+        reportJoinRejection('invalid_session_id', null, userId);
         return;
       }
       sessionId = requestedSessionId;
@@ -933,21 +963,19 @@ io.on('connection', (socket) => {
       socket.emit('session_error', {
         message: joiningByLink ? 'Invite link is invalid or expired' : 'Session not found',
       });
+      reportJoinRejection(
+        joiningByLink ? 'share_invite_not_found' : 'session_not_found',
+        sessionId,
+        userId,
+      );
       return;
     }
-
-    const userId = socket.userId || null;
 
     // Authorize *before* touching any existing state — a refused join must not
     // eject the caller from the session they're already in.
     if (!joiningByLink && !(await canJoinSession(session, userId))) {
       socket.emit('session_error', { message: 'This session is private' });
-      metrics.increment('session_join_rejections_total');
-      logger.warn('session_join_rejected', {
-        room_ref: correlationRef('room', sessionId),
-        account_ref: correlationRef('account', userId),
-        reason: 'private',
-      });
+      reportJoinRejection('private', sessionId, userId);
       return;
     }
 
@@ -958,6 +986,7 @@ io.on('connection', (socket) => {
     const slot = reservePlayerSlot(session, userId);
     if (!slot.ok) {
       socket.emit('session_error', { message: 'Session is full' });
+      reportJoinRejection('full', sessionId, userId);
       return;
     }
 
@@ -968,6 +997,7 @@ io.on('connection', (socket) => {
     if (joiningByLink && slot.reserved && !consumeShareInvite(session, shareToken)) {
       releasePlayerSlot(session, userId);
       socket.emit('session_error', { message: 'Invite link is invalid or expired' });
+      reportJoinRejection('share_invite_consumed', sessionId, userId);
       return;
     }
 
@@ -980,6 +1010,7 @@ io.on('connection', (socket) => {
       // which deletes the in-memory session. Never join the detached old object.
       if (getSession(sessionId) !== session) {
         socket.emit('session_error', { message: 'Session not found' });
+        reportJoinRejection('session_closed_during_join', sessionId, userId);
         return;
       }
 

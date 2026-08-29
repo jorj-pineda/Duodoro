@@ -43,14 +43,15 @@ The most important events are:
 | `focus_record_completed` | The completed round was inserted or confirmed idempotent |
 | `focus_record_failed` | All persistence attempts failed |
 | `database_readiness_probe` | The cached readiness probe refreshed successfully or failed |
+| `authentication_rejected` / `authentication_failed` | A connection lacked valid credentials or the verification dependency failed |
 | `protocol_payload_rejected` | A malformed inbound Socket.IO payload was refused |
 | `protocol_handler_failed` | A contained socket handler threw or rejected |
 | `presence_write_failed` | A profile presence update failed instead of being silently discarded |
 | `runtime_snapshot` | Once-per-minute counters, gauges, RPC duration aggregates, and process uptime |
 
 Runtime snapshots include connected sockets, active sessions, pending focus
-recordings, connections/disconnections, session starts/closes/reconnects,
-rejected joins, protocol failures, presence failures, focus-record
+recordings, connections/disconnections, authentication outcomes, session
+starts/closes/reconnects, rejected joins, protocol failures, presence failures, focus-record
 success/failure, and RPC attempts/retries/outcomes. Durations contain count,
 total milliseconds, and maximum milliseconds for the life of that process.
 They reset on deploy or restart; `process_starts_total` and `uptime_seconds`
