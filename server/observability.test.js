@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
 import {
   correlationRef,
   createLogger,
@@ -12,6 +13,16 @@ function fakeSink() {
 }
 
 describe('structured observability', () => {
+  it('keeps production server logs behind the privacy-safe logger', () => {
+    const directConsoleCalls = readdirSync(import.meta.dirname)
+      .filter((name) => name.endsWith('.js') && !name.endsWith('.test.js'))
+      .filter((name) => /console\.(?:log|warn|error)\s*\(/.test(
+        readFileSync(new URL(name, import.meta.url), 'utf8'),
+      ));
+
+    expect(directConsoleCalls).toEqual([]);
+  });
+
   it('writes one parseable JSON record with stable service fields', () => {
     const sink = fakeSink();
     const logger = createLogger({
