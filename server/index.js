@@ -32,7 +32,16 @@ const { fetchTotalFocusSeconds } = require('./focusTotal');
 const { recordFocusSession } = require('./focusRecorder');
 const { deleteAccountData } = require('./accountDeletion');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
+const {
+  createLogger,
+  createMetrics,
+  createRpcObserver,
+} = require('./observability');
 require('dotenv').config();
+
+const logger = createLogger();
+const metrics = createMetrics({ logger });
+const observeRpc = createRpcObserver({ logger, metrics });
 
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
@@ -84,7 +93,7 @@ function sanitizePet(pet) {
 // shrinking everyone to young — a zero and a failure must not render the
 // same way.
 function totalFocusSeconds(userId) {
-  return fetchTotalFocusSeconds(supabase, userId);
+  return fetchTotalFocusSeconds(supabase, userId, { observe: observeRpc });
 }
 
 function stageForTotal(seconds) {
@@ -318,7 +327,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
       p_completed: completed,
       p_started_at: new Date(startedAt).toISOString(),
       p_user_ids: userIds,
-    });
+    }, { observe: observeRpc });
 
     console.log(
       `[${sessionId}] Session ${result.inserted ? 'recorded' : 'already recorded'}: ` +

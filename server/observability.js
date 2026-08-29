@@ -90,11 +90,35 @@ function createMetrics({ logger, now = Date.now } = {}) {
   return { increment, setGauge, observeDuration, snapshot, logSnapshot };
 }
 
+function createRpcObserver({ logger, metrics } = {}) {
+  return ({ operation, outcome, durationMs, attempt, retrying = false, error }) => {
+    const roundedDuration = Math.max(0, Math.round(durationMs));
+    metrics?.increment(`rpc_${operation}_attempts_total`);
+    metrics?.increment(`rpc_${operation}_${outcome}_total`);
+    if (retrying) metrics?.increment(`rpc_${operation}_retries_total`);
+    metrics?.observeDuration(`rpc_${operation}_duration_ms`, roundedDuration);
+
+    const fields = {
+      operation,
+      outcome,
+      duration_ms: roundedDuration,
+      attempt,
+      retrying,
+      ...safeErrorFields(error),
+    };
+    const level = outcome === 'success' || outcome === 'idempotent'
+      ? 'info'
+      : retrying ? 'warn' : 'error';
+    logger?.[level]('supabase_rpc_attempt', fields);
+  };
+}
+
 module.exports = {
   SERVICE,
   correlationRef,
   createLogger,
   createMetrics,
+  createRpcObserver,
   safeErrorFields,
   sanitizeFields,
 };

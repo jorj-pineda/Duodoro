@@ -51,28 +51,72 @@ function defaultWait(milliseconds) {
 async function recordFocusSession(
   supabase,
   payload,
-  { retryDelays = RETRY_DELAYS_MS, wait = defaultWait } = {},
+  {
+    retryDelays = RETRY_DELAYS_MS,
+    wait = defaultWait,
+    now = Date.now,
+    observe = () => {},
+  } = {},
 ) {
   if (!supabase) return null;
 
   for (let attempt = 0; ; attempt += 1) {
+    const startedAt = now();
     let response;
     try {
       response = await supabase.rpc("record_focus_session", payload);
     } catch (error) {
       // A thrown request error means no PostgREST response arrived. The write
       // may still have committed, which is exactly why the key is idempotent.
-      if (attempt >= retryDelays.length) throw error;
+      const retrying = attempt < retryDelays.length;
+      observe({
+        operation: "record_focus_session",
+        outcome: "transport_error",
+        durationMs: now() - startedAt,
+        attempt: attempt + 1,
+        retrying,
+        error,
+      });
+      if (!retrying) throw error;
       await wait(retryDelays[attempt]);
       continue;
     }
 
-    if (!response?.error) return rpcRow(response?.data);
+    if (!response?.error) {
+      let result;
+      try {
+        result = rpcRow(response?.data);
+      } catch (error) {
+        observe({
+          operation: "record_focus_session",
+          outcome: "invalid_response",
+          durationMs: now() - startedAt,
+          attempt: attempt + 1,
+          error,
+        });
+        throw error;
+      }
+      observe({
+        operation: "record_focus_session",
+        outcome: result.inserted ? "success" : "idempotent",
+        durationMs: now() - startedAt,
+        attempt: attempt + 1,
+      });
+      return result;
+    }
 
-    if (
-      attempt >= retryDelays.length ||
-      !isTransientResponseError(response.error)
-    ) {
+    const retrying =
+      attempt < retryDelays.length && isTransientResponseError(response.error);
+    observe({
+      operation: "record_focus_session",
+      outcome: "database_error",
+      durationMs: now() - startedAt,
+      attempt: attempt + 1,
+      retrying,
+      error: response.error,
+    });
+
+    if (!retrying) {
       const error = new Error(
         response.error.message || "record_focus_session failed",
       );

@@ -3,6 +3,7 @@ import {
   correlationRef,
   createLogger,
   createMetrics,
+  createRpcObserver,
   safeErrorFields,
 } from './observability.js';
 
@@ -102,6 +103,41 @@ describe('structured observability', () => {
     expect(logger.info).toHaveBeenCalledWith('runtime_snapshot', {
       active_rooms: 4,
       metrics: metrics.snapshot(),
+    });
+  });
+
+  it('records RPC outcomes, retry counts, and latency without error messages', () => {
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const metrics = createMetrics({ logger });
+    const observe = createRpcObserver({ logger, metrics });
+
+    observe({
+      operation: 'record_focus_session',
+      outcome: 'database_error',
+      durationMs: 9.7,
+      attempt: 1,
+      retrying: true,
+      error: { code: '40001', message: 'private database detail' },
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith('supabase_rpc_attempt', {
+      operation: 'record_focus_session',
+      outcome: 'database_error',
+      duration_ms: 10,
+      attempt: 1,
+      retrying: true,
+      error_code: '40001',
+    });
+    const snapshot = metrics.snapshot();
+    expect(snapshot.counters).toMatchObject({
+      rpc_record_focus_session_attempts_total: 1,
+      rpc_record_focus_session_database_error_total: 1,
+      rpc_record_focus_session_retries_total: 1,
+    });
+    expect(snapshot.durations.rpc_record_focus_session_duration_ms).toEqual({
+      count: 1,
+      total_ms: 10,
+      max_ms: 10,
     });
   });
 });
