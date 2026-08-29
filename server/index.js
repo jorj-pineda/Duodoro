@@ -144,8 +144,8 @@ function sanitizeAvatar(avatar) {
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
-    metrics.increment('authentication_rejections_total');
-    logger.warn('authentication_rejected', {
+    metrics.increment('unauthenticated_connections_total');
+    logger.info('authentication_not_started', {
       socket_ref: correlationRef('socket', socket.id),
       reason: 'missing_token',
     });

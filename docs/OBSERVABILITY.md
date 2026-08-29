@@ -43,7 +43,8 @@ The most important events are:
 | `focus_record_completed` | The completed round was inserted or confirmed idempotent |
 | `focus_record_failed` | All persistence attempts failed |
 | `database_readiness_probe` | The cached readiness probe refreshed successfully or failed |
-| `authentication_rejected` / `authentication_failed` | A connection lacked valid credentials or the verification dependency failed |
+| `authentication_not_started` | A public client connected before it had a token; informational, not an auth failure |
+| `authentication_rejected` / `authentication_failed` | A supplied credential was invalid or the verification dependency failed |
 | `protocol_payload_rejected` | A malformed inbound Socket.IO payload was refused |
 | `protocol_handler_failed` | A contained socket handler threw or rejected |
 | `presence_write_failed` | A profile presence update failed instead of being silently discarded |
