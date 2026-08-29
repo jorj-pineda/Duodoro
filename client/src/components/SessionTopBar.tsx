@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import type { GamePhase } from "./GameWorld";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
@@ -67,6 +70,22 @@ export default function SessionTopBar({
   onOpenPremium,
   onSignOut,
 }: SessionTopBarProps) {
+  const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const onToggleProfileMenuRef = useRef(onToggleProfileMenu);
+  useEffect(() => {
+    onToggleProfileMenuRef.current = onToggleProfileMenu;
+  }, [onToggleProfileMenu]);
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onToggleProfileMenuRef.current();
+      profileMenuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [profileMenuOpen]);
   const tabClass = (open: boolean) =>
     `flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
       open
@@ -142,7 +161,9 @@ export default function SessionTopBar({
         <div className="flex-1" />
         <div className="relative">
           <button
+            ref={profileMenuButtonRef}
             aria-label="Toggle account menu"
+            aria-haspopup="true"
             aria-expanded={profileMenuOpen}
             aria-controls="session-account-menu"
             onClick={(e) => {

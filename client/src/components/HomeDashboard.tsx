@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStats } from "@/lib/useStats";
 import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
@@ -88,7 +88,20 @@ export default function HomeDashboard({
   onOpenStats,
 }: Props) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setProfileMenuOpen(false);
+      profileMenuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [profileMenuOpen]);
   const {
     personalStats,
     loading,
@@ -185,7 +198,9 @@ export default function HomeDashboard({
           <ThemeToggle />
           <div className="relative ml-1">
             <button
+              ref={profileMenuButtonRef}
               aria-label="Open account menu"
+              aria-haspopup="true"
               aria-expanded={profileMenuOpen}
               aria-controls="home-account-menu"
               onClick={(e) => {

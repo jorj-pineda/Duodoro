@@ -140,6 +140,17 @@ describe("HomeDashboard premium entry point", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
   }
 
+  it("closes the account menu with Escape and restores trigger focus", () => {
+    renderHome();
+    const trigger = screen.getByRole("button", { name: "Open account menu" });
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText("Account menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByLabelText("Account menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("opens the premium modal from the home screen", () => {
     // The bug: this button's entire onClick was setProfileMenuOpen(false).
     // It closed the menu and did nothing else, so the home screen — the
