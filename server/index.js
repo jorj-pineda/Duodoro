@@ -33,11 +33,14 @@ const { recordFocusSession } = require('./focusRecorder');
 const { deleteAccountData } = require('./accountDeletion');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
+  correlationRef,
   createLogger,
   createMetrics,
   createRpcObserver,
+  safeErrorFields,
 } = require('./observability');
-require('dotenv').config();
+const { createReadinessChecker } = require('./readiness');
+require('dotenv').config({ quiet: true });
 
 const logger = createLogger();
 const metrics = createMetrics({ logger });
@@ -49,11 +52,28 @@ const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
 
 if (!supabase) {
   if (process.env.NODE_ENV === 'production') {
-    console.error('FATAL: SUPABASE_URL and SUPABASE_SERVICE_KEY are required in production');
+    logger.error('configuration_invalid', { dependency: 'supabase' });
     process.exit(1);
   }
-  console.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — running in dev mode (no auth, no persistence)');
+  logger.warn('persistence_disabled', { mode: 'development' });
 }
+
+const checkReadiness = createReadinessChecker(supabase, {
+  observe: ({ outcome, durationMs, error }) => {
+    metrics.increment(`database_readiness_${outcome}_total`);
+    metrics.observeDuration('database_readiness_duration_ms', durationMs);
+    const fields = {
+      dependency: 'database',
+      outcome,
+      duration_ms: Math.max(0, Math.round(durationMs)),
+      ...safeErrorFields(error),
+    };
+    logger[outcome === 'success' ? 'info' : 'error'](
+      'database_readiness_probe',
+      fields,
+    );
+  },
+});
 
 const app = express();
 // Comma-separated list, e.g. "https://duodoro.live,https://duodoro.vercel.app"
@@ -66,6 +86,10 @@ app.use(cors({ origin: allowedOrigins }));
 app.use(helmet());
 app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
 app.get('/health', (_, res) => res.json({ ok: true }));
+app.get('/ready', async (_, res) => {
+  const result = await checkReadiness();
+  res.status(result.ok ? 200 : 503).json(result);
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -130,7 +154,7 @@ io.use(async (socket, next) => {
       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
       if (typeof payload?.sub === 'string') socket.userId = payload.sub;
     } catch { /* not a JWT — stay anonymous */ }
-    console.warn('[auth] Supabase not configured, skipping JWT verification');
+    logger.warn('authentication_skipped', { mode: 'development' });
     return next();
   }
   try {
@@ -195,13 +219,23 @@ function onPayload(socket, event, handler, options = {}) {
   } = options;
 
   const reportError = (error) => {
-    console.error(`[protocol] ${event} failed for ${socket.id}:`, error);
+    metrics.increment('protocol_handler_failures_total');
+    logger.error('protocol_handler_failed', {
+      protocol_event: event,
+      socket_ref: correlationRef('socket', socket.id),
+      ...safeErrorFields(error),
+    });
     if (errorEvent) socket.emit(errorEvent, { message: 'Request failed' });
   };
 
   socket.on(event, safeSocketHandler((payload, ...args) => {
     if (!isPayloadObject(payload)) {
-      console.warn(`[protocol] rejected non-object ${event} payload from ${socket.id}`);
+      metrics.increment('protocol_payload_rejections_total');
+      logger.warn('protocol_payload_rejected', {
+        protocol_event: event,
+        socket_ref: correlationRef('socket', socket.id),
+        reason: 'non_object',
+      });
       if (onInvalid) onInvalid(...args);
       else if (errorEvent) socket.emit(errorEvent, { message: invalidMessage });
       return;
@@ -218,33 +252,64 @@ function getSession(sessionId) {
 
 async function setPresence(userId, sessionId, worldId) {
   if (!supabase || !userId) return;
-  await supabase
-    .from('profiles')
-    .update({ current_session_id: sessionId, current_world_id: worldId, current_room: sessionId })
-    .eq('id', userId)
-    .then(() => {});
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ current_session_id: sessionId, current_world_id: worldId, current_room: sessionId })
+      .eq('id', userId);
+    if (!error) return;
+    throw error;
+  } catch (error) {
+    metrics.increment('presence_write_failures_total');
+    logger.warn('presence_write_failed', {
+      operation: 'set',
+      account_ref: correlationRef('account', userId),
+      room_ref: correlationRef('room', sessionId),
+      ...safeErrorFields(error),
+    });
+  }
 }
 
 async function clearPresence(userId) {
   if (!supabase || !userId) return;
-  await supabase
-    .from('profiles')
-    .update({ current_session_id: null, current_world_id: null, current_room: null })
-    .eq('id', userId)
-    .then(() => {});
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ current_session_id: null, current_world_id: null, current_room: null })
+      .eq('id', userId);
+    if (!error) return;
+    throw error;
+  } catch (error) {
+    metrics.increment('presence_write_failures_total');
+    logger.warn('presence_write_failed', {
+      operation: 'clear',
+      account_ref: correlationRef('account', userId),
+      ...safeErrorFields(error),
+    });
+  }
 }
 
 // ── Presence Helpers ──────────────────────────────────────────────────────
 
 async function getFriendIds(userId) {
   if (!supabase) return [];
-  const { data } = await supabase
-    .from('friendships')
-    .select('requester_id, addressee_id')
-    .eq('status', 'accepted')
-    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-  if (!data) return [];
-  return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+  try {
+    const { data, error } = await supabase
+      .from('friendships')
+      .select('requester_id, addressee_id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+    if (error) throw error;
+    if (!data) return [];
+    return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+  } catch (error) {
+    metrics.increment('friend_read_failures_total');
+    logger.warn('friend_read_failed', {
+      account_ref: correlationRef('account', userId),
+      ...safeErrorFields(error),
+    });
+    return [];
+  }
 }
 
 // Dev mode (no Supabase) has no friendship data at all; treat everyone as
@@ -312,7 +377,11 @@ async function recordSession(sessionId, session, completed, participantIds) {
 
   if (userIds.length === 0) return;
   if (!recordingKey || !startedAt) {
-    console.error(`[${sessionId}] Cannot record focus without a round id and start time`);
+    metrics.increment('focus_record_failures_total');
+    logger.error('focus_record_rejected', {
+      room_ref: correlationRef('room', sessionId),
+      reason: 'missing_round_state',
+    });
     return;
   }
 
@@ -329,11 +398,14 @@ async function recordSession(sessionId, session, completed, participantIds) {
       p_user_ids: userIds,
     }, { observe: observeRpc });
 
-    console.log(
-      `[${sessionId}] Session ${result.inserted ? 'recorded' : 'already recorded'}: ` +
-      `${actualFocus}s, ${completed ? 'completed' : 'stopped early'}, ` +
-      `${userIds.length} participants`,
-    );
+    metrics.increment('focus_record_success_total');
+    logger.info('focus_record_completed', {
+      room_ref: correlationRef('room', sessionId),
+      outcome: result.inserted ? 'inserted' : 'idempotent',
+      actual_focus_seconds: actualFocus,
+      completed,
+      participant_count: userIds.length,
+    });
 
     // Only completed rows feed get_focus_stats, so only those grow the pet.
     // Credit the in-memory total rather than re-querying: the row was just
@@ -351,7 +423,11 @@ async function recordSession(sessionId, session, completed, participantIds) {
       }
     }
   } catch (err) {
-    console.error(`[${sessionId}] Session recording error:`, err.message || err);
+    metrics.increment('focus_record_failures_total');
+    logger.error('focus_record_failed', {
+      room_ref: correlationRef('room', sessionId),
+      ...safeErrorFields(err),
+    });
   }
 }
 
@@ -420,7 +496,10 @@ function advancePhase(sessionId) {
     breakDuration: session.breakDuration,
   });
 
-  console.log(`[${sessionId}] Phase: ${nextPhase}`);
+  logger.info('session_phase_changed', {
+    room_ref: correlationRef('room', sessionId),
+    phase: nextPhase,
+  });
 
   // Flow focus is open-ended and ends only when a player emits
   // finish_flow_focus — same as the initial start_session, which also skips
@@ -467,7 +546,11 @@ function finalizePlayerRemoval(sessionId, socketId) {
   const participantIds = sessionParticipantIds(session);
 
   const playerCount = removePlayer(session, socketId);
-  console.log(`[${sessionId}] ${socketId} left (${playerCount} remaining)`);
+  logger.info('session_player_left', {
+    room_ref: correlationRef('room', sessionId),
+    socket_ref: correlationRef('socket', socketId),
+    player_count: playerCount,
+  });
 
   io.to(sessionId).emit('player_left', { playerId: socketId });
 
@@ -477,7 +560,11 @@ function finalizePlayerRemoval(sessionId, socketId) {
     }
     if (session.phaseTimer) clearTimeout(session.phaseTimer);
     delete sessions[sessionId];
-    console.log(`[${sessionId}] Session deleted`);
+    metrics.increment('sessions_closed_total');
+    logger.info('session_closed', {
+      room_ref: correlationRef('room', sessionId),
+      reason: 'empty',
+    });
   }
   // Presence is refreshed *after* the removal, so it reflects where the user
   // actually is now. Clearing it unconditionally here wiped the row while
@@ -535,7 +622,12 @@ function removeUserFromLiveSessions(userId) {
     if (Object.keys(session.players).length === 0) {
       if (session.phaseTimer) clearTimeout(session.phaseTimer);
       delete sessions[sessionId];
-      console.log(`[${sessionId}] Session deleted with account ${userId}`);
+      metrics.increment('sessions_closed_total');
+      logger.info('session_closed', {
+        room_ref: correlationRef('room', sessionId),
+        account_ref: correlationRef('account', userId),
+        reason: 'account_deleted',
+      });
     }
   }
 }
@@ -543,7 +635,10 @@ function removeUserFromLiveSessions(userId) {
 // ── Socket Handlers ────────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
-  console.log(`Connected: ${socket.id}`);
+  metrics.increment('socket_connections_total');
+  logger.info('socket_connected', {
+    socket_ref: correlationRef('socket', socket.id),
+  });
 
   // ── Presence registration ───────────────────────────────────────────────
   // Use verified socket.userId from auth middleware instead of client-sent userId
@@ -555,7 +650,11 @@ io.on('connection', (socket) => {
     // opening tabs doesn't spam friends with presence updates.
     const cameOnline = presence.add(userId, socket.id);
     if (cameOnline) broadcastPresence(userId, true);
-    console.log(`[presence] ${userId} registered (${socket.id})`);
+    logger.info('presence_registered', {
+      account_ref: correlationRef('account', userId),
+      socket_ref: correlationRef('socket', socket.id),
+      came_online: cameOnline,
+    });
   });
 
   // Permanent self-service deletion. Identity comes only from the verified
@@ -591,7 +690,11 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       socket.accountDeletionPending = false;
-      console.error(`[account] Failed to delete ${userId}:`, error.message || error);
+      metrics.increment('account_deletion_failures_total');
+      logger.error('account_deletion_failed', {
+        account_ref: correlationRef('account', userId),
+        ...safeErrorFields(error),
+      });
       respond({
         ok: false,
         message: 'Could not delete your account. Please try again.',
@@ -687,7 +790,11 @@ io.on('connection', (socket) => {
         fromUserId,
       });
     }
-    console.log(`[invite] ${safeName} invited ${targetUserId}`);
+    metrics.increment('session_invites_sent_total');
+    logger.info('session_invite_sent', {
+      room_ref: correlationRef('room', sessionId),
+      target_ref: correlationRef('account', targetUserId),
+    });
   }, { errorEvent: 'invite_error' });
 
   // create_session: { avatar, displayName, pet }
@@ -740,7 +847,11 @@ io.on('connection', (socket) => {
 
     if (userId) setPresence(userId, sessionId, safeWorld);
 
-    console.log(`[${sessionId}] ${safeName} created session (world: ${safeWorld})`);
+    metrics.increment('sessions_created_total');
+    logger.info('session_created', {
+      room_ref: correlationRef('room', sessionId),
+      world: safeWorld,
+    });
 
     socket.emit('session_created', { sessionId });
     socket.emit('sync_state', buildSyncPayload(session));
@@ -831,7 +942,12 @@ io.on('connection', (socket) => {
     // eject the caller from the session they're already in.
     if (!joiningByLink && !(await canJoinSession(session, userId))) {
       socket.emit('session_error', { message: 'This session is private' });
-      console.log(`[${sessionId}] refused join from ${userId}`);
+      metrics.increment('session_join_rejections_total');
+      logger.warn('session_join_rejected', {
+        room_ref: correlationRef('room', sessionId),
+        account_ref: correlationRef('account', userId),
+        reason: 'private',
+      });
       return;
     }
 
@@ -886,7 +1002,12 @@ io.on('connection', (socket) => {
         io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
         if (session.hostId === oldSocketId) session.hostId = socket.id;
         socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
-        console.log(`[${sessionId}] ${userId} reconnected (${oldSocketId} → ${socket.id})`);
+        metrics.increment('session_reconnects_total');
+        logger.info('session_player_reconnected', {
+          room_ref: correlationRef('room', sessionId),
+          account_ref: correlationRef('account', userId),
+          socket_ref: correlationRef('socket', socket.id),
+        });
       }
 
       socket.join(sessionId);
@@ -901,7 +1022,11 @@ io.on('connection', (socket) => {
       });
 
       if (userId) setPresence(userId, sessionId, session.world);
-      console.log(`[${sessionId}] ${safeName} joined (${playerCount} players)`);
+      logger.info('session_player_joined', {
+        room_ref: correlationRef('room', sessionId),
+        socket_ref: correlationRef('socket', socket.id),
+        player_count: playerCount,
+      });
 
       socket.to(sessionId).emit('player_joined', {
         playerId: socket.id,
@@ -959,7 +1084,14 @@ io.on('connection', (socket) => {
     if (safeMode === 'pomodoro') {
       session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
     }
-    console.log(`[${sessionId}] Session started: mode ${safeMode}, ${Math.round(session.focusDuration / 60)}m focus, ${Math.round(session.breakDuration / 60)}m break, ${Object.keys(session.players).length} players`);
+    metrics.increment('focus_rounds_started_total');
+    logger.info('focus_round_started', {
+      room_ref: correlationRef('room', sessionId),
+      mode: safeMode,
+      focus_seconds: session.focusDuration,
+      break_seconds: session.breakDuration,
+      player_count: Object.keys(session.players).length,
+    });
   });
 
   // finish_flow_focus: { sessionId }
@@ -1058,7 +1190,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`Disconnected: ${socket.id}`);
+    metrics.increment('socket_disconnections_total');
+    logger.info('socket_disconnected', {
+      socket_ref: correlationRef('socket', socket.id),
+    });
     const sessionId = socketToSession[socket.id];
     if (sessionId) {
       delete socketToSession[socket.id];
@@ -1074,7 +1209,11 @@ io.on('connection', (socket) => {
         }, RECONNECT_GRACE_MS);
         pendingDisconnects.set(socket.id, timer);
         io.to(sessionId).emit('player_disconnected', { playerId: socket.id });
-        console.log(`[${sessionId}] ${socket.id} dropped — ${RECONNECT_GRACE_MS / 1000}s reconnect grace`);
+        logger.info('session_player_grace_started', {
+          room_ref: correlationRef('room', sessionId),
+          socket_ref: correlationRef('socket', socket.id),
+          grace_seconds: RECONNECT_GRACE_MS / 1000,
+        });
       } else if (session) {
         // Unauthenticated (dev mode) players can't be matched on reconnect
         finalizePlayerRemoval(sessionId, socket.id);
@@ -1089,8 +1228,11 @@ io.on('connection', (socket) => {
     if (userId) {
       // Only actually offline once the user's last tab is gone.
       if (wentOffline) broadcastPresence(userId, false);
-      console.log(`[presence] ${userId} socket ${socket.id} closed` +
-        (wentOffline ? ' (now offline)' : ' (other tabs still open)'));
+      logger.info('presence_socket_closed', {
+        account_ref: correlationRef('account', userId),
+        socket_ref: correlationRef('socket', socket.id),
+        went_offline: wentOffline,
+      });
     }
   });
 });
@@ -1103,24 +1245,43 @@ io.on('connection', (socket) => {
 // of where they are.
 async function clearAllPresence(reason) {
   if (!supabase) return;
-  const { error } = await supabase
-    .from('profiles')
-    .update({ current_session_id: null, current_world_id: null, current_room: null })
-    .not('current_session_id', 'is', null);
-  if (error) {
-    console.error(`[presence] ${reason} sweep failed:`, error.message);
-  } else {
-    console.log(`[presence] cleared stale presence (${reason})`);
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ current_session_id: null, current_world_id: null, current_room: null })
+      .not('current_session_id', 'is', null);
+    if (error) throw error;
+    logger.info('presence_sweep_completed', { reason });
+  } catch (error) {
+    metrics.increment('presence_sweep_failures_total');
+    logger.error('presence_sweep_failed', {
+      reason,
+      ...safeErrorFields(error),
+    });
   }
 }
+
+function reportRuntimeSnapshot() {
+  metrics.setGauge('connected_sockets', io.engine.clientsCount);
+  metrics.setGauge('active_sessions', Object.keys(sessions).length);
+  metrics.setGauge('pending_focus_recordings', pendingRecordings.size);
+  metrics.logSnapshot();
+}
+
+metrics.increment('process_starts_total');
+const metricsInterval = setInterval(reportRuntimeSnapshot, 60_000);
+metricsInterval.unref();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
   // The bound port, not the requested one — PORT=0 means "pick a free one",
   // which is how createSession.test.js gets an instance without fighting a dev
   // server for 3001.
-  console.log(`Server running on port ${server.address().port}`);
-  console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+  logger.info('server_started', {
+    port: server.address().port,
+    allowed_origin_count: allowedOrigins.length,
+  });
+  reportRuntimeSnapshot();
   await clearAllPresence('boot');
 });
 
@@ -1132,7 +1293,8 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, async () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(`[shutdown] ${signal} received`);
+    clearInterval(metricsInterval);
+    logger.info('shutdown_started', { signal });
     // Bound the entire drain, not only server.close(): an upstream request can
     // otherwise hang before the old force-exit timer was even installed.
     setTimeout(() => process.exit(0), 5000).unref();
