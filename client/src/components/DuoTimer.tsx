@@ -173,6 +173,7 @@ export default function DuoTimer() {
     <AnimatePresence>
       {errorToast && (
         <motion.div
+          role="alert"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
@@ -208,6 +209,8 @@ export default function DuoTimer() {
       <AnimatePresence>
         {(game.inviteSentName || shareInviteCopied) && (
           <motion.div
+            role="status"
+            aria-live="polite"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}

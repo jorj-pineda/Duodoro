@@ -356,7 +356,14 @@ export default function StickyNote({
                       {Math.round((completedCount / activeTasks.length) * 100)}%
                     </span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full overflow-hidden bg-black/10">
+                  <div
+                    role="progressbar"
+                    aria-label="Task completion"
+                    aria-valuemin={0}
+                    aria-valuemax={activeTasks.length}
+                    aria-valuenow={completedCount}
+                    className="w-full h-1.5 rounded-full overflow-hidden bg-black/10"
+                  >
                     <motion.div
                       className="h-full rounded-full bg-emerald-600"
                       initial={{ width: 0 }}
