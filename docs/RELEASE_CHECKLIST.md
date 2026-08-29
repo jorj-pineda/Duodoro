@@ -27,6 +27,8 @@ the release until it is fixed or explicitly rolled back.
 - [ ] GitHub `Server tests` passes.
 - [ ] GitHub `Client tests & build` passes.
 - [ ] GitHub `Browser release smoke` passes.
+- [ ] The automated axe baseline reports no WCAG A/AA violations on landing,
+      Terms, or Privacy in the tested light/dark appearances.
 - [ ] The browser-smoke job confirms the app and realtime health endpoints,
       public landing content, Google and Discord entry points, canonical Open
       Graph/Twitter metadata, absence of browser errors/framework overlays,
@@ -133,6 +135,14 @@ prove safe areas, browser chrome, touch reachability, or background-tab behavior
 - [ ] Character, pet, terrain, timer, and break-prop pixels remain crisp.
 - [ ] Young/grown/full pets read as the intended animal beside a character.
 - [ ] Theme toggle and sound mute persist after reload.
+- [ ] Complete the landing → home → waiting → focus path with only a keyboard;
+      focus remains visible, overlays contain focus, Escape closes them, and
+      focus returns to the opening control.
+- [ ] With a screen reader, verify icon controls have useful names and that
+      connection failures, invite results, session errors, and phase changes
+      are announced once without continuously reading the timer.
+- [ ] With reduced motion enabled at the OS/browser level, decorative loops and
+      interface transitions no longer move while all controls remain usable.
 
 ## 8. Launch surface
 
