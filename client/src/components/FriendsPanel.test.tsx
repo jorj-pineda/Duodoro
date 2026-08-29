@@ -81,6 +81,19 @@ describe("FriendsPanel load states", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("moves between tabs with arrow keys", () => {
+    renderPanel();
+    const friendsTab = screen.getByRole("tab", { name: "friends" });
+    friendsTab.focus();
+    fireEvent.keyDown(friendsTab, { key: "ArrowRight" });
+
+    expect(screen.getByRole("tab", { name: "requests" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "requests" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
   it("shows an unavailable state and retry after a failed load", () => {
     listState.loaded = false;
     listState.loadError = "Couldn't load your friends. Check your connection.";

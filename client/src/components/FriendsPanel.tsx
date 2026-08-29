@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { WORLDS } from "@/lib/avatarData";
 import type { Profile } from "@/lib/types";
 import { formatTag } from "@/lib/format";
@@ -19,6 +20,7 @@ interface Props {
 }
 
 type Tab = "friends" | "requests" | "find";
+const TABS: readonly Tab[] = ["friends", "requests", "find"];
 
 const WORLD_LABEL: Record<string, string> = Object.fromEntries(
   WORLDS.map((w) => [w.id, w.label]),
@@ -195,13 +197,23 @@ export default function FriendsPanel({
 
               {/* Tabs */}
               <div role="tablist" aria-label="Friends sections" className="flex border-b border-line">
-                {(["friends", "requests", "find"] as Tab[]).map((t) => (
+                {TABS.map((t) => (
                   <button
                     key={t}
                     id={`friends-tab-${t}`}
                     role="tab"
                     aria-selected={tab === t}
                     aria-controls="friends-tab-panel"
+                    tabIndex={tab === t ? 0 : -1}
+                    onKeyDown={(event) =>
+                      handleTabKeyNavigation(
+                        event,
+                        TABS,
+                        tab,
+                        setTab,
+                        (next) => `friends-tab-${next}`,
+                      )
+                    }
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t

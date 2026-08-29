@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStickyNotes } from "@/hooks/useStickyNotes";
 import type { Task } from "@/lib/types";
 import { CloseIcon } from "./Icons";
@@ -39,6 +40,7 @@ const NOTE_COLORS = [
     accent: "#064e3b",
   },
 ];
+const TASK_TABS = ["mine", "shared"] as const;
 
 function TaskRow({
   task,
@@ -299,13 +301,23 @@ export default function StickyNote({
 
               {/* Tabs */}
               <div role="tablist" aria-label="Task lists" className="flex border-b-2 border-black/10">
-                {(["mine", "shared"] as const).map((t) => (
+                {TASK_TABS.map((t) => (
                   <button
                     key={t}
                     id={`tasks-tab-${t}`}
                     role="tab"
                     aria-selected={tab === t}
                     aria-controls="tasks-tab-panel"
+                    tabIndex={tab === t ? 0 : -1}
+                    onKeyDown={(event) =>
+                      handleTabKeyNavigation(
+                        event,
+                        TASK_TABS,
+                        tab,
+                        setTab,
+                        (next) => `tasks-tab-${next}`,
+                      )
+                    }
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2 text-xs font-mono font-bold transition-all ${
                       tab === t ? "border-b-2" : "opacity-50 hover:opacity-70"

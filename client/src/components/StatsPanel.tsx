@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStats } from "@/lib/useStats";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
@@ -16,6 +17,7 @@ interface Props {
 }
 
 type Tab = "personal" | "duo" | "history";
+const TABS: readonly Tab[] = ["personal", "duo", "history"];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -169,13 +171,23 @@ export default function StatsPanel({
 
               {/* Tabs */}
               <div role="tablist" aria-label="Stats sections" className="flex border-b border-line">
-                {(["personal", "duo", "history"] as Tab[]).map((t) => (
+                {TABS.map((t) => (
                   <button
                     key={t}
                     id={`stats-tab-${t}`}
                     role="tab"
                     aria-selected={tab === t}
                     aria-controls="stats-tab-panel"
+                    tabIndex={tab === t ? 0 : -1}
+                    onKeyDown={(event) =>
+                      handleTabKeyNavigation(
+                        event,
+                        TABS,
+                        tab,
+                        setTab,
+                        (next) => `stats-tab-${next}`,
+                      )
+                    }
                     onClick={() => setTab(t)}
                     className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
