@@ -363,8 +363,15 @@ a screen reader at least once per release.
 
 ### 6. Split the largest orchestration files along behavior boundaries
 
-`server/index.js` is about 879 lines, `useGameSession.ts` about 656,
-`DuoTimer.tsx` about 460, and `WorldDecorations.tsx` about 1,676. Some size is
+**Status:** In progress in PR #62. The production entry point is now a thin
+environment/bootstrap layer, while `server/app.js` exports an injectable
+factory that owns each instance's HTTP server, Socket.IO transport, live state,
+timers, metrics, startup, and teardown. Importing it has no listener, signal,
+credential, or interval side effects. Handler/parser services, the client hook
+split, and a shared typed event contract remain follow-up work.
+
+`server/app.js` is about 1,356 lines, `useGameSession.ts` about 743,
+`DuoTimer.tsx` about 544, and `WorldDecorations.tsx` about 1,676. Some size is
 legitimate, especially hand-authored art, but the realtime files mix protocol
 parsing, authorization, state mutation, persistence, presence, and transport.
 

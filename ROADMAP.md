@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-31. PRs #35–#60 merged.
+Last updated: 2026-08-31. PRs #35–#61 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -138,6 +138,13 @@ for exercising the deployed client → server → database flow.
       through `useSyncExternalStore` after hydration. A static-render regression
       test proves morning, afternoon, and evening copy cannot enter the server
       markup, while a client test pins the local-time result.
+- [x] **14n. Injectable realtime app factory** — PR #62. `server/index.js` is
+      now a thin environment and signal bootstrap; `server/app.js` owns one
+      isolated HTTP/Socket.IO application instance with explicit `start()` and
+      `stop()` lifecycle methods. Importing the factory does not bind a port,
+      install process handlers, load service-role credentials, or start metric
+      intervals. Probe and teardown tests protect that seam while the existing
+      process and real-socket integration tests preserve production behavior.
 
 ## Next up (recommended order)
 
