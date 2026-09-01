@@ -34,7 +34,7 @@ async function main() {
     reconnectGraceMs: Number(process.env.RECONNECT_GRACE_MS) || 60_000,
     logger,
   });
-  await realtime.start(process.env.PORT || 3001);
+  const startPromise = realtime.start(process.env.PORT || 3001);
 
   // Render sends SIGTERM before replacing the instance. Clearing on the way
   // out keeps the presence error window bounded to the deployment itself.
@@ -51,6 +51,8 @@ async function main() {
       process.exit(0);
     });
   }
+
+  await startPromise;
 }
 
 if (require.main === module) {
