@@ -152,6 +152,13 @@ for exercising the deployed client → server → database flow.
       timer defaults/clamps are unit-tested independently of transport and live
       state. Rate limits and verified-socket authorization retain their original
       ordering, and unknown legacy fields remain ignored for compatibility.
+- [x] **14p. Account and social handler services** — PR #64. Presence
+      registration, account deletion, bounded online-friend lookup, and invite
+      relay now live outside the app factory behind explicit dependencies.
+      Direct service tests prove verified socket identity wins over payload
+      claims, deletion failure remains retryable, all matching account tabs are
+      disconnected, online results require friendship, invite presentation uses
+      server-owned room state, and rate limiting still precedes parsing.
 
 ## Next up (recommended order)
 
