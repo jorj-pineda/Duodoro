@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import HomeDashboard from "./HomeDashboard";
 import { WORLDS } from "@/lib/avatarData";
 import { worldAt } from "@/lib/rotation";
@@ -64,28 +65,37 @@ const profile: Profile = {
   updated_at: "2026-08-12T00:00:00Z",
 };
 
-function renderHome(overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {}) {
+function homeProps(
+  overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {},
+): Parameters<typeof HomeDashboard>[0] {
   const onFocus = overrides.onFocus ?? vi.fn();
   const onOpenPremium = overrides.onOpenPremium ?? vi.fn();
-  const utils = render(
-    <HomeDashboard
-      profile={overrides.profile ?? profile}
-      socketRef={{ current: null }}
-      onFocus={onFocus}
-      onOpenPremium={onOpenPremium}
-      onRejoinSession={vi.fn()}
-      onJoinSession={vi.fn()}
-      onInvite={vi.fn()}
-      onEditAvatar={vi.fn()}
-      onChangeUsername={vi.fn()}
-      onChangeDisplayName={vi.fn()}
-      onSignOut={vi.fn()}
-      onAccountDeleted={vi.fn()}
-      onOpenFriends={vi.fn()}
-      onOpenStats={vi.fn()}
-    />,
-  );
-  return { ...utils, onFocus, onOpenPremium };
+  return {
+    profile: overrides.profile ?? profile,
+    socketRef: overrides.socketRef ?? { current: null },
+    onFocus,
+    onOpenPremium,
+    onRejoinSession: overrides.onRejoinSession ?? vi.fn(),
+    onJoinSession: overrides.onJoinSession ?? vi.fn(),
+    onInvite: overrides.onInvite ?? vi.fn(),
+    onEditAvatar: overrides.onEditAvatar ?? vi.fn(),
+    onChangeUsername: overrides.onChangeUsername ?? vi.fn(),
+    onChangeDisplayName: overrides.onChangeDisplayName ?? vi.fn(),
+    onSignOut: overrides.onSignOut ?? vi.fn(),
+    onAccountDeleted: overrides.onAccountDeleted ?? vi.fn(),
+    onOpenFriends: overrides.onOpenFriends ?? vi.fn(),
+    onOpenStats: overrides.onOpenStats ?? vi.fn(),
+  };
+}
+
+function renderHome(overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {}) {
+  const props = homeProps(overrides);
+  const utils = render(<HomeDashboard {...props} />);
+  return {
+    ...utils,
+    onFocus: props.onFocus,
+    onOpenPremium: props.onOpenPremium,
+  };
 }
 
 beforeEach(() => {
@@ -95,6 +105,27 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("HomeDashboard greeting", () => {
+  it("keeps the server-rendered greeting independent of the server clock", () => {
+    vi.setSystemTime(Date.parse("2026-08-12T23:00:00Z"));
+    const markup = renderToStaticMarkup(
+      <HomeDashboard {...homeProps()} />,
+    );
+
+    expect(markup).toContain("Hello, Jorge");
+    expect(markup).not.toMatch(/Good (morning|afternoon|evening)/);
+  });
+
+  it("uses the browser-local greeting after mount", () => {
+    vi.setSystemTime(new Date(2026, 7, 12, 14, 0, 0));
+    renderHome();
+
+    expect(
+      screen.getByRole("heading", { name: "Good afternoon, Jorge" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("HomeDashboard world rotation", () => {
