@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-29. PRs #35–#59 merged.
+Last updated: 2026-08-31. PRs #35–#60 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -133,6 +133,11 @@ for exercising the deployed client → server → database flow.
       availability without upstream detail. The operations guide defines alert
       conditions; its external notification destination remains deployment
       configuration.
+- [x] **14m. Hydration-safe local greeting** — PR #61. Home renders the stable
+      neutral greeting “Hello” on the server, then reads the browser-local hour
+      through `useSyncExternalStore` after hydration. A static-render regression
+      test proves morning, afternoon, and evening copy cannot enter the server
+      markup, while a client test pins the local-time result.
 
 ## Next up (recommended order)
 

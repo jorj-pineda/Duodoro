@@ -325,6 +325,12 @@ only a liveness check; add dependency/readiness information separately.
 
 ### 4. Fix hydration-sensitive greeting logic
 
+**Status:** Addressed in PR #61. `HomeDashboard` supplies the neutral “Hello”
+server snapshot through `useSyncExternalStore` and derives the time-specific
+greeting from the browser clock after hydration. Static server markup is pinned
+to contain no morning, afternoon, or evening copy, and client rendering verifies
+the local-hour result.
+
 `HomeDashboard` calls `new Date().getHours()` during render even though the
 project correctly documents that clock-derived client UI should initialize
 after mount. Server time zone and browser time zone can produce different
