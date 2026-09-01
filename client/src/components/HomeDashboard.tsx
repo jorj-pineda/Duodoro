@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useStats } from "@/lib/useStats";
 import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
@@ -43,6 +43,24 @@ interface Props {
   onAccountDeleted: () => void | Promise<void>;
   onOpenFriends: () => void;
   onOpenStats: () => void;
+}
+
+function greetingForHour(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+const subscribeToGreeting = () => () => {};
+const getServerGreeting = () => "Hello";
+const getLocalGreeting = () => greetingForHour(new Date().getHours());
+
+function useLocalGreeting() {
+  return useSyncExternalStore(
+    subscribeToGreeting,
+    getLocalGreeting,
+    getServerGreeting,
+  );
 }
 
 function QuickStat({
@@ -90,6 +108,7 @@ export default function HomeDashboard({
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const greeting = useLocalGreeting();
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -143,14 +162,6 @@ export default function HomeDashboard({
   const onlineFriends = friends.filter(
     (f) => onlineFriendIds.has(f.id) || !!f.current_session_id,
   );
-
-  const greetingHour = new Date().getHours();
-  const greeting =
-    greetingHour < 12
-      ? "Good morning"
-      : greetingHour < 17
-        ? "Good afternoon"
-        : "Good evening";
 
   return (
     <div
