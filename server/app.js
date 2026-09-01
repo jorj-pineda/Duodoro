@@ -14,7 +14,6 @@ const {
   removePlayer,
   setPlayerPet,
   creditFocusRound,
-  inviteUser,
   isInvited,
   findPlayerByUserId,
   reservePlayerSlot,
@@ -29,14 +28,10 @@ const { worldAt } = require('./rotation');
 const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
 const { recordFocusSession } = require('./focusRecorder');
-const { deleteAccountData } = require('./accountDeletion');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
   MAX_FOCUS,
   MAX_BREAK,
-  parseDeleteAccount,
-  parseOnlineFriends,
-  parseSendInvite,
   parseCreateSession,
   parseShareInvite,
   parseJoinSession,
@@ -52,6 +47,8 @@ const {
   safeErrorFields,
 } = require('./observability');
 const { createReadinessChecker } = require('./readiness');
+const { registerAccountHandlers } = require('./accountHandlers');
+const { registerSocialHandlers } = require('./socialHandlers');
 
 function createRealtimeApp({
   supabase = null,
@@ -644,165 +641,29 @@ io.on('connection', (socket) => {
     socket_ref: correlationRef('socket', socket.id),
   });
 
-  // ── Presence registration ───────────────────────────────────────────────
-  // Use verified socket.userId from auth middleware instead of client-sent userId
-  socket.on('register_user', () => {
-    const userId = socket.userId;
-    if (!userId) return;
-    // Additive: a second tab joins the user's socket set rather than
-    // replacing the first. Only announce on the offline->online edge, so
-    // opening tabs doesn't spam friends with presence updates.
-    const cameOnline = presence.add(userId, socket.id);
-    if (cameOnline) broadcastPresence(userId, true);
-    logger.info('presence_registered', {
-      account_ref: correlationRef('account', userId),
-      socket_ref: correlationRef('socket', socket.id),
-      came_online: cameOnline,
-    });
+  registerAccountHandlers({
+    socket,
+    io,
+    onPayload,
+    supabase,
+    presence,
+    broadcastPresence,
+    removeUserFromLiveSessions,
+    metrics,
+    logger,
   });
-
-  // Permanent self-service deletion. Identity comes only from the verified
-  // handshake; the payload cannot name another account. The exact confirmation
-  // phrase prevents an accidental click or stale UI event from doing this.
-  onPayload(socket, 'delete_account', async (payload, respond) => {
-    if (typeof respond !== 'function') return;
-    const parsed = parseDeleteAccount(payload);
-    if (!parsed.ok) {
-      respond({ ok: false, message: 'Type DELETE to confirm' });
-      return;
-    }
-    if (!socket.userId || socket.accountDeletionPending) {
-      respond({ ok: false, message: 'Account deletion is unavailable' });
-      return;
-    }
-
-    socket.accountDeletionPending = true;
-    const userId = socket.userId;
-    try {
-      await deleteAccountData(supabase, {
-        userId,
-        email: socket.userEmail,
-      });
-      removeUserFromLiveSessions(userId);
-      respond({ ok: true });
-
-      // Let the acknowledgement reach the requesting tab before terminating
-      // every socket for this now-deleted account.
-      setImmediate(() => {
-        for (const client of io.sockets.sockets.values()) {
-          if (client.userId === userId) client.disconnect(true);
-        }
-      });
-    } catch (error) {
-      socket.accountDeletionPending = false;
-      metrics.increment('account_deletion_failures_total');
-      logger.error('account_deletion_failed', {
-        account_ref: correlationRef('account', userId),
-        ...safeErrorFields(error),
-      });
-      respond({
-        ok: false,
-        message: 'Could not delete your account. Please try again.',
-      });
-    }
-  }, {
-    errorEvent: null,
-    onInvalid: (respond) => {
-      if (typeof respond === 'function') {
-        respond({ ok: false, message: 'Invalid deletion request' });
-      }
-    },
+  registerSocialHandlers({
+    socket,
+    io,
+    onPayload,
+    presence,
+    sessions,
+    getFriendIds,
+    areFriends,
+    inviteRateLimit: rateLimits.sendInvite,
+    metrics,
+    logger,
   });
-
-  onPayload(socket, 'get_online_friends', async (payload, callback) => {
-    if (typeof callback !== 'function') return;
-    const userId = socket.userId;
-    if (!userId) { callback([]); return; }
-
-    // Bound both shape and work. A string has no Array#filter, and an
-    // attacker-controlled giant list should not become a giant Set/filter pass.
-    const parsed = parseOnlineFriends(payload);
-    if (!parsed.ok) {
-      callback([]);
-      return;
-    }
-    const { friendIds } = parsed.value;
-
-    // Validate that queried IDs are actual accepted friends
-    const actualFriendIds = await getFriendIds(userId);
-    const friendSet = new Set(actualFriendIds);
-    const validIds = (friendIds || []).filter(id => friendSet.has(id));
-    const online = validIds.filter(id => presence.isOnline(id));
-    callback(online);
-  }, {
-    errorEvent: null,
-    onInvalid: (callback) => {
-      if (typeof callback === 'function') callback([]);
-    },
-  });
-
-  // ── Invite relay ────────────────────────────────────────────────────────
-  onPayload(socket, 'send_invite', async (payload) => {
-    if (!rateLimits.sendInvite(socket.id)) {
-      socket.emit('invite_error', { message: 'Too many invites, slow down' });
-      return;
-    }
-    const parsed = parseSendInvite(payload);
-    if (!parsed.ok) return;
-    const { targetUserId, sessionId, fromName } = parsed.value;
-    // Verify sender is actually in the session they're inviting to
-    if (sessionId && sessions[sessionId] && !sessions[sessionId].players[socket.id]) {
-      socket.emit('invite_error', { message: 'You are not in this session' });
-      return;
-    }
-    if (sessionId && sessions[sessionId] && !hasOpenPlayerSlot(sessions[sessionId])) {
-      socket.emit('invite_error', { message: 'Session is full' });
-      return;
-    }
-
-    // Friends only. get_online_friends already validates friendship; without
-    // the same check here, any online user could be pushed an invite whose
-    // attacker-controlled fromName renders in a full-screen modal.
-    if (!(await areFriends(socket.userId, targetUserId))) {
-      socket.emit('invite_error', { message: 'You can only invite friends' });
-      return;
-    }
-
-    const targetSocketIds = presence.socketsFor(targetUserId);
-    if (targetSocketIds.length === 0) {
-      socket.emit('invite_error', { message: 'Friend is offline' });
-      return;
-    }
-    // Use verified userId, not client-sent
-    const fromUserId = socket.userId || null;
-    // The world a session is in is server state, so read it from there rather
-    // than validating a client-sent copy. The invite popup shows this; taking
-    // the sender's word for it let them advertise a session as somewhere it
-    // isn't. It also can't go stale now that the rotation moves.
-    const safeWorld = (typeof sessionId === 'string' && sessions[sessionId])
-      ? sessions[sessionId].world
-      : null;
-
-    // Allowlist the invitee so the join gate lets them in
-    if (typeof sessionId === 'string' && sessions[sessionId]) {
-      inviteUser(sessions[sessionId], targetUserId);
-    }
-    // Deliver to every tab they have open — otherwise the popup can land in a
-    // background tab they aren't looking at.
-    for (const targetSocketId of targetSocketIds) {
-      io.to(targetSocketId).emit('session_invite', {
-        sessionId: typeof sessionId === 'string' ? sessionId : null,
-        worldId: safeWorld,
-        fromName,
-        fromUserId,
-      });
-    }
-    metrics.increment('session_invites_sent_total');
-    logger.info('session_invite_sent', {
-      room_ref: correlationRef('room', sessionId),
-      target_ref: correlationRef('account', targetUserId),
-    });
-  }, { errorEvent: 'invite_error' });
 
   // create_session: { avatar, displayName, pet }
   // Creates a new session with a UUID, user becomes host.
