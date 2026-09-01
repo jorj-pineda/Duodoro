@@ -11,7 +11,7 @@ Duodoro is a collaborative pomodoro web app for long-distance couples/friends. U
 Two independent npm packages (each with its own `package.json` and lockfile), plus infra:
 
 - `client/` — Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, framer-motion). Single-page app: `app/page.tsx` just renders `DuoTimer`.
-- `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. The transport/handler layer is `server/index.js`; pure session-state helpers live in `server/session.js`.
+- `server/` — Plain Node.js (CommonJS) Express + Socket.IO server. `server/index.js` is the production environment/signal bootstrap; the transport/handler app factory is `server/app.js`; pure session-state helpers live in `server/session.js`.
 - `supabase/migrations/` — Canonical timestamped SQL migrations managed by Supabase CLI. Create new files with `supabase migration new <name>`; never apply repository migrations by hand in the SQL editor.
 - `docker-compose.yml` — local/self-hosted Docker setup (client + server, no nginx); kept for local dev, not used by the current deploy.
 - The root `package.json` is vestigial — don't add dependencies there; install into `client/` or `server/`.
@@ -49,7 +49,7 @@ Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `N
 
 ### Split of responsibilities
 
-- **Socket.IO server** (`server/index.js`) is the source of truth for live session state: phases, timers, players, presence, invites. All session state is **in-memory** (the `sessions` map plus the presence registry in `server/presence.js`) — it does not survive a server restart, and nothing live is read back from the DB.
+- **Socket.IO server** (`server/app.js`) is the source of truth for live session state: phases, timers, players, presence, invites. All session state is **in-memory** (the `sessions` map plus the presence registry in `server/presence.js`) — it does not survive a server restart, and nothing live is read back from the DB.
 - **Supabase** handles auth (JWT), and persistence: profiles, friendships, tasks/sticky notes, and *completed* session history (`sessions` + `session_participants` rows written by the server with the service-role key, bypassing RLS). The client talks to Supabase directly (anon key + RLS) for friends, tasks, and stats.
 - **Client** never trusts its own clock for the timer: the server broadcasts `phase_change` with `phaseStartTime` and durations; the client renders countdowns from `Date.now() - phaseStartTime`.
 - **The world is not client input.** There is one world at a time, the same for everybody, derived from the wall clock — see the rotation section below.
@@ -86,7 +86,7 @@ Adding a world now needs `ROTATION_WORLDS` (**both** copies), the client's `Worl
 Security conventions in the socket layer (preserve these when adding events):
 - `io.use()` middleware verifies the Supabase JWT and sets `socket.userId` — **never trust a client-sent userId**.
 - Every event that accepts a payload is registered through `onPayload()` in
-  `server/index.js`. It rejects null, arrays and primitives before field access,
+  `server/app.js`. It rejects null, arrays and primitives before field access,
   and `safeSocketHandler()` in `server/socketProtocol.js` contains both thrown
   exceptions and rejected promises. Do not attach a payload-bearing event with
   a bare `socket.on()` or destructure its argument in the listener signature.
@@ -96,7 +96,13 @@ Security conventions in the socket layer (preserve these when adding events):
 
 Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion. `petStage` is derived from total completed focus (`server/petLevel.js` / `client/src/lib/petLevel.ts`, same two-copy pin as the rotation) and a client-sent stage is ignored. The total itself comes from the `total_focus_seconds` RPC (migration 021, `EXECUTE` to `service_role` only, because it takes a user id — a user's *own* total goes through `get_focus_stats`, which needs no argument because it reads `auth.uid()`). `server/focusTotal.js` is the only caller, and a failed read there returns `null`, which becomes `grown` rather than `young`: shrinking a veteran's pet is how "we couldn't tell" would otherwise render. Growth is more cells at `ART_PX`, never a scale multiplier.
 
-Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `creditFocus`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `index.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `index.js`.
+Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `creditFocus`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `app.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `app.js`.
+
+`createRealtimeApp()` must remain safe to import: no port binding, process
+handlers, environment reads, service-role client construction, or background
+intervals before `start()`. Keep deployment-only configuration and the bounded
+signal exit in `server/index.js`; inject dependencies into the app factory and
+use `stop()` in tests or other embedders.
 
 ### Client structure
 
