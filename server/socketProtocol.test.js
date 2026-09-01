@@ -55,7 +55,7 @@ describe("safeSocketHandler", () => {
 
 describe("payload-bearing event registration", () => {
   it("keeps every payload-bearing event behind onPayload", () => {
-    const source = readFileSync(new URL("./index.js", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./app.js", import.meta.url), "utf8");
     const payloadEvents = [
       "get_online_friends",
       "send_invite",
