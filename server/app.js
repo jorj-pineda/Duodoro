@@ -32,6 +32,19 @@ const { recordFocusSession } = require('./focusRecorder');
 const { deleteAccountData } = require('./accountDeletion');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
+  MAX_FOCUS,
+  MAX_BREAK,
+  parseDeleteAccount,
+  parseOnlineFriends,
+  parseSendInvite,
+  parseCreateSession,
+  parseShareInvite,
+  parseJoinSession,
+  parseStartSession,
+  parseSessionReference,
+  parseSetPet,
+} = require('./payloadParsers');
+const {
   correlationRef,
   createLogger,
   createMetrics,
@@ -84,18 +97,6 @@ const io = new Server(server, {
 });
 
 // ── Auth middleware — verify Supabase JWT on every connection ─────────────
-const MAX_DISPLAY_NAME = 50;
-const MAX_FOCUS = 120 * 60;   // 2 hours in seconds
-const MAX_BREAK = 60 * 60;    // 1 hour in seconds
-
-const VALID_HAIR_STYLES = ['bob', 'mohawk', 'long', 'spiky', 'bald'];
-const VALID_EYE_STYLES = ['normal', 'anime', 'sleepy'];
-const VALID_PETS = ['cat', 'dog', 'dragon', 'rabbit'];
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-
-function sanitizePet(pet) {
-  return VALID_PETS.includes(pet) ? pet : null;
-}
 
 // Completed focus seconds for one user, the input to petStageAt(). The read
 // itself lives in ./focusTotal so it can be faked in a test; a failed read
@@ -117,14 +118,6 @@ function stageForTotal(seconds) {
 // must not later recompute as young when the user picks a different pet.
 function cachedFocus(seconds) {
   return seconds === null ? GROWN_AT_SECONDS : seconds;
-}
-
-function sanitizeAvatar(avatar) {
-  if (!avatar || typeof avatar !== 'object') return null;
-  const { skinColor, hairStyle, hairColor, eyeStyle, outfitColor } = avatar;
-  if (!HEX_COLOR.test(skinColor) || !HEX_COLOR.test(hairColor) || !HEX_COLOR.test(outfitColor)) return null;
-  if (!VALID_HAIR_STYLES.includes(hairStyle) || !VALID_EYE_STYLES.includes(eyeStyle)) return null;
-  return { skinColor, hairStyle, hairColor, eyeStyle, outfitColor };
 }
 
 io.use(async (socket, next) => {
@@ -671,9 +664,10 @@ io.on('connection', (socket) => {
   // Permanent self-service deletion. Identity comes only from the verified
   // handshake; the payload cannot name another account. The exact confirmation
   // phrase prevents an accidental click or stale UI event from doing this.
-  onPayload(socket, 'delete_account', async ({ confirmation }, respond) => {
+  onPayload(socket, 'delete_account', async (payload, respond) => {
     if (typeof respond !== 'function') return;
-    if (confirmation !== 'DELETE') {
+    const parsed = parseDeleteAccount(payload);
+    if (!parsed.ok) {
       respond({ ok: false, message: 'Type DELETE to confirm' });
       return;
     }
@@ -720,18 +714,19 @@ io.on('connection', (socket) => {
     },
   });
 
-  onPayload(socket, 'get_online_friends', async ({ friendIds }, callback) => {
+  onPayload(socket, 'get_online_friends', async (payload, callback) => {
     if (typeof callback !== 'function') return;
     const userId = socket.userId;
     if (!userId) { callback([]); return; }
 
     // Bound both shape and work. A string has no Array#filter, and an
     // attacker-controlled giant list should not become a giant Set/filter pass.
-    if (!Array.isArray(friendIds) || friendIds.length > 100 ||
-        friendIds.some((id) => typeof id !== 'string')) {
+    const parsed = parseOnlineFriends(payload);
+    if (!parsed.ok) {
       callback([]);
       return;
     }
+    const { friendIds } = parsed.value;
 
     // Validate that queried IDs are actual accepted friends
     const actualFriendIds = await getFriendIds(userId);
@@ -747,12 +742,14 @@ io.on('connection', (socket) => {
   });
 
   // ── Invite relay ────────────────────────────────────────────────────────
-  onPayload(socket, 'send_invite', async ({ targetUserId, sessionId, fromName }) => {
+  onPayload(socket, 'send_invite', async (payload) => {
     if (!rateLimits.sendInvite(socket.id)) {
       socket.emit('invite_error', { message: 'Too many invites, slow down' });
       return;
     }
-    if (typeof targetUserId !== 'string' || !targetUserId) return;
+    const parsed = parseSendInvite(payload);
+    if (!parsed.ok) return;
+    const { targetUserId, sessionId, fromName } = parsed.value;
     // Verify sender is actually in the session they're inviting to
     if (sessionId && sessions[sessionId] && !sessions[sessionId].players[socket.id]) {
       socket.emit('invite_error', { message: 'You are not in this session' });
@@ -778,7 +775,6 @@ io.on('connection', (socket) => {
     }
     // Use verified userId, not client-sent
     const fromUserId = socket.userId || null;
-    const safeName = (typeof fromName === 'string' ? fromName : 'Someone').slice(0, MAX_DISPLAY_NAME);
     // The world a session is in is server state, so read it from there rather
     // than validating a client-sent copy. The invite popup shows this; taking
     // the sender's word for it let them advertise a session as somewhere it
@@ -797,7 +793,7 @@ io.on('connection', (socket) => {
       io.to(targetSocketId).emit('session_invite', {
         sessionId: typeof sessionId === 'string' ? sessionId : null,
         worldId: safeWorld,
-        fromName: safeName,
+        fromName,
         fromUserId,
       });
     }
@@ -817,25 +813,23 @@ io.on('connection', (socket) => {
   // field in the payload is ignored rather than rejected, so an older client
   // still gets a session instead of an error. There is nothing left to validate
   // here because there is nothing left to trust.
-  onPayload(socket, 'create_session', async ({ avatar, displayName, pet }) => {
+  onPayload(socket, 'create_session', async (payload) => {
     if (!rateLimits.createSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
     }
-    // Input validation
-    const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
-    const safeWorld = worldAt();
-    const safeAvatar = sanitizeAvatar(avatar);
-    if (!safeAvatar) {
+    const parsed = parseCreateSession(payload);
+    if (!parsed.ok) {
       socket.emit('session_error', { message: 'Invalid avatar' });
       return;
     }
+    const { avatar, displayName, pet } = parsed.value;
+    const safeWorld = worldAt();
 
     const prevSession = socketToSession[socket.id];
     if (prevSession) leaveSession(socket, prevSession);
 
     const userId = socket.userId || null;
-    const safePet = sanitizePet(pet);
     const focusSeconds = await totalFocusSeconds(userId);
 
     const session = createSessionState(safeWorld, socket.id);
@@ -845,14 +839,14 @@ io.on('connection', (socket) => {
     socket.join(sessionId);
     socketToSession[socket.id] = sessionId;
     addPlayer(session, socket.id, {
-      avatar: safeAvatar,
-      displayName: safeName,
+      avatar,
+      displayName,
       userId,
-      pet: safePet,
+      pet,
       // petStage in the payload is ignored the same way world is — the server
       // derives it from this user's completed focus, so two people never see
       // different animals in one room.
-      petStage: safePet ? stageForTotal(focusSeconds) : null,
+      petStage: pet ? stageForTotal(focusSeconds) : null,
       focusSeconds: cachedFocus(focusSeconds),
     });
 
@@ -871,16 +865,18 @@ io.on('connection', (socket) => {
   // create_share_invite: { sessionId }, acknowledgement: { ok, token, expiresAt }
   // Rotates a short-lived, single-use bearer token for the remaining seat.
   // The room UUID itself remains private and is never embedded in a link.
-  onPayload(socket, 'create_share_invite', ({ sessionId }, respond) => {
+  onPayload(socket, 'create_share_invite', (payload, respond) => {
     const reply = typeof respond === 'function' ? respond : () => {};
     if (!rateLimits.shareInvite(socket.id)) {
       reply({ ok: false, message: 'Too many requests, slow down' });
       return;
     }
-    if (typeof sessionId !== 'string') {
+    const parsed = parseShareInvite(payload);
+    if (!parsed.ok) {
       reply({ ok: false, message: 'Invalid session ID' });
       return;
     }
+    const { sessionId } = parsed.value;
     const session = getSession(sessionId);
     if (!session) {
       reply({ ok: false, message: 'Session not found' });
@@ -910,26 +906,40 @@ io.on('connection', (socket) => {
   // A session UUID still requires the normal friend/invite authorization. An
   // opaque share token is its own short-lived authorization for one new seat.
   // userId comes from verified socket.userId (auth middleware).
-  onPayload(socket, 'join_session', async ({ sessionId: requestedSessionId, shareToken, avatar, displayName, pet }) => {
+  onPayload(socket, 'join_session', async (payload) => {
     const userId = socket.userId || null;
+    const requestedSessionId = payload.sessionId;
     if (!rateLimits.joinSession(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       reportJoinRejection('rate_limited', requestedSessionId, userId);
       return;
     }
-    const safeName = (typeof displayName === 'string' ? displayName : 'Player').slice(0, MAX_DISPLAY_NAME);
-    const safeAvatar = sanitizeAvatar(avatar);
-    if (!safeAvatar) {
-      socket.emit('session_error', { message: 'Invalid avatar' });
-      reportJoinRejection('invalid_avatar', requestedSessionId, userId);
+    const parsed = parseJoinSession(payload);
+    if (!parsed.ok) {
+      const invalidShareToken = parsed.reason === 'share_token';
+      const invalidSessionId = parsed.reason === 'session_id';
+      socket.emit('session_error', {
+        message: invalidShareToken
+          ? 'Invite link is invalid or expired'
+          : invalidSessionId ? 'Invalid session ID' : 'Invalid avatar',
+      });
+      reportJoinRejection(
+        invalidShareToken
+          ? 'invalid_share_token'
+          : invalidSessionId ? 'invalid_session_id' : 'invalid_avatar',
+        invalidShareToken || invalidSessionId ? null : requestedSessionId,
+        userId,
+      );
       return;
     }
-    const joiningByLink = typeof shareToken === 'string';
-    if (joiningByLink && (shareToken.length < 20 || shareToken.length > 128)) {
-      socket.emit('session_error', { message: 'Invite link is invalid or expired' });
-      reportJoinRejection('invalid_share_token', null, userId);
-      return;
-    }
+    const {
+      sessionId: parsedSessionId,
+      shareToken,
+      joiningByLink,
+      avatar,
+      displayName,
+      pet,
+    } = parsed.value;
 
     let session;
     let sessionId;
@@ -937,12 +947,7 @@ io.on('connection', (socket) => {
       session = findSessionByShareInvite(sessions, shareToken);
       sessionId = session?.id;
     } else {
-      if (typeof requestedSessionId !== 'string') {
-        socket.emit('session_error', { message: 'Invalid session ID' });
-        reportJoinRejection('invalid_session_id', null, userId);
-        return;
-      }
-      sessionId = requestedSessionId;
+      sessionId = parsedSessionId;
       session = getSession(sessionId);
     }
     if (!session) {
@@ -988,9 +993,8 @@ io.on('connection', (socket) => {
     }
 
     try {
-      const safePet = sanitizePet(pet);
       const focusSeconds = await totalFocusSeconds(userId);
-      const petStage = safePet ? stageForTotal(focusSeconds) : null;
+      const petStage = pet ? stageForTotal(focusSeconds) : null;
 
       // The last live player can leave while this join is waiting on Supabase,
       // which deletes the in-memory session. Never join the detached old object.
@@ -1030,10 +1034,10 @@ io.on('connection', (socket) => {
       socket.join(sessionId);
       socketToSession[socket.id] = sessionId;
       const playerCount = addPlayer(session, socket.id, {
-        avatar: safeAvatar,
-        displayName: safeName,
+        avatar,
+        displayName,
         userId,
-        pet: safePet,
+        pet,
         petStage,
         focusSeconds: cachedFocus(focusSeconds),
       });
@@ -1047,9 +1051,9 @@ io.on('connection', (socket) => {
 
       socket.to(sessionId).emit('player_joined', {
         playerId: socket.id,
-        avatar: safeAvatar,
-        displayName: safeName,
-        pet: safePet,
+        avatar,
+        displayName,
+        pet,
         petStage,
       });
 
@@ -1061,7 +1065,15 @@ io.on('connection', (socket) => {
 
   // start_session: { sessionId, focusDuration, breakDuration, mode }
   // Solo start allowed (1 player is fine).
-  onPayload(socket, 'start_session', ({ sessionId, focusDuration, breakDuration, mode }) => {
+  onPayload(socket, 'start_session', (payload) => {
+    const parsed = parseStartSession(payload);
+    if (!parsed.ok) return;
+    const {
+      sessionId,
+      focusDuration,
+      breakDuration,
+      mode,
+    } = parsed.value;
     const session = getSession(sessionId);
     if (!session) return;
     if (Object.keys(session.players).length < 1) return;
@@ -1072,18 +1084,14 @@ io.on('connection', (socket) => {
     // discarding the elapsed time instead of recording it.
     if (session.phase !== 'waiting') return;
 
-    const safeFocus = Math.min(Math.max(Number(focusDuration) || 25 * 60, 60), MAX_FOCUS);
-    const safeBreak = Math.min(Math.max(Number(breakDuration) || 5 * 60, 30), MAX_BREAK);
+    session.mode = mode;
 
-    const safeMode = mode === 'flow' ? 'flow' : 'pomodoro';
-    session.mode = safeMode;
-
-    if (safeMode === 'flow') {
+    if (mode === 'flow') {
       session.focusDuration = MAX_FOCUS; // safety cap for server
       session.breakDuration = MAX_BREAK;
     } else {
-      session.focusDuration = safeFocus;
-      session.breakDuration = safeBreak;
+      session.focusDuration = focusDuration;
+      session.breakDuration = breakDuration;
     }
 
     beginFocusRound(session);
@@ -1098,13 +1106,13 @@ io.on('connection', (socket) => {
       breakDuration: session.breakDuration,
     });
 
-    if (safeMode === 'pomodoro') {
+    if (mode === 'pomodoro') {
       session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
     }
     metrics.increment('focus_rounds_started_total');
     logger.info('focus_round_started', {
       room_ref: correlationRef('room', sessionId),
-      mode: safeMode,
+      mode,
       focus_seconds: session.focusDuration,
       break_seconds: session.breakDuration,
       player_count: Object.keys(session.players).length,
@@ -1112,7 +1120,10 @@ io.on('connection', (socket) => {
   });
 
   // finish_flow_focus: { sessionId }
-  onPayload(socket, 'finish_flow_focus', ({ sessionId }) => {
+  onPayload(socket, 'finish_flow_focus', (payload) => {
+    const parsed = parseSessionReference(payload);
+    if (!parsed.ok) return;
+    const { sessionId } = parsed.value;
     const session = getSession(sessionId);
     if (!session) return;
     if (session.mode !== 'flow' || session.phase !== 'focus') return;
@@ -1136,7 +1147,10 @@ io.on('connection', (socket) => {
   });
 
   // stop_session: { sessionId }
-  onPayload(socket, 'stop_session', ({ sessionId }) => {
+  onPayload(socket, 'stop_session', (payload) => {
+    const parsed = parseSessionReference(payload);
+    if (!parsed.ok) return;
+    const { sessionId } = parsed.value;
     const session = getSession(sessionId);
     if (!session) return;
     if (!session.players[socket.id]) return; // Only participants can stop
@@ -1167,17 +1181,19 @@ io.on('connection', (socket) => {
   // Change your pet mid-session; relayed to the other player. Stage is
   // derived here, never taken from the payload, and emitted to the whole
   // room (including the sender) so the picker sees the server's size.
-  onPayload(socket, 'set_pet', ({ sessionId, pet }) => {
+  onPayload(socket, 'set_pet', (payload) => {
+    const parsed = parseSetPet(payload);
+    if (!parsed.ok) return;
+    const { sessionId, pet } = parsed.value;
     const session = getSession(sessionId);
     if (!session) return;
     const player = session.players[socket.id];
     if (!player) return; // Only participants
-    const safePet = sanitizePet(pet);
-    const petStage = safePet ? petStageAt(player.focusSeconds || 0) : null;
-    setPlayerPet(session, socket.id, safePet, petStage);
+    const petStage = pet ? petStageAt(player.focusSeconds || 0) : null;
+    setPlayerPet(session, socket.id, pet, petStage);
     io.to(sessionId).emit('pet_changed', {
       playerId: socket.id,
-      pet: safePet,
+      pet,
       petStage,
     });
   });

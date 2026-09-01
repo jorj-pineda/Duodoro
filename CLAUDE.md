@@ -90,11 +90,16 @@ Security conventions in the socket layer (preserve these when adding events):
   and `safeSocketHandler()` in `server/socketProtocol.js` contains both thrown
   exceptions and rejected promises. Do not attach a payload-bearing event with
   a bare `socket.on()` or destructure its argument in the listener signature.
-- Every inbound payload is validated/sanitized (`sanitizeAvatar`, `VALID_PETS`, name length caps, duration clamps `MAX_FOCUS`/`MAX_BREAK`). The stronger move, where it's available, is not to take the field at all — that is what happened to `world`.
+- Every inbound payload delegates field validation and normalization to its
+  pure parser in `server/payloadParsers.js`; keep I/O, session lookups, and
+  authorization out of that module. Rate limits intentionally run before the
+  parser where they already did, so malformed requests cannot bypass work
+  bounds. The stronger move, where available, is not to take the field at all —
+  that is what happened to `world`.
 - Mutating events check the socket is actually a player in the session; create/join/invite are rate-limited per socket.
 - Knowing a session id is not permission to use it: `join_session` requires an existing slot, an invite, or friendship with someone already in the session, and `send_invite` is friends-only. Server-side ids are read from `socketToSession`, never taken from the payload.
 
-Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (sanitized against `VALID_PETS`) and relays `pet_changed` to the other player, so both sides see the same companion. `petStage` is derived from total completed focus (`server/petLevel.js` / `client/src/lib/petLevel.ts`, same two-copy pin as the rotation) and a client-sent stage is ignored. The total itself comes from the `total_focus_seconds` RPC (migration 021, `EXECUTE` to `service_role` only, because it takes a user id — a user's *own* total goes through `get_focus_stats`, which needs no argument because it reads `auth.uid()`). `server/focusTotal.js` is the only caller, and a failed read there returns `null`, which becomes `grown` rather than `young`: shrinking a veteran's pet is how "we couldn't tell" would otherwise render. Growth is more cells at `ART_PX`, never a scale multiplier.
+Pets are part of session state, not just local UI: `set_pet` updates the player's slot server-side (allowlisted by `parseSetPet`) and relays `pet_changed` to the other player, so both sides see the same companion. `petStage` is derived from total completed focus (`server/petLevel.js` / `client/src/lib/petLevel.ts`, same two-copy pin as the rotation) and a client-sent stage is ignored. The total itself comes from the `total_focus_seconds` RPC (migration 021, `EXECUTE` to `service_role` only, because it takes a user id — a user's *own* total goes through `get_focus_stats`, which needs no argument because it reads `auth.uid()`). `server/focusTotal.js` is the only caller, and a failed read there returns `null`, which becomes `grown` rather than `young`: shrinking a veteran's pet is how "we couldn't tell" would otherwise render. Growth is more cells at `ART_PX`, never a scale multiplier.
 
 Note: `server/session.js` holds the pure session-state helpers (`createSessionState`, `addPlayer`, `removePlayer`, `setPlayerPet`, `creditFocus`, `findPlayerByUserId`, `markPlayerDisconnected`, `sessionParticipantIds`, `buildSyncPayload`); `app.js` imports them and `session.test.js` covers them. Put new pure session logic there, not inline in `app.js`.
 

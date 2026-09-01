@@ -145,6 +145,13 @@ for exercising the deployed client → server → database flow.
       install process handlers, load service-role credentials, or start metric
       intervals. Probe and teardown tests protect that seam while the existing
       process and real-socket integration tests preserve production behavior.
+- [x] **14o. Realtime payload parsers** — PR #63. Every payload-bearing socket
+      event delegates field validation and normalization to pure parsers in
+      `server/payloadParsers.js`. Avatar and pet allowlists, display-name caps,
+      friend-list work bounds, invite-token limits, session references, and
+      timer defaults/clamps are unit-tested independently of transport and live
+      state. Rate limits and verified-socket authorization retain their original
+      ordering, and unknown legacy fields remain ignored for compatibility.
 
 ## Next up (recommended order)
 
