@@ -55,13 +55,27 @@ describe("recordFocusSession", () => {
       success(false),
     );
     const wait = vi.fn().mockResolvedValue(undefined);
+    const observe = vi.fn();
 
     await expect(
-      recordFocusSession(client, payload, { retryDelays: [10, 20], wait }),
+      recordFocusSession(client, payload, {
+        retryDelays: [10, 20],
+        wait,
+        observe,
+      }),
     ).resolves.toEqual({ sessionId: "session-row-id", inserted: false });
     expect(rpc).toHaveBeenCalledTimes(3);
     expect(rpc.mock.calls.every(([, args]) => args === payload)).toBe(true);
     expect(wait.mock.calls).toEqual([[10], [20]]);
+    expect(observe.mock.calls.map(([event]) => ({
+      outcome: event.outcome,
+      attempt: event.attempt,
+      retrying: event.retrying,
+    }))).toEqual([
+      { outcome: "database_error", attempt: 1, retrying: true },
+      { outcome: "database_error", attempt: 2, retrying: true },
+      { outcome: "idempotent", attempt: 3, retrying: undefined },
+    ]);
   });
 
   it("retries a thrown network error because the first write may have committed", async () => {
@@ -109,10 +123,18 @@ describe("recordFocusSession", () => {
 
   it("rejects a malformed success response instead of claiming persistence", async () => {
     const { client, rpc } = clientWith({ data: null, error: null });
+    const observe = vi.fn();
 
-    await expect(recordFocusSession(client, payload)).rejects.toThrow(
+    await expect(recordFocusSession(client, payload, { observe })).rejects.toThrow(
       "returned an unusable result",
     );
     expect(rpc).toHaveBeenCalledTimes(1);
+    expect(observe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "record_focus_session",
+        outcome: "invalid_response",
+        attempt: 1,
+      }),
+    );
   });
 });

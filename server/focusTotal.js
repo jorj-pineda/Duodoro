@@ -30,15 +30,26 @@
  * Supabase client at all and every pet is young, and for an anonymous socket,
  * which has no history to read.
  */
-async function fetchTotalFocusSeconds(supabase, userId) {
+async function fetchTotalFocusSeconds(
+  supabase,
+  userId,
+  { now = Date.now, observe = () => {} } = {},
+) {
   if (!supabase || !userId) return 0;
 
+  const startedAt = now();
   const { data, error } = await supabase.rpc('total_focus_seconds', {
     target: userId,
   });
 
   if (error) {
-    console.error('Failed to load focus total:', error.message);
+    observe({
+      operation: 'total_focus_seconds',
+      outcome: 'database_error',
+      durationMs: now() - startedAt,
+      attempt: 1,
+      error,
+    });
     return null;
   }
 
@@ -54,9 +65,20 @@ async function fetchTotalFocusSeconds(supabase, userId) {
     : NaN;
 
   if (!Number.isFinite(seconds) || seconds < 0) {
-    console.error('Unusable focus total from total_focus_seconds:', data);
+    observe({
+      operation: 'total_focus_seconds',
+      outcome: 'invalid_response',
+      durationMs: now() - startedAt,
+      attempt: 1,
+    });
     return null;
   }
+  observe({
+    operation: 'total_focus_seconds',
+    outcome: 'success',
+    durationMs: now() - startedAt,
+    attempt: 1,
+  });
   return seconds;
 }
 

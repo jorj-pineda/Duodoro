@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-28. PRs #35–#58 merged.
+Last updated: 2026-08-29. PRs #35–#59 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -122,6 +122,17 @@ for exercising the deployed client → server → database flow.
       Privacy, and the release checklist now agree. Internal `is_premium`,
       `premium_grants`, and `claim_premium` names remain stable to avoid a
       cosmetic schema migration.
+- [x] **14l. Realtime and RPC observability** — PR #60. The server emits
+      privacy-safe structured JSON with opaque correlation references; raw
+      identity, tokens, payloads, and arbitrary error messages are excluded.
+      Every `record_focus_session` and `total_focus_seconds` attempt reports
+      latency, outcome, retry state, and safe error classification. Runtime
+      snapshots track connections, rooms, reconnects, rejected joins,
+      persistence, presence, protocol failures, and process lifetime. `/health`
+      remains liveness while cached, bounded `/ready` reports Supabase
+      availability without upstream detail. The operations guide defines alert
+      conditions; its external notification destination remains deployment
+      configuration.
 
 ## Next up (recommended order)
 

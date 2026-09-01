@@ -24,6 +24,13 @@ test("production landing surface is usable and crawler-ready", async ({
   const serverHealth = await request.get("http://127.0.0.1:3001/health");
   expect(serverHealth.ok()).toBe(true);
   await expect(serverHealth.json()).resolves.toEqual({ ok: true });
+  const serverReadiness = await request.get("http://127.0.0.1:3001/ready");
+  expect(serverReadiness.ok()).toBe(true);
+  await expect(serverReadiness.json()).resolves.toEqual({
+    ok: true,
+    mode: "development",
+    dependencies: { database: "disabled" },
+  });
   await openLanding(page);
 
   await expect(page).toHaveTitle(

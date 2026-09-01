@@ -69,7 +69,15 @@ describe("fetchTotalFocusSeconds", () => {
    */
   it("is null — not 0 — when the read fails", async () => {
     const { client } = fakeSupabase({ data: null, error: { message: "boom" } });
-    expect(await fetchTotalFocusSeconds(client, "user-1")).toBe(null);
+    const observe = vi.fn();
+    expect(await fetchTotalFocusSeconds(client, "user-1", { observe })).toBe(null);
+    expect(observe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "total_focus_seconds",
+        outcome: "database_error",
+        attempt: 1,
+      }),
+    );
   });
 
   it("is null — not 0 — when the answer is missing or unusable", async () => {
@@ -79,5 +87,23 @@ describe("fetchTotalFocusSeconds", () => {
         null,
       );
     }
+  });
+
+  it("reports successful latency without exposing the target user", async () => {
+    const { client } = fakeSupabase(ok(3600));
+    const observe = vi.fn();
+    const times = [100, 117];
+
+    await fetchTotalFocusSeconds(client, "user-1", {
+      observe,
+      now: () => times.shift(),
+    });
+
+    expect(observe).toHaveBeenCalledWith({
+      operation: "total_focus_seconds",
+      outcome: "success",
+      durationMs: 17,
+      attempt: 1,
+    });
   });
 });

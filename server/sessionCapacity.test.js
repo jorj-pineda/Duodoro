@@ -35,7 +35,7 @@ beforeAll(async () => {
     const timer = setTimeout(() => reject(new Error("server did not start")), 15_000);
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
-      const match = /Server running on port (\d+)/.exec(chunk);
+      const match = /"event":"server_started","port":(\d+)/.exec(chunk);
       if (match) {
         clearTimeout(timer);
         resolve(`http://localhost:${match[1]}`);
