@@ -1,21 +1,30 @@
 import type { AvatarConfig } from "./avatarData";
+import type { Database, Tables } from "./database.types";
 
 export type { AvatarConfig };
 
-export type Profile = {
-  id: string;
-  username: string;
-  discriminator: string;
-  username_changed: boolean;
-  display_name: string | null;
-  display_name_changed_at: string | null;
+type ProfileRow = Tables<"profiles">;
+
+/** UI-safe profile shape after nullable database defaults are normalized. */
+export type Profile = Omit<
+  ProfileRow,
+  "avatar_config" | "is_premium" | "updated_at" | "username_changed"
+> & {
   avatar_config: AvatarConfig | null;
   is_premium: boolean;
-  current_room: string | null;
-  current_session_id: string | null;
-  current_world_id: string | null;
   updated_at: string;
+  username_changed: boolean;
 };
+
+export function profileFromRow(row: ProfileRow): Profile {
+  return {
+    ...row,
+    avatar_config: row.avatar_config as AvatarConfig | null,
+    is_premium: row.is_premium ?? false,
+    updated_at: row.updated_at ?? new Date(0).toISOString(),
+    username_changed: row.username_changed ?? false,
+  };
+}
 
 export type FriendshipStatus = "pending" | "accepted";
 
@@ -29,11 +38,12 @@ export type Friendship = {
   friend: Profile;
 };
 
-export type Task = {
-  id: string;
-  owner_id: string;
-  room_code: string | null;
-  content: string;
+type TaskRow = Tables<"tasks">;
+
+export type Task = Omit<
+  TaskRow,
+  "created_at" | "is_done" | "is_shared" | "session_id"
+> & {
   is_done: boolean;
   is_shared: boolean;
   created_at: string;
@@ -41,6 +51,19 @@ export type Task = {
    *  toggle_shared_task RPC — migration 017 revokes the column from clients. */
   completed_by: string | null;
 };
+
+export function taskFromRow(row: TaskRow): Task {
+  return {
+    id: row.id,
+    owner_id: row.owner_id,
+    room_code: row.room_code,
+    content: row.content,
+    completed_by: row.completed_by,
+    created_at: row.created_at ?? new Date(0).toISOString(),
+    is_done: row.is_done ?? false,
+    is_shared: row.is_shared ?? false,
+  };
+}
 
 export type { PetStage } from "./petLevel";
 
@@ -74,10 +97,11 @@ export type SessionParticipant = {
   created_at: string;
 };
 
-export type SessionWithPartner = Session & {
-  partner_name: string | null;
-  partner_id: string | null;
-};
+export type SessionWithPartner =
+  Database["public"]["Functions"]["get_recent_sessions"]["Returns"][number];
+
+export type ProfileSearchResult =
+  Database["public"]["Functions"]["search_profiles"]["Returns"][number];
 
 export type PersonalStats = {
   totalFocusTime: number;

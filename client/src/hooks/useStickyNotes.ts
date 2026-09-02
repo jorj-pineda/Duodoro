@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { Task } from "@/lib/types";
+import { taskFromRow, type Task } from "@/lib/types";
 
 type Tab = "mine" | "shared";
 
@@ -36,7 +36,7 @@ export function useStickyNotes(
       setError("Couldn't load your notes.");
       return;
     }
-    if (data) setMyTasks(data as Task[]);
+    if (data) setMyTasks(data.map(taskFromRow));
   }, [sb, userId]);
 
   const fetchShared = useCallback(async () => {
@@ -51,7 +51,7 @@ export function useStickyNotes(
       setError("Couldn't load your shared goals.");
       return;
     }
-    if (data) setSharedTasks(data as Task[]);
+    if (data) setSharedTasks(data.map(taskFromRow));
   }, [sb, roomCode]);
 
   useEffect(() => {
@@ -122,8 +122,9 @@ export function useStickyNotes(
       );
       return;
     }
-    if (shared) setSharedTasks((p) => [...p, data as Task]);
-    else setMyTasks((p) => [...p, data as Task]);
+    const task = taskFromRow(data);
+    if (shared) setSharedTasks((p) => [...p, task]);
+    else setMyTasks((p) => [...p, task]);
   };
 
   const toggleTask = async (id: string, done: boolean) => {
@@ -140,13 +141,14 @@ export function useStickyNotes(
       });
       // The function is declared RETURNS tasks, so PostgREST sends the row as a
       // bare object; unwrap an array too rather than depend on that.
-      const row = (Array.isArray(data) ? data[0] : data) as Task | null;
-      if (err || !row) {
+      const returned = Array.isArray(data) ? data[0] : data;
+      if (err || !returned) {
         setError(
           "Couldn't update that shared goal. Are you both still in the session?",
         );
         return;
       }
+      const row = taskFromRow(returned);
       // Trust the returned row rather than patching optimistically — the RPC
       // owns completed_by, so it's the only thing that knows who gets credit.
       setSharedTasks((p) => p.map((t) => (t.id === id ? row : t)));

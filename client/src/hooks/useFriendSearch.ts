@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { Profile } from "@/lib/types";
+import type { ProfileSearchResult } from "@/lib/types";
 
 export function useFriendSearch(myProfileId: string) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searchResults, setSearchResults] = useState<ProfileSearchResult[]>([]);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export function useFriendSearch(myProfileId: string) {
 
     // Without this, a failed query is indistinguishable from "no such user"
     if (err) setError("Search failed. Check your connection.");
-    setSearchResults((data as Profile[]) ?? []);
+    setSearchResults(data ?? []);
     setLoading(false);
   };
 

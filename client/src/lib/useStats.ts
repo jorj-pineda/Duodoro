@@ -74,16 +74,14 @@ async function loadSnapshot(): Promise<Snapshot> {
           avgSessionLength: num(row.avg_session_length),
         }
       : null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    duoStats: (duos.data ?? []).map((d: any) => ({
+    duoStats: (duos.data ?? []).map((d) => ({
       partnerId: d.partner_id,
       partnerName: d.partner_name,
       totalCoFocusTime: num(d.total_co_focus_time),
       sessionsTogether: num(d.sessions_together),
     })),
-    recentSessions: (recent.data ?? []) as SessionWithPartner[],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dailyFocus: (daily.data ?? []).map((d: any) => ({
+    recentSessions: recent.data ?? [],
+    dailyFocus: (daily.data ?? []).map((d) => ({
       day: d.day,
       focusSeconds: num(d.focus_seconds),
       sessionCount: num(d.session_count),

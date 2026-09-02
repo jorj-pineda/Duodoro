@@ -6,10 +6,15 @@ import {
 } from "@/lib/avatarData";
 import { getSupabase } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import type { Profile } from "@/lib/types";
+import { profileFromRow, type Profile } from "@/lib/types";
 import type { AppStep } from "@/lib/sessionTypes";
 
 const PROFILE_CACHE_KEY = "duodoro_profile";
+
+function fallbackDiscriminator(userId: string): string {
+  const seed = Number.parseInt(userId.replaceAll("-", "").slice(0, 8), 16);
+  return (seed % 10_000).toString().padStart(4, "0");
+}
 
 function cacheProfile(p: Profile) {
   try {
@@ -107,7 +112,7 @@ export function useAuth() {
           .single()
           .then(({ data }) => {
             if (data && mounted) {
-              const fresh = data as Profile;
+              const fresh = profileFromRow(data);
               setProfile(fresh);
               cacheProfile(fresh);
               if (fresh.avatar_config) setMyAvatar(fresh.avatar_config);
@@ -126,7 +131,7 @@ export function useAuth() {
         if (!mounted) return;
 
         if (result.data) {
-          applyProfile(result.data as Profile);
+          applyProfile(profileFromRow(result.data));
         } else {
           const provisional = profileFromSession(session);
           applyProfile(provisional);
@@ -143,6 +148,7 @@ export function useAuth() {
                 id: provisional.id,
                 username:
                   provisional.username + "_" + provisional.id.slice(0, 4),
+                discriminator: fallbackDiscriminator(provisional.id),
                 display_name: provisional.display_name,
               },
               { onConflict: "id", ignoreDuplicates: true },
