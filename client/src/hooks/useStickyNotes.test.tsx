@@ -35,6 +35,13 @@ const myPersonalNote = {
   completed_by: null,
 };
 
+const mySharedGoal = {
+  ...partnersGoal,
+  id: "task-3",
+  owner_id: ME,
+  content: "send the finished deck",
+};
+
 function createFakeSupabase() {
   const ops: { kind: string; table?: string; rpc?: string; args?: unknown }[] =
     [];
@@ -120,8 +127,11 @@ const mountShared = async () => {
     expect(fake.ops.some((o) => o.kind === "selectShared")).toBe(true),
   );
   await act(async () => hook.result.current.setTab("shared"));
+  const expectedCount = Array.isArray(fake.results.selectShared.data)
+    ? fake.results.selectShared.data.length
+    : 0;
   await waitFor(() =>
-    expect(hook.result.current.activeTasks).toHaveLength(1),
+    expect(hook.result.current.activeTasks).toHaveLength(expectedCount),
   );
   return hook;
 };
@@ -195,6 +205,46 @@ describe("useStickyNotes shared-goal writes", () => {
 
     expect(fake.ops.some((o) => o.kind === "update")).toBe(true);
     expect(fake.ops.some((o) => o.kind === "rpc")).toBe(false);
+  });
+
+  it("only removes completed goals the database confirms were deleted", async () => {
+    fake.results.selectShared = {
+      data: [
+        { ...partnersGoal, is_done: true },
+        { ...mySharedGoal, is_done: true },
+      ],
+      error: null,
+    };
+    // The owner-only DELETE policy accepts ours and silently filters the
+    // partner's row from the same request.
+    fake.results.delete = { data: [{ id: mySharedGoal.id }], error: null };
+    const hook = await mountShared();
+
+    await act(async () => {
+      await hook.result.current.clearCompleted();
+    });
+
+    expect(hook.result.current.activeTasks.map((task) => task.id)).toEqual([
+      partnersGoal.id,
+    ]);
+    expect(hook.result.current.error).toMatch(/clear all completed notes/i);
+  });
+
+  it("keeps a partner's completed goal visible when RLS deletes zero rows", async () => {
+    fake.results.selectShared = {
+      data: [{ ...partnersGoal, is_done: true }],
+      error: null,
+    };
+    fake.results.delete = { data: [], error: null };
+    const hook = await mountShared();
+
+    await act(async () => {
+      await hook.result.current.clearCompleted();
+    });
+
+    expect(hook.result.current.activeTasks).toHaveLength(1);
+    expect(hook.result.current.activeTasks[0].id).toBe(partnersGoal.id);
+    expect(hook.result.current.error).toMatch(/clear all completed notes/i);
   });
 
   // A failed read used to leave the list untouched and render the empty state,
