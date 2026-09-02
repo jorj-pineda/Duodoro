@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io } from "socket.io-client";
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
@@ -14,12 +13,9 @@ import type {
 import type {
   DuodoroSocket,
 } from "@/lib/socketContract";
+import { useSessionConnection } from "@/hooks/useSessionConnection";
 import { playSound } from "@/lib/sounds";
 import { worldAt } from "@/lib/rotation";
-import { getSupabase } from "@/lib/supabase";
-
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 // sessionStorage key mirroring the active session id, so a full page reload
 // can silently rejoin within the server's reconnect grace window.
@@ -49,10 +45,13 @@ export function useGameSession(profile: Profile | null) {
     profileRef.current = profile;
   }, [profile]);
 
-  const inviterName = () =>
-    profileRef.current?.display_name ??
-    profileRef.current?.username ??
-    "Someone";
+  const inviterName = useCallback(
+    () =>
+      profileRef.current?.display_name ??
+      profileRef.current?.username ??
+      "Someone",
+    [],
+  );
 
   // ── Session ─────────────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string>("");
@@ -70,18 +69,6 @@ export function useGameSession(profile: Profile | null) {
   const [serverBreakDuration, setServerBreakDuration] = useState(5 * 60);
   const [players, setPlayers] = useState<Record<string, PlayerData>>({});
   const [sessionStarted, setSessionStarted] = useState(false);
-
-  // ── Connection ──────────────────────────────────────────────────────────
-  const [myId, setMyId] = useState<string>("");
-  const socketRef = useRef<DuodoroSocket | null>(null);
-  // Populated once the socket exists, so the UI can ask for a reconnect
-  // without reaching into the socket itself.
-  const reconnectRef = useRef<() => void>(() => {});
-  // "reconnecting" = socket.io is retrying and the server is likely still
-  // holding our slot; "offline" = retries exhausted, the session is gone.
-  const [connectionState, setConnectionState] = useState<
-    "connecting" | "connected" | "reconnecting" | "offline"
-  >("connecting");
 
   // ── Timer tick ──────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now());
@@ -136,306 +123,200 @@ export function useGameSession(profile: Profile | null) {
   // ── Sound tracking ─────────────────────────────────────────────────────
   const prevPhaseRef = useRef<GamePhase>("waiting");
 
-  const sb = getSupabase();
+  // Room/game listeners stay here; the connection hook owns transport,
+  // authentication refresh, retry state, tab recovery, and rejoin ordering.
+  const getResumeSnapshot = useCallback(() => {
+    const sessionId = sessionIdRef.current;
+    const avatar = lastAvatarRef.current;
+    if (!sessionId) return null;
+    return {
+      sessionId,
+      avatar,
+      displayName: lastDisplayNameRef.current,
+      pet: myPetRef.current,
+    };
+  }, []);
 
-  // ── Socket setup ────────────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    let detachResume = () => {};
-
-    async function connectSocket() {
-      const {
-        data: { session },
-      } = await sb.auth.getSession();
-      if (cancelled) return;
-
-      const socket = io(SOCKET_URL, {
-        reconnection: true,
-        // Ten attempts against socket.io's 5s backoff cap is ~40s, which
-        // expires *inside* the server's 60s reconnect grace — the automatic
-        // retries gave up while the slot was still being held. 20 covers it
-        // with margin. Beyond that the tab-wake / online handlers take over,
-        // so a longer outage still recovers without a reload.
-        reconnectionAttempts: 20,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        auth: { token: session?.access_token ?? "" },
-      }) as DuodoroSocket;
-      socketRef.current = socket;
-
-      socket.on("connect_error", async (err) => {
-        if (
-          err.message === "Invalid or expired token" ||
-          err.message === "Authentication required"
-        ) {
-          const {
-            data: { session: fresh },
-          } = await sb.auth.getSession();
-          if (fresh?.access_token) {
-            socket.auth = { token: fresh.access_token };
-          }
+  const registerSocketHandlers = useCallback((socket: DuodoroSocket) => {
+    socket.on(
+      "session_created",
+      ({ sessionId: sid }) => {
+        setSessionId(sid);
+        const target = pendingOutboundInvite.current;
+        if (target) {
+          pendingOutboundInvite.current = null;
+          socket.emit("send_invite", {
+            targetUserId: target,
+            sessionId: sid,
+            fromName: inviterName(),
+          });
         }
-      });
+      },
+    );
 
-      socket.on("connect", () => {
-        setMyId(socket.id ?? "");
-        setConnectionState("connected");
-      });
-
-      // socket.io retries automatically; the server holds our player slot for
-      // its grace window, so this is recoverable until retries run out.
-      socket.on("disconnect", () => setConnectionState("reconnecting"));
-      socket.io.on("reconnect_failed", () => setConnectionState("offline"));
-
-      socket.on(
-        "session_created",
-        ({ sessionId: sid }) => {
-          setSessionId(sid);
-          const target = pendingOutboundInvite.current;
-          if (target) {
-            pendingOutboundInvite.current = null;
-            socket.emit("send_invite", {
-              targetUserId: target,
-              sessionId: sid,
-              fromName: inviterName(),
-            });
-          }
-        },
-      );
-
-      socket.on("session_error", ({ message }) => {
-        console.error("Session error:", message);
-        setSessionError(message);
-        // These reject a join attempt. Restore the room the socket was already
-        // in, or clear the optimistic id when there was no previous room, so
-        // the UI never sits in a session the server refused.
-        if (
-          message === "Session not found" ||
-          message === "This session is private" ||
-          message === "Session is full" ||
-          message === "Invite link is invalid or expired"
-        ) {
-          const previousSessionId = previousSessionIdRef.current;
-          previousSessionIdRef.current = "";
-          pendingJoinSessionIdRef.current = "";
-          if (previousSessionId) {
-            setSessionId(previousSessionId);
-            sessionStorage.setItem(RESUME_KEY, previousSessionId);
-            socket.emit("request_sync");
-            return;
-          }
-          // Stale resume attempt or expired invite — the server has already
-          // confirmed there is no room to restore, so clear the optimistic id.
-          sessionStorage.removeItem(RESUME_KEY);
-          setResumeSessionId(null);
-          setSessionId("");
-          setSessionStarted(false);
-          setPlayers({});
-        }
-      });
-
-      socket.on("sync_state", (data: SyncPayload) => {
-        // A sync for the attempted room confirms the switch. A sync for the
-        // previous room can race with the join response and must not erase the
-        // rollback target.
-        const pendingTarget = pendingJoinSessionIdRef.current;
-        const sharedJoinConfirmed =
-          pendingTarget === SHARE_JOIN_PENDING &&
-          data.sessionId !== previousSessionIdRef.current;
-        if (!pendingTarget || data.sessionId === pendingTarget || sharedJoinConfirmed) {
-          previousSessionIdRef.current = "";
-          pendingJoinSessionIdRef.current = "";
-        }
-        if (data.mode) setServerMode(data.mode);
-        setPhase(data.phase);
-        setPhaseStartTime(data.phaseStartTime);
-        setServerFocusDuration(data.focusDuration);
-        setServerBreakDuration(data.breakDuration);
-        setPlayers(data.players || {});
-        if (data.world) setMyWorld(data.world as WorldId);
-        if (data.sessionId) setSessionId(data.sessionId);
-        // Own stage comes from the slot, not a local guess: useStats is stale
-        // during a session, and a client-sent stage is ignored by the server.
-        const self = socket.id ? data.players?.[socket.id] : undefined;
-        if (self) {
-          setMyPetStage(self.pet ? (self.petStage ?? "grown") : null);
-        }
-        // Mirror the phase in both directions. Only ever setting this to true
-        // left the *other* player stuck after someone pressed end-session:
-        // phase went back to "waiting" but sessionStarted stayed true, which
-        // makes both canStart and canStop false in SessionHUD — no Start
-        // button, no mode toggle, no sliders, only "leave session".
-        setSessionStarted(data.phase !== "waiting");
-      });
-
-      socket.on("phase_change", (data: PhaseChangePayload) => {
-        if (data.mode) setServerMode(data.mode);
-        setPhase(data.phase);
-        setPhaseStartTime(data.phaseStartTime);
-        setServerFocusDuration(data.focusDuration);
-        setServerBreakDuration(data.breakDuration);
-        setSessionStarted(data.phase !== "waiting");
-      });
-
-      socket.on(
-        "player_joined",
-        ({
-          playerId,
-          avatar,
-          displayName,
-          pet,
-          petStage,
-        }) => {
-          setPlayers((prev) => ({
-            ...prev,
-            [playerId]: {
-              avatar,
-              displayName,
-              pet: pet ?? null,
-              petStage: pet ? (petStage ?? "grown") : null,
-            },
-          }));
-        },
-      );
-
-      socket.on(
-        "pet_changed",
-        ({
-          playerId,
-          pet,
-          petStage,
-        }) => {
-          setPlayers((prev) =>
-            prev[playerId]
-              ? {
-                  ...prev,
-                  [playerId]: {
-                    ...prev[playerId],
-                    pet,
-                    petStage: pet ? (petStage ?? "grown") : null,
-                  },
-                }
-              : prev,
-          );
-          // The server emits to the whole room, including the picker, so the
-          // originator sees the derived size rather than guessing from stats.
-          if (playerId === socket.id) {
-            setMyPetStage(pet ? (petStage ?? "grown") : null);
-          }
-        },
-      );
-
-      // Partner's socket dropped; the server is holding their spot during
-      // the reconnect grace window (player_joined or player_left follows).
-      socket.on(
-        "player_disconnected",
-        ({ playerId }) => {
-          setPlayers((prev) =>
-            prev[playerId]
-              ? {
-                  ...prev,
-                  [playerId]: { ...prev[playerId], disconnected: true },
-                }
-              : prev,
-          );
-        },
-      );
-
-      socket.on("player_left", ({ playerId }) => {
-        setPlayers((prev) => {
-          const next = { ...prev };
-          delete next[playerId];
-          return next;
-        });
-      });
-
-      socket.on("session_invite", (data: InviteData) => {
-        setPendingInvite(data);
-      });
-
-      socket.on("invite_error", ({ message }) => {
-        setInviteSentName(null);
-        console.warn("Invite error:", message);
-        setSessionError(message);
-      });
-
-      // ── Resume handlers ───────────────────────────────────────────────
-      // These used to live in a separate mount effect that read
-      // socketRef.current — but the socket is created after an await here, so
-      // that ref was still null and the listeners were never attached at all.
-      // Mobile browsers close backgrounded WebSockets aggressively, so this is
-      // the path that gets a player back into their session.
-      const rejoinIfNeeded = () => {
-        const sid = sessionIdRef.current;
-        const avatar = lastAvatarRef.current;
-        if (!sid || !avatar) return;
-        socket.emit("join_session", {
-          sessionId: sid,
-          avatar,
-          displayName: lastDisplayNameRef.current,
-          pet: myPetRef.current,
-        });
-      };
-
-      // socket.io stops for good once reconnectionAttempts is exhausted, and
-      // nothing else ever calls connect(). A phone backgrounded for a minute
-      // therefore landed on "connection lost" permanently — while the server
-      // was still holding the player's slot for RECONNECT_GRACE_MS. These are
-      // the two moments worth retrying on: the user looked at the tab again,
-      // or the OS says the network is back.
-      const reconnectNow = async () => {
-        if (socket.connected) return;
-        setConnectionState("reconnecting");
-        // The access token may well have expired while we were away.
-        const {
-          data: { session: fresh },
-        } = await sb.auth.getSession();
-        if (fresh?.access_token) socket.auth = { token: fresh.access_token };
-        socket.connect();
-      };
-
-      reconnectRef.current = () => void reconnectNow();
-
-      const onVisibility = () => {
-        if (document.visibilityState !== "visible") return;
-        if (!socket.connected) {
-          reconnectNow();
+    socket.on("session_error", ({ message }) => {
+      console.error("Session error:", message);
+      setSessionError(message);
+      // These reject a join attempt. Restore the room the socket was already
+      // in, or clear the optimistic id when there was no previous room, so
+      // the UI never sits in a session the server refused.
+      if (
+        message === "Session not found" ||
+        message === "This session is private" ||
+        message === "Session is full" ||
+        message === "Invite link is invalid or expired"
+      ) {
+        const previousSessionId = previousSessionIdRef.current;
+        previousSessionIdRef.current = "";
+        pendingJoinSessionIdRef.current = "";
+        if (previousSessionId) {
+          setSessionId(previousSessionId);
+          sessionStorage.setItem(RESUME_KEY, previousSessionId);
+          socket.emit("request_sync");
           return;
         }
-        if (sessionIdRef.current) socket.emit("request_sync");
-      };
+        // Stale resume attempt or expired invite — the server has already
+        // confirmed there is no room to restore, so clear the optimistic id.
+        sessionStorage.removeItem(RESUME_KEY);
+        setResumeSessionId(null);
+        setSessionId("");
+        setSessionStarted(false);
+        setPlayers({});
+      }
+    });
 
-      const onOnline = () => {
-        if (!socket.connected) reconnectNow();
-      };
+    socket.on("sync_state", (data: SyncPayload) => {
+      // A sync for the attempted room confirms the switch. A sync for the
+      // previous room can race with the join response and must not erase the
+      // rollback target.
+      const pendingTarget = pendingJoinSessionIdRef.current;
+      const sharedJoinConfirmed =
+        pendingTarget === SHARE_JOIN_PENDING &&
+        data.sessionId !== previousSessionIdRef.current;
+      if (!pendingTarget || data.sessionId === pendingTarget || sharedJoinConfirmed) {
+        previousSessionIdRef.current = "";
+        pendingJoinSessionIdRef.current = "";
+      }
+      if (data.mode) setServerMode(data.mode);
+      setPhase(data.phase);
+      setPhaseStartTime(data.phaseStartTime);
+      setServerFocusDuration(data.focusDuration);
+      setServerBreakDuration(data.breakDuration);
+      setPlayers(data.players || {});
+      if (data.world) setMyWorld(data.world as WorldId);
+      if (data.sessionId) setSessionId(data.sessionId);
+      // Own stage comes from the slot, not a local guess: useStats is stale
+      // during a session, and a client-sent stage is ignored by the server.
+      const self = socket.id ? data.players?.[socket.id] : undefined;
+      if (self) {
+        setMyPetStage(self.pet ? (self.petStage ?? "grown") : null);
+      }
+      // Mirror the phase in both directions. Only ever setting this to true
+      // left the *other* player stuck after someone pressed end-session:
+      // phase went back to "waiting" but sessionStarted stayed true, which
+      // makes both canStart and canStop false in SessionHUD — no Start
+      // button, no mode toggle, no sliders, only "leave session".
+      setSessionStarted(data.phase !== "waiting");
+    });
 
-      // Hangs off plain "connect", not the manager's "reconnect": that event
-      // only fires for socket.io's own automatic retries, so a reconnect we
-      // triggered ourselves would land the socket back online without ever
-      // rejoining the session. Safe to run on every connect — join_session
-      // re-keys an existing slot, and this no-ops before there is a session.
-      socket.on("connect", rejoinIfNeeded);
-      document.addEventListener("visibilitychange", onVisibility);
-      window.addEventListener("online", onOnline);
-      detachResume = () => {
-        socket.off("connect", rejoinIfNeeded);
-        document.removeEventListener("visibilitychange", onVisibility);
-        window.removeEventListener("online", onOnline);
-      };
-    }
+    socket.on("phase_change", (data: PhaseChangePayload) => {
+      if (data.mode) setServerMode(data.mode);
+      setPhase(data.phase);
+      setPhaseStartTime(data.phaseStartTime);
+      setServerFocusDuration(data.focusDuration);
+      setServerBreakDuration(data.breakDuration);
+      setSessionStarted(data.phase !== "waiting");
+    });
 
-    connectSocket();
+    socket.on(
+      "player_joined",
+      ({
+        playerId,
+        avatar,
+        displayName,
+        pet,
+        petStage,
+      }) => {
+        setPlayers((prev) => ({
+          ...prev,
+          [playerId]: {
+            avatar,
+            displayName,
+            pet: pet ?? null,
+            petStage: pet ? (petStage ?? "grown") : null,
+          },
+        }));
+      },
+    );
 
-    return () => {
-      cancelled = true;
-      detachResume();
-      socketRef.current?.disconnect();
-    };
-    // Deliberately mount-only: this owns the single socket connection for the
-    // session's lifetime. sb is a module-level singleton, so sb.auth is stable
-    // and listing it would not change when this runs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    socket.on(
+      "pet_changed",
+      ({
+        playerId,
+        pet,
+        petStage,
+      }) => {
+        setPlayers((prev) =>
+          prev[playerId]
+            ? {
+                ...prev,
+                [playerId]: {
+                  ...prev[playerId],
+                  pet,
+                  petStage: pet ? (petStage ?? "grown") : null,
+                },
+              }
+            : prev,
+        );
+        // The server emits to the whole room, including the picker, so the
+        // originator sees the derived size rather than guessing from stats.
+        if (playerId === socket.id) {
+          setMyPetStage(pet ? (petStage ?? "grown") : null);
+        }
+      },
+    );
+
+    // Partner's socket dropped; the server is holding their spot during
+    // the reconnect grace window (player_joined or player_left follows).
+    socket.on(
+      "player_disconnected",
+      ({ playerId }) => {
+        setPlayers((prev) =>
+          prev[playerId]
+            ? {
+                ...prev,
+                [playerId]: { ...prev[playerId], disconnected: true },
+              }
+            : prev,
+        );
+      },
+    );
+
+    socket.on("player_left", ({ playerId }) => {
+      setPlayers((prev) => {
+        const next = { ...prev };
+        delete next[playerId];
+        return next;
+      });
+    });
+
+    socket.on("session_invite", (data: InviteData) => {
+      setPendingInvite(data);
+    });
+
+    socket.on("invite_error", ({ message }) => {
+      setInviteSentName(null);
+      console.warn("Invite error:", message);
+      setSessionError(message);
+    });
+
+  }, [inviterName]);
+
+  const { socketRef, myId, connectionState, reconnect } =
+    useSessionConnection({
+      getResumeSnapshot,
+      registerSocketHandlers,
+    });
 
   // ── Register presence ───────────────────────────────────────────────────
   useEffect(() => {
@@ -451,7 +332,7 @@ export function useGameSession(profile: Profile | null) {
     return () => {
       socket.off("connect", onConnect);
     };
-  }, [profile?.id]);
+  }, [profile?.id, socketRef]);
 
   // ── Sound effects on phase transitions ──────────────────────────────────
   useEffect(() => {
@@ -531,7 +412,7 @@ export function useGameSession(profile: Profile | null) {
         pet: myPetRef.current,
       });
     },
-    [profile, sessionId],
+    [profile, sessionId, socketRef],
   );
 
   const joinSession = useCallback(
@@ -551,7 +432,7 @@ export function useGameSession(profile: Profile | null) {
         pet: myPetRef.current,
       });
     },
-    [profile],
+    [profile, socketRef],
   );
 
   const joinShareInvite = useCallback(
@@ -570,7 +451,7 @@ export function useGameSession(profile: Profile | null) {
         pet: myPetRef.current,
       });
     },
-    [profile],
+    [profile, socketRef],
   );
 
   const createShareInvite = useCallback(
@@ -601,7 +482,7 @@ export function useGameSession(profile: Profile | null) {
           },
         );
       }),
-    [sessionId],
+    [sessionId, socketRef],
   );
 
   const leaveSession = useCallback(() => {
@@ -617,7 +498,7 @@ export function useGameSession(profile: Profile | null) {
     lastAvatarRef.current = null;
     sessionStorage.removeItem(RESUME_KEY);
     setResumeSessionId(null);
-  }, [sessionId]);
+  }, [sessionId, socketRef]);
 
   const startSession = useCallback(() => {
     socketRef.current?.emit("start_session", {
@@ -627,18 +508,18 @@ export function useGameSession(profile: Profile | null) {
       mode: timerMode,
     });
     playSound("click");
-  }, [sessionId, focusDuration, breakDuration, timerMode]);
+  }, [sessionId, focusDuration, breakDuration, timerMode, socketRef]);
 
   const finishFlowFocus = useCallback(() => {
     socketRef.current?.emit("finish_flow_focus", { sessionId });
     playSound("click");
-  }, [sessionId]);
+  }, [sessionId, socketRef]);
 
   const stopSession = useCallback(() => {
     socketRef.current?.emit("stop_session", { sessionId });
     setSessionStarted(false);
     playSound("click");
-  }, [sessionId]);
+  }, [sessionId, socketRef]);
 
   // Set/change pet — keeps the ref mirror in sync and relays mid-session
   const setMyPet = useCallback((pet: PetType | null) => {
@@ -646,7 +527,7 @@ export function useGameSession(profile: Profile | null) {
     myPetRef.current = pet;
     const sid = sessionIdRef.current;
     if (sid) socketRef.current?.emit("set_pet", { sessionId: sid, pet });
-  }, []);
+  }, [socketRef]);
 
   const sendInvite = useCallback(
     (targetUserId: string, avatar: AvatarConfig) => {
@@ -673,7 +554,7 @@ export function useGameSession(profile: Profile | null) {
         });
       }
     },
-    [sessionId, profile],
+    [sessionId, profile, socketRef],
   );
 
   const dismissInvite = useCallback(() => setPendingInvite(null), []);
@@ -699,7 +580,7 @@ export function useGameSession(profile: Profile | null) {
     myId,
     socketRef,
     connectionState,
-    reconnect: useCallback(() => reconnectRef.current(), []),
+    reconnect,
     // Derived
     timeLeft,
     flowElapsed,
