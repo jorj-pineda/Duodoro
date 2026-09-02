@@ -12,7 +12,6 @@ const {
   beginFocusRound,
   addPlayer,
   removePlayer,
-  setPlayerPet,
   creditFocusRound,
   isInvited,
   findPlayerByUserId,
@@ -30,14 +29,9 @@ const { fetchTotalFocusSeconds } = require('./focusTotal');
 const { recordFocusSession } = require('./focusRecorder');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
-  MAX_FOCUS,
-  MAX_BREAK,
   parseCreateSession,
   parseShareInvite,
   parseJoinSession,
-  parseStartSession,
-  parseSessionReference,
-  parseSetPet,
 } = require('./payloadParsers');
 const {
   correlationRef,
@@ -49,6 +43,7 @@ const {
 const { createReadinessChecker } = require('./readiness');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
+const { registerPhasePetHandlers } = require('./phasePetHandlers');
 
 function createRealtimeApp({
   supabase = null,
@@ -924,139 +919,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // start_session: { sessionId, focusDuration, breakDuration, mode }
-  // Solo start allowed (1 player is fine).
-  onPayload(socket, 'start_session', (payload) => {
-    const parsed = parseStartSession(payload);
-    if (!parsed.ok) return;
-    const {
-      sessionId,
-      focusDuration,
-      breakDuration,
-      mode,
-    } = parsed.value;
-    const session = getSession(sessionId);
-    if (!session) return;
-    if (Object.keys(session.players).length < 1) return;
-    // Only a player in this session can start it
-    if (!session.players[socket.id]) return;
-    // Only from the waiting room. Without this, a duplicate/racing start
-    // silently restarts a running focus phase — resetting phaseStartTime and
-    // discarding the elapsed time instead of recording it.
-    if (session.phase !== 'waiting') return;
-
-    session.mode = mode;
-
-    if (mode === 'flow') {
-      session.focusDuration = MAX_FOCUS; // safety cap for server
-      session.breakDuration = MAX_BREAK;
-    } else {
-      session.focusDuration = focusDuration;
-      session.breakDuration = breakDuration;
-    }
-
-    beginFocusRound(session);
-
-    if (session.phaseTimer) clearTimeout(session.phaseTimer);
-
-    io.to(sessionId).emit('phase_change', {
-      mode: session.mode,
-      phase: 'focus',
-      phaseStartTime: session.phaseStartTime,
-      focusDuration: session.focusDuration,
-      breakDuration: session.breakDuration,
-    });
-
-    if (mode === 'pomodoro') {
-      session.phaseTimer = setTimeout(() => advancePhase(sessionId), session.focusDuration * 1000);
-    }
-    metrics.increment('focus_rounds_started_total');
-    logger.info('focus_round_started', {
-      room_ref: correlationRef('room', sessionId),
-      mode,
-      focus_seconds: session.focusDuration,
-      break_seconds: session.breakDuration,
-      player_count: Object.keys(session.players).length,
-    });
-  });
-
-  // finish_flow_focus: { sessionId }
-  onPayload(socket, 'finish_flow_focus', (payload) => {
-    const parsed = parseSessionReference(payload);
-    if (!parsed.ok) return;
-    const { sessionId } = parsed.value;
-    const session = getSession(sessionId);
-    if (!session) return;
-    if (session.mode !== 'flow' || session.phase !== 'focus') return;
-    if (!session.players[socket.id]) return; // Only participants can trigger
-
-    // Calculate actual elapsed focus time in seconds
-    const elapsedSeconds = Math.round((Date.now() - session.phaseStartTime) / 1000);
-    // Limit elapsed time to MAX_FOCUS
-    const effectiveFocus = Math.min(elapsedSeconds, session.focusDuration);
-
-    // NB: focusDuration stays at the MAX_FOCUS safety cap here. Overwriting it
-    // with the elapsed time made the *next* flow round no longer open-ended —
-    // it inherited the previous round's length as a hard timer — and also
-    // shrank the denominator the client renders flow progress against.
-    // recordSession derives the real figure from elapsed time in flow mode.
-    // Calculate break: ~1/5 of focus time, min 60s, max MAX_BREAK
-    session.breakDuration = Math.min(Math.max(60, Math.round(effectiveFocus / 5)), MAX_BREAK);
-
-    // This logs the 'true' completion, since manual triggers are the proper way to end flow mode
-    advancePhase(sessionId);
-  });
-
-  // stop_session: { sessionId }
-  onPayload(socket, 'stop_session', (payload) => {
-    const parsed = parseSessionReference(payload);
-    if (!parsed.ok) return;
-    const { sessionId } = parsed.value;
-    const session = getSession(sessionId);
-    if (!session) return;
-    if (!session.players[socket.id]) return; // Only participants can stop
-
-    if (session.phase === 'focus') {
-      queueSessionRecording(sessionId, session, false);
-    }
-
-    if (session.phaseTimer) {
-      clearTimeout(session.phaseTimer);
-      session.phaseTimer = null;
-    }
-
-    session.phase = 'waiting';
-    session.phaseStartTime = null;
-    session.focusRoundId = null;
-
-    io.to(sessionId).emit('phase_change', {
-      mode: session.mode,
-      phase: 'waiting',
-      phaseStartTime: null,
-      focusDuration: session.focusDuration,
-      breakDuration: session.breakDuration,
-    });
-  });
-
-  // set_pet: { sessionId, pet }
-  // Change your pet mid-session; relayed to the other player. Stage is
-  // derived here, never taken from the payload, and emitted to the whole
-  // room (including the sender) so the picker sees the server's size.
-  onPayload(socket, 'set_pet', (payload) => {
-    const parsed = parseSetPet(payload);
-    if (!parsed.ok) return;
-    const { sessionId, pet } = parsed.value;
-    const session = getSession(sessionId);
-    if (!session) return;
-    const player = session.players[socket.id];
-    if (!player) return; // Only participants
-    const petStage = pet ? petStageAt(player.focusSeconds || 0) : null;
-    setPlayerPet(session, socket.id, pet, petStage);
-    io.to(sessionId).emit('pet_changed', {
-      playerId: socket.id,
-      pet,
-      petStage,
-    });
+  registerPhasePetHandlers({
+    socket,
+    io,
+    onPayload,
+    getSession,
+    advancePhase,
+    queueSessionRecording,
+    metrics,
+    logger,
   });
 
   // leave_session: no payload needed — the server knows which session this

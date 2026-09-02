@@ -363,17 +363,18 @@ a screen reader at least once per release.
 
 ### 6. Split the largest orchestration files along behavior boundaries
 
-**Status:** In progress across PRs #62–#64. The production entry point is a thin
+**Status:** In progress across PRs #62–#65. The production entry point is a thin
 environment/bootstrap layer, while `server/app.js` exports an injectable
 factory that owns each instance's HTTP server, Socket.IO transport, live state,
 timers, metrics, startup, and teardown. Importing it has no listener, signal,
 credential, or interval side effects. Pure event-specific payload parsers now
 own field validation, allowlists, defaults, and bounds without I/O or live
-state. Account, presence, online-friend, and invite handlers are isolated behind
-explicit service dependencies. Session lifecycle handlers, the client hook
-split, and a shared typed event contract remain follow-up work.
+state. Account, presence, online-friend, invite, phase, and pet handlers are
+isolated behind explicit service dependencies. Room membership/reconnect
+handlers, the client hook split, and a shared typed event contract remain
+follow-up work.
 
-`server/app.js` is about 1,233 lines, `useGameSession.ts` about 743,
+`server/app.js` is about 1,104 lines, `useGameSession.ts` about 743,
 `DuoTimer.tsx` about 544, and `WorldDecorations.tsx` about 1,676. Some size is
 legitimate, especially hand-authored art, but the realtime files mix protocol
 parsing, authorization, state mutation, persistence, presence, and transport.
