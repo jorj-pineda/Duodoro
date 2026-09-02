@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-02. PRs #35–#67 merged.
+Last updated: 2026-09-02. PRs #35–#68 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -182,6 +182,13 @@ for exercising the deployed client → server → database flow.
       untyped `Socket`, the server app references the same maps, and a parity
       test proves every declared event is emitted and handled on both sides.
       Runtime payload parsing remains mandatory for custom clients.
+- [x] **14u. Client connection/resume hook** — PR #69. Socket creation,
+      handshake-token refresh, retry state, exhausted-retry recovery, manual
+      reconnect, visibility/online handling, resync, and verified rejoin
+      snapshots now live in `useSessionConnection`. `useGameSession` retains
+      room/game events and actions behind one typed registration callback.
+      Existing lifecycle regressions plus direct token-refresh and teardown
+      tests protect the extracted boundary.
 
 ## Next up (recommended order)
 
