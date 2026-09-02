@@ -84,6 +84,12 @@ in `finally`, and it is private server state that never enters `sync_state`.
 Adding a world now needs `ROTATION_WORLDS` (**both** copies), the client's `WorldId` and `WORLDS` in `lib/avatarData.ts`, and the SQL `sessions_world_check` (migration 008, last edited by 019). A world missing from the rotation is unreachable — there is no picker left to select it with, which is why `rotation.test.ts` asserts the two lists match.
 
 Security conventions in the socket layer (preserve these when adding events):
+- `shared/socketContract.d.ts` is the canonical application event map for both
+  directions, including acknowledgements; `shared/socketContract.js` exposes
+  the matching runtime name lists used by the parity test. Add or change an
+  event there first, use `DuodoroSocket` in client props/hooks, and update both
+  emitter and handler in the same change. This is compile-time coordination,
+  not network validation: custom clients still require the parser boundary.
 - `io.use()` middleware verifies the Supabase JWT and sets `socket.userId` — **never trust a client-sent userId**.
 - Every event that accepts a payload is registered through `onPayload()` in
   `server/app.js`. It rejects null, arrays and primitives before field access,
