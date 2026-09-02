@@ -5,34 +5,20 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { createPresenceRegistry } = require('./presence');
 const {
-  createSessionState,
-  createShareInvite,
-  findSessionByShareInvite,
-  consumeShareInvite,
   beginFocusRound,
-  addPlayer,
   removePlayer,
   creditFocusRound,
   isInvited,
   findPlayerByUserId,
-  reservePlayerSlot,
   releasePlayerSlot,
-  hasOpenPlayerSlot,
   markPlayerDisconnected,
   sessionParticipantIds,
   findUserSessions,
   buildSyncPayload,
 } = require('./session');
-const { worldAt } = require('./rotation');
-const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
 const { recordFocusSession } = require('./focusRecorder');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
-const {
-  parseCreateSession,
-  parseShareInvite,
-  parseJoinSession,
-} = require('./payloadParsers');
 const {
   correlationRef,
   createLogger,
@@ -44,6 +30,7 @@ const { createReadinessChecker } = require('./readiness');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
+const { registerRoomMembershipHandlers } = require('./roomMembershipHandlers');
 
 function createRealtimeApp({
   supabase = null,
@@ -97,19 +84,6 @@ const io = new Server(server, {
 // same way.
 function totalFocusSeconds(userId) {
   return fetchTotalFocusSeconds(supabase, userId, { observe: observeRpc });
-}
-
-function stageForTotal(seconds) {
-  // A failed fetch is not 0 hours. Leave the pet at today's size rather
-  // than pretending the user is new.
-  if (seconds === null) return 'grown';
-  return petStageAt(seconds);
-}
-
-// Keep the cached total consistent with stageForTotal: a failed fetch
-// must not later recompute as young when the user picks a different pet.
-function cachedFocus(seconds) {
-  return seconds === null ? GROWN_AT_SECONDS : seconds;
 }
 
 io.use(async (socket, next) => {
@@ -233,15 +207,6 @@ function onPayload(socket, event, handler, options = {}) {
 
 function getSession(sessionId) {
   return sessions[sessionId];
-}
-
-function reportJoinRejection(reason, sessionId = null, userId = null) {
-  metrics.increment('session_join_rejections_total');
-  logger.warn('session_join_rejected', {
-    reason,
-    room_ref: correlationRef('room', sessionId),
-    account_ref: correlationRef('account', userId),
-  });
 }
 
 // ── Supabase Presence Helpers ──────────────────────────────────────────────
@@ -660,265 +625,24 @@ io.on('connection', (socket) => {
     logger,
   });
 
-  // create_session: { avatar, displayName, pet }
-  // Creates a new session with a UUID, user becomes host.
-  // userId comes from verified socket.userId (auth middleware).
-  //
-  // The world is NOT a parameter. It is whatever the rotation is on right now
-  // (server/rotation.js) — one world, everybody, changing on the :30. A `world`
-  // field in the payload is ignored rather than rejected, so an older client
-  // still gets a session instead of an error. There is nothing left to validate
-  // here because there is nothing left to trust.
-  onPayload(socket, 'create_session', async (payload) => {
-    if (!rateLimits.createSession(socket.id)) {
-      socket.emit('session_error', { message: 'Too many requests, slow down' });
-      return;
-    }
-    const parsed = parseCreateSession(payload);
-    if (!parsed.ok) {
-      socket.emit('session_error', { message: 'Invalid avatar' });
-      return;
-    }
-    const { avatar, displayName, pet } = parsed.value;
-    const safeWorld = worldAt();
-
-    const prevSession = socketToSession[socket.id];
-    if (prevSession) leaveSession(socket, prevSession);
-
-    const userId = socket.userId || null;
-    const focusSeconds = await totalFocusSeconds(userId);
-
-    const session = createSessionState(safeWorld, socket.id);
-    const sessionId = session.id;
-    sessions[sessionId] = session;
-
-    socket.join(sessionId);
-    socketToSession[socket.id] = sessionId;
-    addPlayer(session, socket.id, {
-      avatar,
-      displayName,
-      userId,
-      pet,
-      // petStage in the payload is ignored the same way world is — the server
-      // derives it from this user's completed focus, so two people never see
-      // different animals in one room.
-      petStage: pet ? stageForTotal(focusSeconds) : null,
-      focusSeconds: cachedFocus(focusSeconds),
-    });
-
-    if (userId) setPresence(userId, sessionId, safeWorld);
-
-    metrics.increment('sessions_created_total');
-    logger.info('session_created', {
-      room_ref: correlationRef('room', sessionId),
-      world: safeWorld,
-    });
-
-    socket.emit('session_created', { sessionId });
-    socket.emit('sync_state', buildSyncPayload(session));
+  registerRoomMembershipHandlers({
+    socket,
+    io,
+    onPayload,
+    sessions,
+    socketToSession,
+    getSession,
+    leaveSession,
+    canJoinSession,
+    cancelPendingDisconnect,
+    totalFocusSeconds,
+    setPresence,
+    createSessionRateLimit: rateLimits.createSession,
+    shareInviteRateLimit: rateLimits.shareInvite,
+    joinSessionRateLimit: rateLimits.joinSession,
+    metrics,
+    logger,
   });
-
-  // create_share_invite: { sessionId }, acknowledgement: { ok, token, expiresAt }
-  // Rotates a short-lived, single-use bearer token for the remaining seat.
-  // The room UUID itself remains private and is never embedded in a link.
-  onPayload(socket, 'create_share_invite', (payload, respond) => {
-    const reply = typeof respond === 'function' ? respond : () => {};
-    if (!rateLimits.shareInvite(socket.id)) {
-      reply({ ok: false, message: 'Too many requests, slow down' });
-      return;
-    }
-    const parsed = parseShareInvite(payload);
-    if (!parsed.ok) {
-      reply({ ok: false, message: 'Invalid session ID' });
-      return;
-    }
-    const { sessionId } = parsed.value;
-    const session = getSession(sessionId);
-    if (!session) {
-      reply({ ok: false, message: 'Session not found' });
-      return;
-    }
-    if (!session.players[socket.id]) {
-      reply({ ok: false, message: 'You are not in this session' });
-      return;
-    }
-    if (!hasOpenPlayerSlot(session)) {
-      reply({ ok: false, message: 'Session is full' });
-      return;
-    }
-
-    const invite = createShareInvite(session);
-    reply({ ok: true, token: invite.token, expiresAt: invite.expiresAt });
-  }, {
-    errorEvent: null,
-    onInvalid: (respond) => {
-      if (typeof respond === 'function') {
-        respond({ ok: false, message: 'Invalid request' });
-      }
-    },
-  });
-
-  // join_session: { sessionId | shareToken, avatar, displayName, pet }
-  // A session UUID still requires the normal friend/invite authorization. An
-  // opaque share token is its own short-lived authorization for one new seat.
-  // userId comes from verified socket.userId (auth middleware).
-  onPayload(socket, 'join_session', async (payload) => {
-    const userId = socket.userId || null;
-    const requestedSessionId = payload.sessionId;
-    if (!rateLimits.joinSession(socket.id)) {
-      socket.emit('session_error', { message: 'Too many requests, slow down' });
-      reportJoinRejection('rate_limited', requestedSessionId, userId);
-      return;
-    }
-    const parsed = parseJoinSession(payload);
-    if (!parsed.ok) {
-      const invalidShareToken = parsed.reason === 'share_token';
-      const invalidSessionId = parsed.reason === 'session_id';
-      socket.emit('session_error', {
-        message: invalidShareToken
-          ? 'Invite link is invalid or expired'
-          : invalidSessionId ? 'Invalid session ID' : 'Invalid avatar',
-      });
-      reportJoinRejection(
-        invalidShareToken
-          ? 'invalid_share_token'
-          : invalidSessionId ? 'invalid_session_id' : 'invalid_avatar',
-        invalidShareToken || invalidSessionId ? null : requestedSessionId,
-        userId,
-      );
-      return;
-    }
-    const {
-      sessionId: parsedSessionId,
-      shareToken,
-      joiningByLink,
-      avatar,
-      displayName,
-      pet,
-    } = parsed.value;
-
-    let session;
-    let sessionId;
-    if (joiningByLink) {
-      session = findSessionByShareInvite(sessions, shareToken);
-      sessionId = session?.id;
-    } else {
-      sessionId = parsedSessionId;
-      session = getSession(sessionId);
-    }
-    if (!session) {
-      socket.emit('session_error', {
-        message: joiningByLink ? 'Invite link is invalid or expired' : 'Session not found',
-      });
-      reportJoinRejection(
-        joiningByLink ? 'share_invite_not_found' : 'session_not_found',
-        sessionId,
-        userId,
-      );
-      return;
-    }
-
-    // Authorize *before* touching any existing state — a refused join must not
-    // eject the caller from the session they're already in.
-    if (!joiningByLink && !(await canJoinSession(session, userId))) {
-      socket.emit('session_error', { message: 'This session is private' });
-      reportJoinRejection('private', sessionId, userId);
-      return;
-    }
-
-    // Reserve synchronously before the focus-total read below yields. A plain
-    // player-count check lets two concurrent joins both see one open seat and
-    // both enter after their database reads finish. Existing users bypass the
-    // new-seat count so reconnecting to a full room remains valid.
-    const slot = reservePlayerSlot(session, userId);
-    if (!slot.ok) {
-      socket.emit('session_error', { message: 'Session is full' });
-      reportJoinRejection('full', sessionId, userId);
-      return;
-    }
-
-    // Claim the bearer token synchronously with the seat reservation. There is
-    // no await between lookup, reservation, and consumption, so two recipients
-    // cannot both redeem one link. A reconnecting participant does not consume
-    // the link because it does not claim a new seat.
-    if (joiningByLink && slot.reserved && !consumeShareInvite(session, shareToken)) {
-      releasePlayerSlot(session, userId);
-      socket.emit('session_error', { message: 'Invite link is invalid or expired' });
-      reportJoinRejection('share_invite_consumed', sessionId, userId);
-      return;
-    }
-
-    try {
-      const focusSeconds = await totalFocusSeconds(userId);
-      const petStage = pet ? stageForTotal(focusSeconds) : null;
-
-      // The last live player can leave while this join is waiting on Supabase,
-      // which deletes the in-memory session. Never join the detached old object.
-      if (getSession(sessionId) !== session) {
-        socket.emit('session_error', { message: 'Session not found' });
-        reportJoinRejection('session_closed_during_join', sessionId, userId);
-        return;
-      }
-
-      // Do not eject the caller from another room until this room has both
-      // authorized them and held a seat for them.
-      const prevSession = socketToSession[socket.id];
-      if (prevSession && prevSession !== sessionId) leaveSession(socket, prevSession);
-
-      // Reconnect: this user already has a player slot in the session under an
-      // old socket id (grace-pending, or a zombie socket the server hasn't
-      // noticed dropping yet). Look it up after the await so concurrent
-      // reconnects always replace the freshest slot rather than duplicating it.
-      const oldSocketId = userId ? findPlayerByUserId(session, userId) : null;
-      if (oldSocketId && oldSocketId !== socket.id) {
-        cancelPendingDisconnect(oldSocketId);
-        removePlayer(session, oldSocketId);
-        delete socketToSession[oldSocketId];
-        // Stop broadcasting to a socket that's no longer a player (a still-open
-        // stale tab); harmless no-op when the old socket is already gone.
-        io.sockets.sockets.get(oldSocketId)?.leave(sessionId);
-        if (session.hostId === oldSocketId) session.hostId = socket.id;
-        socket.to(sessionId).emit('player_left', { playerId: oldSocketId });
-        metrics.increment('session_reconnects_total');
-        logger.info('session_player_reconnected', {
-          room_ref: correlationRef('room', sessionId),
-          account_ref: correlationRef('account', userId),
-          socket_ref: correlationRef('socket', socket.id),
-        });
-      }
-
-      socket.join(sessionId);
-      socketToSession[socket.id] = sessionId;
-      const playerCount = addPlayer(session, socket.id, {
-        avatar,
-        displayName,
-        userId,
-        pet,
-        petStage,
-        focusSeconds: cachedFocus(focusSeconds),
-      });
-
-      if (userId) setPresence(userId, sessionId, session.world);
-      logger.info('session_player_joined', {
-        room_ref: correlationRef('room', sessionId),
-        socket_ref: correlationRef('socket', socket.id),
-        player_count: playerCount,
-      });
-
-      socket.to(sessionId).emit('player_joined', {
-        playerId: socket.id,
-        avatar,
-        displayName,
-        pet,
-        petStage,
-      });
-
-      socket.emit('sync_state', buildSyncPayload(session));
-    } finally {
-      if (slot.reserved) releasePlayerSlot(session, userId);
-    }
-  });
-
   registerPhasePetHandlers({
     socket,
     io,

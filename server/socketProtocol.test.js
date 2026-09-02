@@ -59,6 +59,7 @@ describe("payload-bearing event registration", () => {
       "app.js",
       "accountHandlers.js",
       "socialHandlers.js",
+      "roomMembershipHandlers.js",
       "phasePetHandlers.js",
     ]
       .map((name) => readFileSync(new URL(name, import.meta.url), "utf8"))
