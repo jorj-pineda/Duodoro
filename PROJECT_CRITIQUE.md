@@ -397,6 +397,10 @@ against custom clients.
 
 ### 8. Make destructive multi-row UI updates verify affected rows
 
+**Status:** Addressed in PR #67. Both bulk clear paths request deleted IDs,
+remove only confirmed rows from local state, and surface partial deletion.
+Partner-owned shared goals filtered by RLS remain visible.
+
 Single-row writes mostly check selected rows now, but bulk `clearCompleted`
 paths only check `error`. In the shared-note view, rows owned by the partner may
 be rejected by RLS while the client locally removes the entire selected set.
