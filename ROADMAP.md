@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-02. PRs #35–#69 merged.
+Last updated: 2026-09-02. PRs #35–#70 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -195,6 +195,10 @@ for exercising the deployed client → server → database flow.
       checked against the rebuilt migration chain. Small row normalizers keep
       nullable database defaults out of UI state, and CI regenerates the file
       from a fresh local database and rejects schema/type drift.
+- [x] **14w. `qs` denial-of-service advisories** — PR #71. The server lockfile
+      now resolves Express and body-parser's compatible transitive `qs` range
+      to 6.16.0, clearing both moderate advisories without changing Express or
+      application code. The server production audit is back to zero findings.
 
 ## Next up (recommended order)
 
