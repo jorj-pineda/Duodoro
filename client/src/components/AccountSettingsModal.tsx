@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Socket } from "socket.io-client";
 import { getSupabase } from "@/lib/supabase";
+import type {
+  AccountDeletionResponse,
+  DuodoroSocket,
+} from "@/lib/socketContract";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { CloseIcon } from "./Icons";
 
 interface Props {
   onClose: () => void;
   onDeleted: () => void | Promise<void>;
-  socketRef: { current: Socket | null };
+  socketRef: { current: DuodoroSocket | null };
 }
-
-type DeletionResponse = { ok: boolean; message?: string };
 
 export default function AccountSettingsModal({
   onClose,
@@ -78,7 +79,7 @@ export default function AccountSettingsModal({
     socket.timeout(15_000).emit(
       "delete_account",
       { confirmation },
-      async (timeoutError: Error | null, response?: DeletionResponse) => {
+      async (timeoutError: Error | null, response?: AccountDeletionResponse) => {
         if (timeoutError || !response?.ok) {
           setDeleting(false);
           setDeletionError(

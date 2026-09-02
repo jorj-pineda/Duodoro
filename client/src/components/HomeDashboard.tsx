@@ -19,12 +19,12 @@ import {
   SignOutIcon,
 } from "./Icons";
 import type { Profile } from "@/lib/types";
-import type { Socket } from "socket.io-client";
+import type { DuodoroSocket } from "@/lib/socketContract";
 
 interface Props {
   profile: Profile;
   activeSessionId?: string;
-  socketRef: { current: Socket | null };
+  socketRef: { current: DuodoroSocket | null };
   /** Starts a session in whatever world the rotation is on — see WorldNowCard. */
   onFocus: () => void;
   /**
