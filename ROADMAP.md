@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-01. PRs #35–#64 merged.
+Last updated: 2026-09-02. PRs #35–#65 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -165,6 +165,12 @@ for exercising the deployed client → server → database flow.
       start rejection, authoritative timer scheduling, open-ended flow safety
       caps, elapsed-time break calculation, recording before round reset, timer
       cleanup, and focus-total-derived pet stages that ignore client claims.
+- [x] **14r. Room membership handler service** — PR #66. Room creation,
+      share-link issuance, and room admission now live behind explicit service
+      dependencies. Direct tests pin server-owned worlds and pet stages,
+      participant-only share links, authorization before leaving an existing
+      room, synchronous seat reservation and token consumption before database
+      reads, reservation cleanup, and reconnect socket/host re-keying.
 
 ## Next up (recommended order)
 
