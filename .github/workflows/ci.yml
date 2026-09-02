@@ -31,6 +31,11 @@ jobs:
       - name: Rebuild from the committed migration chain
         run: supabase db reset --local --no-seed
 
+      - name: Verify generated database types
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/database.types.ts
+          diff -u -B client/src/lib/database.types.ts /tmp/database.types.ts
+
       - name: Lint the rebuilt schema
         run: supabase db lint --local --level warning --fail-on error
 
