@@ -389,18 +389,22 @@ Keep art maps data-oriented rather than splitting merely to hit a line target.
 
 ### 7. Generate database and realtime types
 
-**Status:** Realtime addressed in PR #68. The shared declaration types client
-and server event maps, payloads, and acknowledgements, while runtime parsers
-still defend the network boundary. Generated Supabase database types remain.
+**Status:** Addressed in PRs #68 and #70. The shared realtime declaration types
+client and server event maps, payloads, and acknowledgements, while runtime
+parsers still defend the network boundary. The Supabase client now uses a
+schema-generated `Database` contract, and CI rejects drift after rebuilding the
+migration chain.
 
 The client uses manual `Profile`/RPC shapes and a few explicit `any` mappings.
 The CommonJS server has no static protocol types. Schema drift can therefore
 pass TypeScript and appear only against production.
 
-Generate Supabase types from the schema and share a small versioned protocol
-package or generated declaration between client and server. Validate at
-runtime at the socket boundary even after types exist; types do not protect
-against custom clients.
+The generated database contract caught an invalid fallback profile insert as
+soon as it was adopted: `profiles.discriminator` was required by PostgreSQL but
+missing from the write. Row normalizers now make the deliberate database/UI
+nullability boundary explicit, and the stats and search RPCs no longer depend
+on handwritten result casts. Keep runtime socket validation even with static
+types; custom clients are not constrained by TypeScript.
 
 ### 8. Make destructive multi-row UI updates verify affected rows
 
