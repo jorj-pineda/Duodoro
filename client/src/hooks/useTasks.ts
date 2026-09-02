@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { Task } from "@/lib/types";
+import { taskFromRow, type Task } from "@/lib/types";
 
 export function useTasks(ownerId: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -28,7 +28,7 @@ export function useTasks(ownerId: string) {
       return;
     }
     setError(null);
-    if (data) setTasks(data as Task[]);
+    if (data) setTasks(data.map(taskFromRow));
   }, [sb, ownerId]);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function useTasks(ownerId: string) {
       setError("Couldn't save that task.");
       return;
     }
-    setTasks((p) => [...p, data as Task]);
+    setTasks((p) => [...p, taskFromRow(data)]);
     setNewTask("");
   };
 

@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-02. PRs #35–#68 merged.
+Last updated: 2026-09-02. PRs #35–#69 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -189,6 +189,12 @@ for exercising the deployed client → server → database flow.
       room/game events and actions behind one typed registration callback.
       Existing lifecycle regressions plus direct token-refresh and teardown
       tests protect the extracted boundary.
+- [x] **14v. Generated Supabase database types** — PR #70. The browser client
+      now carries a schema-generated `Database` contract and supplies it to
+      `createClient`, so table writes, RPC arguments, and RPC results are
+      checked against the rebuilt migration chain. Small row normalizers keep
+      nullable database defaults out of UI state, and CI regenerates the file
+      from a fresh local database and rejects schema/type drift.
 
 ## Next up (recommended order)
 
