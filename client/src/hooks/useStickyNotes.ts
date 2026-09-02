@@ -188,15 +188,25 @@ export function useStickyNotes(
     const ids = list.filter((t) => t.is_done).map((t) => t.id);
     if (ids.length > 0) {
       setError(null);
-      // One round trip, not one per note
-      const { error: err } = await sb.from("tasks").delete().in("id", ids);
-      if (err) {
+      // RLS can report success while deleting only the caller-owned subset.
+      // Return the affected ids and keep every refused partner row locally.
+      const { data, error: err } = await sb
+        .from("tasks")
+        .delete()
+        .in("id", ids)
+        .select("id");
+      if (err || !data) {
         setError("Couldn't clear those notes.");
         return;
       }
-      const drop = (l: Task[]) => l.filter((t) => !ids.includes(t.id));
+      const deletedIds = new Set(data.map((row) => row.id));
+      const drop = (list: Task[]) =>
+        list.filter((task) => !deletedIds.has(task.id));
       setMyTasks(drop);
       setSharedTasks(drop);
+      if (deletedIds.size !== ids.length) {
+        setError("Couldn't clear all completed notes.");
+      }
     }
     setShowOptions(false);
   };

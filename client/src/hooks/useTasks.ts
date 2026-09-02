@@ -92,13 +92,23 @@ export function useTasks(ownerId: string) {
     const ids = completedTasks.map((t) => t.id);
     if (ids.length === 0) return;
     setError(null);
-    // One round trip, not one per task
-    const { error: err } = await sb.from("tasks").delete().in("id", ids);
-    if (err) {
+    // RLS can turn a refused DELETE into a successful zero-row response. Ask
+    // PostgREST to return the rows it actually removed and only drop those
+    // ids locally; a stale or unauthorized row must remain visible.
+    const { data, error: err } = await sb
+      .from("tasks")
+      .delete()
+      .in("id", ids)
+      .select("id");
+    if (err || !data) {
       setError("Couldn't clear those tasks.");
       return;
     }
-    setTasks((p) => p.filter((t) => !t.is_done));
+    const deletedIds = new Set(data.map((row) => row.id));
+    setTasks((p) => p.filter((task) => !deletedIds.has(task.id)));
+    if (deletedIds.size !== ids.length) {
+      setError("Couldn't clear all completed tasks.");
+    }
   };
 
   return {
