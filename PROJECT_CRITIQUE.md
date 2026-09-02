@@ -363,7 +363,7 @@ a screen reader at least once per release.
 
 ### 6. Split the largest orchestration files along behavior boundaries
 
-**Status:** In progress across PRs #62–#66. The production entry point is a thin
+**Status:** In progress across PRs #62–#68. The production entry point is a thin
 environment/bootstrap layer, while `server/app.js` exports an injectable
 factory that owns each instance's HTTP server, Socket.IO transport, live state,
 timers, metrics, startup, and teardown. Importing it has no listener, signal,
@@ -371,8 +371,9 @@ credential, or interval side effects. Pure event-specific payload parsers now
 own field validation, allowlists, defaults, and bounds without I/O or live
 state. Account, presence, online-friend, invite, phase, pet, room creation,
 share-link, admission, and reconnect-rekey handlers are isolated behind
-explicit service dependencies. Leave/disconnect teardown, the client hook
-split, and a shared typed event contract remain follow-up work.
+explicit service dependencies. A shared typed event contract now covers both
+Socket.IO directions and acknowledgements. Leave/disconnect teardown and the
+client hook split remain follow-up work.
 
 `server/app.js` is about 828 lines, `useGameSession.ts` about 743,
 `DuoTimer.tsx` about 544, and `WorldDecorations.tsx` about 1,676. Some size is
@@ -385,6 +386,10 @@ and make the server export an app factory rather than starting on import. Split
 Keep art maps data-oriented rather than splitting merely to hit a line target.
 
 ### 7. Generate database and realtime types
+
+**Status:** Realtime addressed in PR #68. The shared declaration types client
+and server event maps, payloads, and acknowledgements, while runtime parsers
+still defend the network boundary. Generated Supabase database types remain.
 
 The client uses manual `Profile`/RPC shapes and a few explicit `any` mappings.
 The CommonJS server has no static protocol types. Schema drift can therefore

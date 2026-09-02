@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-02. PRs #35–#66 merged.
+Last updated: 2026-09-02. PRs #35–#67 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -176,6 +176,12 @@ for exercising the deployed client → server → database flow.
       rows the database confirms, and report partial success. RLS-filtered
       partner goals remain visible instead of disappearing from local state;
       hook tests cover partial and zero-row deletion responses.
+- [x] **14t. Shared typed Socket.IO contract** — PR #68. One root declaration
+      now defines every application event, payload, and acknowledgement for
+      both directions. Client sockets and consumers use its generics instead of
+      untyped `Socket`, the server app references the same maps, and a parity
+      test proves every declared event is emitted and handled on both sides.
+      Runtime payload parsing remains mandatory for custom clients.
 
 ## Next up (recommended order)
 

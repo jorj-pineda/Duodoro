@@ -2,7 +2,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/types";
-import type { Socket } from "socket.io-client";
+import type {
+  DuodoroSocket,
+  ServerToClientEvents,
+} from "@/lib/socketContract";
+
+type PresenceUpdate = Parameters<ServerToClientEvents["presence_update"]>[0];
 
 // PostgREST embedded-resource shape; no generated DB types in this repo.
 type FriendshipRow = {
@@ -14,7 +19,7 @@ type FriendshipRow = {
 
 export function useOnlineFriends(
   userId: string,
-  socketRef: { current: Socket | null },
+  socketRef: { current: DuodoroSocket | null },
 ) {
   const [friends, setFriends] = useState<Profile[]>([]);
   const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(
@@ -87,17 +92,11 @@ export function useOnlineFriends(
     if (!socket || friends.length === 0) return;
 
     const friendIds = friends.map((f) => f.id);
-    socket.emit("get_online_friends", { friendIds }, (online: string[]) => {
+    socket.emit("get_online_friends", { friendIds }, (online) => {
       setOnlineFriendIds(new Set(online));
     });
 
-    const handlePresence = ({
-      userId,
-      online,
-    }: {
-      userId: string;
-      online: boolean;
-    }) => {
+    const handlePresence = ({ userId, online }: PresenceUpdate) => {
       setOnlineFriendIds((prev) => {
         const next = new Set(prev);
         if (online) next.add(userId);

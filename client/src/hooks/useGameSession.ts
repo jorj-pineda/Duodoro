@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
@@ -11,6 +11,9 @@ import type {
   PhaseChangePayload,
   InviteData,
 } from "@/lib/sessionTypes";
+import type {
+  DuodoroSocket,
+} from "@/lib/socketContract";
 import { playSound } from "@/lib/sounds";
 import { worldAt } from "@/lib/rotation";
 import { getSupabase } from "@/lib/supabase";
@@ -70,7 +73,7 @@ export function useGameSession(profile: Profile | null) {
 
   // ── Connection ──────────────────────────────────────────────────────────
   const [myId, setMyId] = useState<string>("");
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<DuodoroSocket | null>(null);
   // Populated once the socket exists, so the UI can ask for a reconnect
   // without reaching into the socket itself.
   const reconnectRef = useRef<() => void>(() => {});
@@ -157,7 +160,7 @@ export function useGameSession(profile: Profile | null) {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         auth: { token: session?.access_token ?? "" },
-      });
+      }) as DuodoroSocket;
       socketRef.current = socket;
 
       socket.on("connect_error", async (err) => {
@@ -186,7 +189,7 @@ export function useGameSession(profile: Profile | null) {
 
       socket.on(
         "session_created",
-        ({ sessionId: sid }: { sessionId: string }) => {
+        ({ sessionId: sid }) => {
           setSessionId(sid);
           const target = pendingOutboundInvite.current;
           if (target) {
@@ -200,7 +203,7 @@ export function useGameSession(profile: Profile | null) {
         },
       );
 
-      socket.on("session_error", ({ message }: { message: string }) => {
+      socket.on("session_error", ({ message }) => {
         console.error("Session error:", message);
         setSessionError(message);
         // These reject a join attempt. Restore the room the socket was already
@@ -282,12 +285,6 @@ export function useGameSession(profile: Profile | null) {
           displayName,
           pet,
           petStage,
-        }: {
-          playerId: string;
-          avatar: AvatarConfig;
-          displayName?: string;
-          pet?: PetType | null;
-          petStage?: PetStage | null;
         }) => {
           setPlayers((prev) => ({
             ...prev,
@@ -307,10 +304,6 @@ export function useGameSession(profile: Profile | null) {
           playerId,
           pet,
           petStage,
-        }: {
-          playerId: string;
-          pet: PetType | null;
-          petStage?: PetStage | null;
         }) => {
           setPlayers((prev) =>
             prev[playerId]
@@ -336,7 +329,7 @@ export function useGameSession(profile: Profile | null) {
       // the reconnect grace window (player_joined or player_left follows).
       socket.on(
         "player_disconnected",
-        ({ playerId }: { playerId: string }) => {
+        ({ playerId }) => {
           setPlayers((prev) =>
             prev[playerId]
               ? {
@@ -348,7 +341,7 @@ export function useGameSession(profile: Profile | null) {
         },
       );
 
-      socket.on("player_left", ({ playerId }: { playerId: string }) => {
+      socket.on("player_left", ({ playerId }) => {
         setPlayers((prev) => {
           const next = { ...prev };
           delete next[playerId];
@@ -360,7 +353,7 @@ export function useGameSession(profile: Profile | null) {
         setPendingInvite(data);
       });
 
-      socket.on("invite_error", ({ message }: { message: string }) => {
+      socket.on("invite_error", ({ message }) => {
         setInviteSentName(null);
         console.warn("Invite error:", message);
         setSessionError(message);
@@ -597,7 +590,7 @@ export function useGameSession(profile: Profile | null) {
         socket.emit(
           "create_share_invite",
           { sessionId },
-          (response: { ok: boolean; token?: string; message?: string }) => {
+          (response) => {
             window.clearTimeout(timeout);
             if (response?.ok && response.token) {
               resolve(response.token);

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { Socket } from "socket.io-client";
+import type { DuodoroSocket } from "@/lib/socketContract";
 import AccountSettingsModal from "./AccountSettingsModal";
 import { expectNoAxeViolations } from "@/test/axe";
 
@@ -35,7 +35,7 @@ function open({
     <AccountSettingsModal
       onClose={vi.fn()}
       onDeleted={onDeleted}
-      socketRef={{ current: socket as unknown as Socket | null }}
+      socketRef={{ current: socket as unknown as DuodoroSocket | null }}
     />,
   );
   return { onDeleted, socket };
@@ -55,7 +55,7 @@ describe("AccountSettingsModal", () => {
       <AccountSettingsModal
         onClose={vi.fn()}
         onDeleted={vi.fn()}
-        socketRef={{ current: fakeSocket() as unknown as Socket }}
+        socketRef={{ current: fakeSocket() as unknown as DuodoroSocket }}
       />,
     );
     await screen.findByRole("checkbox");

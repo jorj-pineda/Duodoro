@@ -32,6 +32,9 @@ const { registerSocialHandlers } = require('./socialHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
 const { registerRoomMembershipHandlers } = require('./roomMembershipHandlers');
 
+/** @typedef {import('../shared/socketContract').ClientToServerEvents} ClientToServerEvents */
+/** @typedef {import('../shared/socketContract').ServerToClientEvents} ServerToClientEvents */
+
 function createRealtimeApp({
   supabase = null,
   allowedOrigins = ['http://localhost:3000'],
@@ -70,6 +73,7 @@ app.get('/ready', async (_, res) => {
 });
 
 const server = http.createServer(app);
+/** @type {Server<ClientToServerEvents, ServerToClientEvents>} */
 const io = new Server(server, {
   cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
   maxHttpBufferSize: 1e5, // 100KB max payload
