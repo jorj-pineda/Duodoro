@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-08-31. PRs #35–#61 merged.
+Last updated: 2026-09-01. PRs #35–#64 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -159,6 +159,12 @@ for exercising the deployed client → server → database flow.
       claims, deletion failure remains retryable, all matching account tabs are
       disconnected, online results require friendship, invite presentation uses
       server-owned room state, and rate limiting still precedes parsing.
+- [x] **14q. Phase and pet handler service** — PR #65. Start, flow-finish,
+      stop, and companion-change events now live in an injected service outside
+      the app factory. Direct tests preserve participant authorization, duplicate
+      start rejection, authoritative timer scheduling, open-ended flow safety
+      caps, elapsed-time break calculation, recording before round reset, timer
+      cleanup, and focus-total-derived pet stages that ignore client claims.
 
 ## Next up (recommended order)
 
