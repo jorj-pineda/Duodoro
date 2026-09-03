@@ -20,11 +20,13 @@ import {
 } from "./Icons";
 import type { Profile } from "@/lib/types";
 import type { DuodoroSocket } from "@/lib/socketContract";
+import type { ConnectionState } from "@/hooks/useSessionConnection";
 
 interface Props {
   profile: Profile;
   activeSessionId?: string;
   socketRef: { current: DuodoroSocket | null };
+  connectionState?: ConnectionState;
   /** Starts a session in whatever world the rotation is on — see WorldNowCard. */
   onFocus: () => void;
   /**
@@ -92,6 +94,7 @@ export default function HomeDashboard({
   profile,
   activeSessionId,
   socketRef,
+  connectionState = "connecting",
   onFocus,
   onOpenPremium,
   onRejoinSession,
@@ -149,7 +152,7 @@ export default function HomeDashboard({
     onlineFriendIds,
     error: friendsError,
     retry: retryFriends,
-  } = useOnlineFriends(profile.id, socketRef);
+  } = useOnlineFriends(profile.id, socketRef, connectionState);
 
   const displayName = profile.display_name ?? profile.username ?? "You";
   const initial = displayName.charAt(0).toUpperCase();

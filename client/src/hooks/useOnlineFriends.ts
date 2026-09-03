@@ -6,6 +6,7 @@ import type {
   DuodoroSocket,
   ServerToClientEvents,
 } from "@/lib/socketContract";
+import type { ConnectionState } from "./useSessionConnection";
 
 type PresenceUpdate = Parameters<ServerToClientEvents["presence_update"]>[0];
 
@@ -20,6 +21,7 @@ type FriendshipRow = {
 export function useOnlineFriends(
   userId: string,
   socketRef: { current: DuodoroSocket | null },
+  connectionState: ConnectionState = "connecting",
 ) {
   const [friends, setFriends] = useState<Profile[]>([]);
   const [onlineFriendIds, setOnlineFriendIds] = useState<Set<string>>(
@@ -109,7 +111,7 @@ export function useOnlineFriends(
     return () => {
       socket.off("presence_update", handlePresence);
     };
-  }, [socketRef, friends]);
+  }, [socketRef, friends, connectionState]);
 
   return {
     friends,
