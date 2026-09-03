@@ -135,6 +135,7 @@ select has_function('public', 'search_profiles', array['text']);
 select has_function('public', 'toggle_shared_task', array['uuid', 'boolean']);
 select has_function('public', 'claim_premium', array['boolean']);
 select has_function('public', 'total_focus_seconds', array['uuid']);
+select has_function('public', 'list_accepted_friend_ids', array['uuid']);
 select has_function(
   'public',
   'record_focus_session',
@@ -192,6 +193,22 @@ select ok(
     'EXECUTE'
   ),
   'cross-user focus totals are service-role-only'
+);
+select ok(
+  (select prosecdef from pg_proc where oid = 'public.list_accepted_friend_ids(uuid)'::regprocedure),
+  'list_accepted_friend_ids is security definer'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.list_accepted_friend_ids(uuid)',
+    'EXECUTE'
+  ) and not has_function_privilege(
+    'authenticated',
+    'public.list_accepted_friend_ids(uuid)',
+    'EXECUTE'
+  ),
+  'accepted-friend lookups are service-role-only'
 );
 
 select ok(

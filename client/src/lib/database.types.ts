@@ -336,6 +336,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: boolean
       }
+      list_accepted_friend_ids: { Args: { target: string }; Returns: string[] }
       record_focus_session: {
         Args: {
           p_actual_focus: number
