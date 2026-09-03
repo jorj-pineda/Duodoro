@@ -599,6 +599,20 @@ io.on('connection', (socket) => {
     socket_ref: correlationRef('socket', socket.id),
   });
 
+  // Presence is a handshake fact, not a client event. Waiting for
+  // register_user left friends invisible and invites failing whenever the
+  // client effect ran before socketRef was assigned.
+  if (socket.userId) {
+    const cameOnline = presence.add(socket.userId, socket.id);
+    if (cameOnline) broadcastPresence(socket.userId, true);
+    logger.info('presence_registered', {
+      account_ref: correlationRef('account', socket.userId),
+      socket_ref: correlationRef('socket', socket.id),
+      came_online: cameOnline,
+      source: 'connection',
+    });
+  }
+
   registerAccountHandlers({
     socket,
     io,
