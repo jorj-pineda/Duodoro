@@ -319,6 +319,9 @@ export function useGameSession(profile: Profile | null) {
     });
 
   // ── Register presence ───────────────────────────────────────────────────
+  // connectionState is the signal that socketRef.current exists. The first
+  // mount runs before connectSocket() finishes its await, so a null check
+  // here used to skip register_user forever.
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket || !profile?.id) return;
@@ -332,7 +335,7 @@ export function useGameSession(profile: Profile | null) {
     return () => {
       socket.off("connect", onConnect);
     };
-  }, [profile?.id, socketRef]);
+  }, [profile?.id, socketRef, connectionState]);
 
   // ── Sound effects on phase transitions ──────────────────────────────────
   useEffect(() => {
