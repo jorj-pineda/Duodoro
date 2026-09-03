@@ -154,16 +154,28 @@ export default function DuoTimer() {
   // back on home with an avatar loaded, silently rejoin the stored session —
   // and jump straight back into the game screen if the timer is running.
   const resumingRef = useRef(false);
+  const attemptedPresenceResumeRef = useRef<string | null>(null);
   useEffect(() => {
-    if (appStep !== "home" || pendingShareInvite || !game.resumeSessionId) return;
+    if (appStep !== "home" || pendingShareInvite) return;
+    if (game.connectionState !== "connected") return;
+    const storedId = game.resumeSessionId;
+    const presenceId = profile?.current_session_id ?? null;
+    const sid = storedId || presenceId;
+    if (!sid) return;
     // Share-invite redeem already waits for a live socket. Resume used to
     // emit immediately, consume the stored id, and miss the 60s grace window
-    // whenever connectSocket() was still awaiting getSession().
-    if (game.connectionState !== "connected") return;
+    // whenever connectSocket() was still awaiting getSession(). A closed tab
+    // also wipes sessionStorage, so fall back to the profile presence column
+    // the server still holds during grace. Retry if a stale cached profile
+    // pointed at a different session than the live row.
+    if (!storedId) {
+      if (attemptedPresenceResumeRef.current === sid) return;
+      attemptedPresenceResumeRef.current = sid;
+    }
     resumingRef.current = true;
-    game.joinSession(game.resumeSessionId, myAvatar);
-    game.consumeResumeSession();
-  }, [appStep, game, myAvatar, pendingShareInvite]);
+    game.joinSession(sid, myAvatar);
+    if (storedId) game.consumeResumeSession();
+  }, [appStep, game, myAvatar, pendingShareInvite, profile?.current_session_id]);
   useEffect(() => {
     if (resumingRef.current && game.sessionStarted && appStep === "home") {
       resumingRef.current = false;
@@ -230,6 +242,8 @@ export default function DuoTimer() {
             open={friendsOpen}
             onClose={() => setFriendsOpen(false)}
             myProfile={profile}
+            socketRef={game.socketRef}
+            connectionState={game.connectionState}
             onJoinSession={handleJoinSession}
             onInviteFriend={handleSendInvite}
           />

@@ -1,35 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { fetchFriendIds } from "./friendLookup.js";
+import { fetchFriendIds, normalizeFriendIds } from "./friendLookup.js";
 
 /**
- * Query builder that only implements `.eq()`. The previous lookup interpolated
- * both sides into one `.or(...)` string; that cannot pass against this fake.
+ * A Supabase double that records RPC (and optional table) calls. The previous
+ * lookup used `.from()` equality filters; a fake that only implements `.rpc()`
+ * fails that path and proves the RPC is what ran.
  */
-function fakeSupabase({ requester = [], addressee = [], error = null } = {}) {
+function fakeSupabase({ rpcResult, tableRows = null } = {}) {
   const calls = [];
+  const fromCalls = [];
   return {
     calls,
+    fromCalls,
     client: {
+      rpc(fn, args) {
+        calls.push([fn, args]);
+        return Promise.resolve(rpcResult);
+      },
       from(table) {
-        calls.push({ table, filters: [] });
-        const call = calls[calls.length - 1];
+        const filters = {};
         const builder = {
           select() {
             return builder;
           },
           eq(column, value) {
-            call.filters.push([column, value]);
+            filters[column] = value;
             return builder;
           },
           then(resolve, reject) {
-            const requesterId = call.filters.find(([column]) => column === "requester_id");
-            const result = error
-              ? { data: null, error }
-              : {
-                  data: requesterId ? requester : addressee,
-                  error: null,
-                };
-            return Promise.resolve(result).then(resolve, reject);
+            fromCalls.push({ table, filters });
+            const rows = tableRows ? tableRows(filters) : [];
+            return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
           },
         };
         return builder;
@@ -38,42 +39,61 @@ function fakeSupabase({ requester = [], addressee = [], error = null } = {}) {
   };
 }
 
+describe("normalizeFriendIds", () => {
+  it("accepts a JSON array, a Postgres array literal, and row objects", () => {
+    expect(normalizeFriendIds(["a", "b"])).toEqual(["a", "b"]);
+    expect(normalizeFriendIds("{a,b}")).toEqual(["a", "b"]);
+    expect(normalizeFriendIds([{ friend_id: "a" }, { friend_id: "b" }])).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(normalizeFriendIds(null)).toEqual([]);
+  });
+});
+
 describe("fetchFriendIds", () => {
   it("is empty without Supabase or a user", async () => {
     expect(await fetchFriendIds(null, "user-1")).toEqual([]);
-    expect(await fetchFriendIds(fakeSupabase().client, null)).toEqual([]);
+    expect(await fetchFriendIds(fakeSupabase({
+      rpcResult: { data: ["x"], error: null },
+    }).client, null)).toEqual([]);
   });
 
-  it("loads accepted friends from both sides with bound equality filters", async () => {
-    const { client, calls } = fakeSupabase({
-      requester: [{ addressee_id: "friend-a" }],
-      addressee: [{ requester_id: "friend-b" }],
+  it("asks Postgres for the accepted-friend id list", async () => {
+    const { client, calls, fromCalls } = fakeSupabase({
+      rpcResult: { data: ["friend-a", "friend-b"], error: null },
     });
 
     await expect(fetchFriendIds(client, "me")).resolves.toEqual([
       "friend-a",
       "friend-b",
     ]);
-    expect(calls).toEqual([
-      {
-        table: "friendships",
-        filters: [
-          ["status", "accepted"],
-          ["requester_id", "me"],
-        ],
-      },
-      {
-        table: "friendships",
-        filters: [
-          ["status", "accepted"],
-          ["addressee_id", "me"],
-        ],
-      },
-    ]);
+    expect(calls).toEqual([["list_accepted_friend_ids", { target: "me" }]]);
+    expect(fromCalls).toEqual([]);
   });
 
-  it("throws when either side of the read fails", async () => {
-    const { client } = fakeSupabase({ error: { code: "PGRST301" } });
+  it("falls back to bound table filters when the RPC is missing", async () => {
+    const { client, calls, fromCalls } = fakeSupabase({
+      rpcResult: { data: null, error: { code: "PGRST202" } },
+      tableRows(filters) {
+        if (filters.requester_id === "me") return [{ addressee_id: "friend-a" }];
+        if (filters.addressee_id === "me") return [{ requester_id: "friend-b" }];
+        return [];
+      },
+    });
+
+    await expect(fetchFriendIds(client, "me")).resolves.toEqual([
+      "friend-a",
+      "friend-b",
+    ]);
+    expect(calls).toEqual([["list_accepted_friend_ids", { target: "me" }]]);
+    expect(fromCalls).toHaveLength(2);
+  });
+
+  it("throws when the RPC fails for any other reason", async () => {
+    const { client } = fakeSupabase({
+      rpcResult: { data: null, error: { code: "PGRST301" } },
+    });
     await expect(fetchFriendIds(client, "me")).rejects.toMatchObject({
       code: "PGRST301",
     });

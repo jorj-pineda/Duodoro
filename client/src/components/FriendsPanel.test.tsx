@@ -24,6 +24,16 @@ vi.mock("@/hooks/useFriendSearch", () => ({
   }),
 }));
 
+const onlineFriendIds = new Set<string>();
+vi.mock("@/hooks/useOnlineFriends", () => ({
+  useOnlineFriends: () => ({
+    friends: [],
+    onlineFriendIds,
+    error: null,
+    retry: vi.fn(),
+  }),
+}));
+
 import FriendsPanel from "./FriendsPanel";
 
 const profile: Profile = {
@@ -47,6 +57,7 @@ function renderPanel() {
       open
       onClose={vi.fn()}
       myProfile={profile}
+      socketRef={{ current: null }}
       onJoinSession={vi.fn()}
       onInviteFriend={vi.fn()}
     />,
@@ -56,6 +67,7 @@ function renderPanel() {
 describe("FriendsPanel load states", () => {
   beforeEach(() => {
     retry.mockClear();
+    onlineFriendIds.clear();
     listState = {
       friends: [],
       requests: [],
@@ -105,5 +117,36 @@ describe("FriendsPanel load states", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("marks a logged-in friend as online even when they are not in a session", () => {
+    onlineFriendIds.add("friend-1");
+    listState.friends = [
+      {
+        ...profile,
+        id: "friend-1",
+        display_name: "Michelle",
+        username: "michelle",
+      },
+    ];
+    renderPanel();
+    expect(screen.getByTitle("Online")).toBeInTheDocument();
+    expect(screen.queryByTitle("Offline")).not.toBeInTheDocument();
+  });
+
+  it("marks a friend in a live session even if the socket presence set is empty", () => {
+    listState.friends = [
+      {
+        ...profile,
+        id: "friend-1",
+        display_name: "Michelle",
+        username: "michelle",
+        current_session_id: "sess-1",
+        current_world_id: "forest",
+      },
+    ];
+    renderPanel();
+    expect(screen.getByTitle("In session")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
   });
 });
