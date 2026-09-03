@@ -27,6 +27,7 @@ const {
   safeErrorFields,
 } = require('./observability');
 const { createReadinessChecker } = require('./readiness');
+const { fetchFriendIds } = require('./friendLookup');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
@@ -259,14 +260,7 @@ async function clearPresence(userId) {
 async function getFriendIds(userId) {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from('friendships')
-      .select('requester_id, addressee_id')
-      .eq('status', 'accepted')
-      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-    if (error) throw error;
-    if (!data) return [];
-    return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+    return await fetchFriendIds(supabase, userId);
   } catch (error) {
     metrics.increment('friend_read_failures_total');
     logger.warn('friend_read_failed', {
