@@ -278,7 +278,7 @@ async function areFriends(userId, otherUserId) {
   if (!userId || !otherUserId) return false;
   if (userId === otherUserId) return true;
   const friendIds = await getFriendIds(userId);
-  return friendIds.includes(otherUserId);
+  return friendIds.includes(otherUserId.toLowerCase());
 }
 
 // Knowing a session UUID must not be enough to walk into it. Session ids leak

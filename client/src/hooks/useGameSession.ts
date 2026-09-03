@@ -18,8 +18,33 @@ import { playSound } from "@/lib/sounds";
 import { worldAt } from "@/lib/rotation";
 
 // sessionStorage key mirroring the active session id, so a full page reload
-// can silently rejoin within the server's reconnect grace window.
+// can silently rejoin within the server's reconnect grace window. localStorage
+// is the source of truth so a closed tab can still resume; sessionStorage is
+// kept as a same-tab mirror.
 const RESUME_KEY = "duodoro:session";
+
+function readResumeSession() {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(RESUME_KEY) ?? sessionStorage.getItem(RESUME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeResumeSession(sessionId: string) {
+  try {
+    localStorage.setItem(RESUME_KEY, sessionId);
+    sessionStorage.setItem(RESUME_KEY, sessionId);
+  } catch {}
+}
+
+function clearResumeSession() {
+  try {
+    localStorage.removeItem(RESUME_KEY);
+    sessionStorage.removeItem(RESUME_KEY);
+  } catch {}
+}
 const SHARE_JOIN_PENDING = "__share_invite__";
 
 export type { InviteData };
@@ -104,16 +129,16 @@ export function useGameSession(profile: Profile | null) {
   }, [sessionId]);
 
   // ── Refresh resume ──────────────────────────────────────────────────────
-  // A reload wipes React state but the server holds the player's spot during
-  // its reconnect grace window; the stored id lets DuoTimer rejoin silently.
-  // sessionStorage scopes this to the tab — a fresh tab starts clean.
+  // A reload or closed tab wipes React state but the server holds the player's
+  // spot during its reconnect grace window; the stored id lets DuoTimer rejoin
+  // silently. localStorage survives a closed tab; sessionStorage is a mirror.
   // Lazy init: only rendered on the client after hydration effects, and no
   // DOM output depends on it, so reading storage here is hydration-safe.
   const [resumeSessionId, setResumeSessionId] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : sessionStorage.getItem(RESUME_KEY),
+    readResumeSession(),
   );
   useEffect(() => {
-    if (sessionId) sessionStorage.setItem(RESUME_KEY, sessionId);
+    if (sessionId) writeResumeSession(sessionId);
   }, [sessionId]);
   const consumeResumeSession = useCallback(
     () => setResumeSessionId(null),
@@ -171,13 +196,13 @@ export function useGameSession(profile: Profile | null) {
         pendingJoinSessionIdRef.current = "";
         if (previousSessionId) {
           setSessionId(previousSessionId);
-          sessionStorage.setItem(RESUME_KEY, previousSessionId);
+          writeResumeSession(previousSessionId);
           socket.emit("request_sync");
           return;
         }
         // Stale resume attempt or expired invite — the server has already
         // confirmed there is no room to restore, so clear the optimistic id.
-        sessionStorage.removeItem(RESUME_KEY);
+        clearResumeSession();
         setResumeSessionId(null);
         setSessionId("");
         setSessionStarted(false);
@@ -499,7 +524,7 @@ export function useGameSession(profile: Profile | null) {
     previousSessionIdRef.current = "";
     pendingJoinSessionIdRef.current = "";
     lastAvatarRef.current = null;
-    sessionStorage.removeItem(RESUME_KEY);
+    clearResumeSession();
     setResumeSessionId(null);
   }, [sessionId, socketRef]);
 

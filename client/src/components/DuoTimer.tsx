@@ -80,10 +80,12 @@ export default function DuoTimer() {
   };
 
   const handleFocus = () => {
+    if (game.sessionId) {
+      setAppStep("game");
+      return;
+    }
     const resumeId =
-      !game.sessionId && profile?.current_session_id
-        ? profile.current_session_id
-        : null;
+      game.resumeSessionId || profile?.current_session_id || null;
     if (resumeId) {
       handleJoinSession(resumeId);
       return;
@@ -92,7 +94,8 @@ export default function DuoTimer() {
   };
 
   const handleRejoinSession = () => {
-    const sid = game.sessionId || profile?.current_session_id;
+    const sid =
+      game.sessionId || game.resumeSessionId || profile?.current_session_id;
     if (!sid) return;
     if (!game.sessionId) handleJoinSession(sid);
     else setAppStep("game");
@@ -136,6 +139,12 @@ export default function DuoTimer() {
     if (attemptedPresenceResumeRef.current) {
       attemptedPresenceResumeRef.current = null;
     }
+    const expiredShareLink =
+      game.sessionError === "Invite link is invalid or expired";
+    const fallbackSid =
+      expiredShareLink
+        ? game.resumeSessionId || profile?.current_session_id || null
+        : null;
     if (shareJoinAttemptRef.current) {
       shareJoinAttemptRef.current = null;
       clearPendingShareInvite();
@@ -143,7 +152,12 @@ export default function DuoTimer() {
     }
     // This effect deliberately promotes an external socket event from the
     // session hook into parent-owned toast/navigation state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (fallbackSid) {
+      game.clearSessionError();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- socket error to join
+      handleJoinSession(fallbackSid);
+      return;
+    }
     showError(game.sessionError);
     game.clearSessionError();
     if (!game.sessionId) setAppStep((step) => (step === "game" ? "home" : step));
@@ -195,9 +209,9 @@ export default function DuoTimer() {
     // Share-invite redeem already waits for a live socket. Resume used to
     // emit immediately, consume the stored id, and miss the 60s grace window
     // whenever connectSocket() was still awaiting getSession(). A closed tab
-    // also wipes sessionStorage, so fall back to the profile presence column
-    // the server still holds during grace. Retry if a stale cached profile
-    // pointed at a different session than the live row.
+    // also wipes sessionStorage, so fall back to localStorage and the profile
+    // presence column the server still holds during grace. Retry if a stale
+    // cached profile pointed at a different session than the live row.
     if (!storedId) {
       if (attemptedPresenceResumeRef.current === sid) return;
       attemptedPresenceResumeRef.current = sid;
@@ -207,11 +221,11 @@ export default function DuoTimer() {
     if (storedId) game.consumeResumeSession();
   }, [appStep, game, myAvatar, pendingShareInvite, profile?.current_session_id]);
   useEffect(() => {
-    if (resumingRef.current && game.sessionStarted && appStep === "home") {
+    if (resumingRef.current && game.sessionId && appStep === "home") {
       resumingRef.current = false;
       setAppStep("game");
     }
-  }, [game.sessionStarted, appStep, setAppStep]);
+  }, [game.sessionId, appStep, setAppStep]);
 
   // Cached profiles drop presence fields; refresh them whenever home loads so
   // a new tab can see the session the server still holds during grace.
@@ -414,7 +428,10 @@ export default function DuoTimer() {
         <HomeDashboard
           profile={profile!}
           activeSessionId={
-            game.sessionId || profile?.current_session_id || undefined
+            game.sessionId ||
+            game.resumeSessionId ||
+            profile?.current_session_id ||
+            undefined
           }
           socketRef={game.socketRef}
           connectionState={game.connectionState}
@@ -432,6 +449,7 @@ export default function DuoTimer() {
           }}
           onAccountDeleted={async () => {
             localStorage.removeItem("duodoro_profile");
+            localStorage.removeItem("duodoro:session");
             sessionStorage.removeItem("duodoro:session");
             await sb.auth.signOut({ scope: "local" });
             router.replace("/");
