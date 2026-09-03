@@ -38,10 +38,11 @@ function createFakeSocket() {
 
 let socket: ReturnType<typeof createFakeSocket>;
 const getSession = vi.fn();
+const refreshSession = vi.fn();
 
 vi.mock("socket.io-client", () => ({ io: () => socket }));
 vi.mock("@/lib/supabase", () => ({
-  getSupabase: () => ({ auth: { getSession } }),
+  getSupabase: () => ({ auth: { getSession, refreshSession } }),
 }));
 
 const options = () => ({
@@ -55,21 +56,23 @@ describe("useSessionConnection", () => {
     getSession.mockReset().mockResolvedValue({
       data: { session: { access_token: "initial-token" } },
     });
+    refreshSession.mockReset().mockResolvedValue({
+      data: { session: { access_token: "fresh-token" } },
+    });
   });
 
   it("refreshes an expired authentication token for the next connection attempt", async () => {
     const config = options();
     renderHook(() => useSessionConnection(config));
     await waitFor(() => expect(config.registerSocketHandlers).toHaveBeenCalled());
-    getSession.mockResolvedValueOnce({
-      data: { session: { access_token: "fresh-token" } },
-    });
 
     await act(async () => {
       socket.fire("connect_error", new Error("Invalid or expired token"));
     });
 
+    await waitFor(() => expect(refreshSession).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(socket.auth).toEqual({ token: "fresh-token" }));
+    expect(getSession).toHaveBeenCalledTimes(1);
   });
 
   it("disconnects its one socket when the consumer unmounts", async () => {

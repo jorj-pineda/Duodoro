@@ -145,6 +145,33 @@ function nextEvent(socket, event) {
   });
 }
 
+describe("authenticated presence", () => {
+  it("delivers an invite without a client register_user event", async () => {
+    const host = await connectClient("12121212-1212-4121-8121-121212121212");
+    const friend = await connectClient("13131313-1313-4131-8131-131313131313");
+    try {
+      const created = await createRoom(host);
+      const invite = nextEvent(friend, "session_invite");
+      const error = nextEvent(host, "invite_error").then((payload) => {
+        throw new Error(`invite_error: ${payload.message}`);
+      });
+      host.emit("send_invite", {
+        targetUserId: "13131313-1313-4131-8131-131313131313",
+        sessionId: created.sessionId,
+        fromName: "Host",
+      });
+
+      await expect(Promise.race([invite, error])).resolves.toMatchObject({
+        sessionId: created.sessionId,
+        fromName: "Host",
+      });
+    } finally {
+      host.close();
+      friend.close();
+    }
+  });
+});
+
 describe("two-person session capacity", () => {
   it("rejects a third distinct user without changing the room", async () => {
     const host = await connectClient("11111111-1111-4111-8111-111111111111");

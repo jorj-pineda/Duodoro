@@ -27,6 +27,7 @@ const {
   safeErrorFields,
 } = require('./observability');
 const { createReadinessChecker } = require('./readiness');
+const { fetchFriendIds } = require('./friendLookup');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
@@ -259,14 +260,7 @@ async function clearPresence(userId) {
 async function getFriendIds(userId) {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from('friendships')
-      .select('requester_id, addressee_id')
-      .eq('status', 'accepted')
-      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-    if (error) throw error;
-    if (!data) return [];
-    return data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+    return await fetchFriendIds(supabase, userId);
   } catch (error) {
     metrics.increment('friend_read_failures_total');
     logger.warn('friend_read_failed', {
@@ -604,6 +598,20 @@ io.on('connection', (socket) => {
   logger.info('socket_connected', {
     socket_ref: correlationRef('socket', socket.id),
   });
+
+  // Presence is a handshake fact, not a client event. Waiting for
+  // register_user left friends invisible and invites failing whenever the
+  // client effect ran before socketRef was assigned.
+  if (socket.userId) {
+    const cameOnline = presence.add(socket.userId, socket.id);
+    if (cameOnline) broadcastPresence(socket.userId, true);
+    logger.info('presence_registered', {
+      account_ref: correlationRef('account', socket.userId),
+      socket_ref: correlationRef('socket', socket.id),
+      came_online: cameOnline,
+      source: 'connection',
+    });
+  }
 
   registerAccountHandlers({
     socket,

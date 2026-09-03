@@ -42,12 +42,37 @@ let fake: ReturnType<typeof createFakeSupabase>;
 vi.mock("@/lib/supabase", () => ({ getSupabase: () => fake.sb }));
 
 import { useOnlineFriends } from "./useOnlineFriends";
+import type { ConnectionState } from "./useSessionConnection";
+import type { DuodoroSocket } from "@/lib/socketContract";
 
-const socketRef = { current: null };
+const socketRef: { current: DuodoroSocket | null } = { current: null };
+
+function createFakeSocket() {
+  const handlers = new Map<string, ((...args: unknown[]) => void)[]>();
+  const emitted: { event: string; payload: unknown }[] = [];
+  return {
+    emitted,
+    emit: vi.fn((event: string, payload?: unknown) => {
+      emitted.push({ event, payload });
+    }),
+    on: (event: string, handler: (...args: unknown[]) => void) => {
+      handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+    },
+    off: (event: string, handler: (...args: unknown[]) => void) => {
+      handlers.set(event, (handlers.get(event) ?? []).filter((item) => item !== handler));
+    },
+  } as unknown as DuodoroSocket & {
+    emitted: { event: string; payload: unknown }[];
+  };
+}
+
+let socket: ReturnType<typeof createFakeSocket>;
 
 describe("useOnlineFriends read integrity", () => {
   beforeEach(() => {
     fake = createFakeSupabase();
+    socket = createFakeSocket();
+    socketRef.current = null;
   });
 
   it("surfaces a failed presence read instead of reporting nobody online", async () => {
@@ -87,5 +112,35 @@ describe("useOnlineFriends read integrity", () => {
 
     expect(result.current.loaded).toBe(true);
     expect(result.current.error).toBeNull();
+  });
+
+  it("asks who is online only after the socket exists", async () => {
+    fake.setResult({
+      data: [
+        {
+          requester_id: "me",
+          addressee_id: "friend-1",
+          requester: { id: "me" },
+          addressee: { id: "friend-1" },
+        },
+      ],
+      error: null,
+    });
+
+    const { rerender, result } = renderHook(
+      ({ state }: { state: ConnectionState }) =>
+        useOnlineFriends("me", socketRef, state),
+      { initialProps: { state: "connecting" as ConnectionState } },
+    );
+
+    await waitFor(() => expect(result.current.friends).toHaveLength(1));
+    expect(socket.emitted).toEqual([]);
+
+    socketRef.current = socket;
+    rerender({ state: "connected" });
+
+    await waitFor(() =>
+      expect(socket.emitted.some((entry) => entry.event === "get_online_friends")).toBe(true),
+    );
   });
 });

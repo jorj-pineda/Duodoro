@@ -66,7 +66,7 @@ export function useSessionConnection({
         ) return;
         const {
           data: { session: fresh },
-        } = await sb.auth.getSession();
+        } = await sb.auth.refreshSession();
         if (!cancelled && fresh?.access_token) {
           socket.auth = { token: fresh.access_token };
         }
@@ -92,7 +92,7 @@ export function useSessionConnection({
         setConnectionState("reconnecting");
         const {
           data: { session: fresh },
-        } = await sb.auth.getSession();
+        } = await sb.auth.refreshSession();
         if (cancelled) return;
         if (fresh?.access_token) socket.auth = { token: fresh.access_token };
         socket.connect();

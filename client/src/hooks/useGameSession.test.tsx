@@ -78,6 +78,9 @@ vi.mock("@/lib/supabase", () => ({
       getSession: async () => ({
         data: { session: { access_token: "tok" } },
       }),
+      refreshSession: async () => ({
+        data: { session: { access_token: "tok" } },
+      }),
     },
   }),
 }));
@@ -85,6 +88,22 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/lib/sounds", () => ({ playSound: () => {} }));
 
 import { useGameSession } from "./useGameSession";
+import type { Profile } from "@/lib/types";
+
+const profile: Profile = {
+  id: "user-1",
+  username: "jorge",
+  discriminator: "0001",
+  username_changed: false,
+  display_name: "Jorge",
+  display_name_changed_at: null,
+  avatar_config: null,
+  is_premium: false,
+  current_room: null,
+  current_session_id: null,
+  current_world_id: null,
+  updated_at: "2026-08-12T00:00:00Z",
+};
 
 const setVisibility = (state: "visible" | "hidden") => {
   Object.defineProperty(document, "visibilityState", {
@@ -104,6 +123,16 @@ describe("useGameSession connection lifecycle", () => {
   // The socket is created after an await inside connectSocket(), so any effect
   // that reads socketRef.current on mount sees null. Handlers registered that
   // way are silently never attached.
+  it("registers presence after the socket exists, not on the first mount", async () => {
+    renderHook(() => useGameSession(profile));
+    expect(fakeSocket.emittedNames()).not.toContain("register_user");
+
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+
+    await waitFor(() => expect(fakeSocket.emittedNames()).toContain("register_user"));
+  });
+
   it("wires tab-wake and reconnect handlers to the socket once it exists", async () => {
     renderHook(() => useGameSession(null));
     await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
