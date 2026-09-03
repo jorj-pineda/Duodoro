@@ -8,6 +8,9 @@ import type { Profile } from "@/lib/types";
 import { formatTag } from "@/lib/format";
 import { useFriendsList } from "@/hooks/useFriendsList";
 import { useFriendSearch } from "@/hooks/useFriendSearch";
+import { useOnlineFriends } from "@/hooks/useOnlineFriends";
+import type { DuodoroSocket } from "@/lib/socketContract";
+import type { ConnectionState } from "@/hooks/useSessionConnection";
 import WorldThumb from "./WorldThumb";
 import { CheckIcon, CloseIcon } from "./Icons";
 
@@ -15,6 +18,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   myProfile: Profile;
+  socketRef: { current: DuodoroSocket | null };
+  connectionState?: ConnectionState;
   onJoinSession: (sessionId: string) => void;
   onInviteFriend: (friendId: string) => void;
 }
@@ -26,21 +31,31 @@ const WORLD_LABEL: Record<string, string> = Object.fromEntries(
   WORLDS.map((w) => [w.id, w.label]),
 );
 
-function StatusDot({ inSession }: { inSession: boolean }) {
+function StatusDot({
+  online,
+  inSession,
+}: {
+  online: boolean;
+  inSession: boolean;
+}) {
   return (
     <div
-      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${inSession ? "bg-go animate-pulse" : "bg-faint"}`}
-      title={inSession ? "In session" : "Offline"}
+      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+        inSession ? "bg-go animate-pulse" : online ? "bg-gold" : "bg-faint"
+      }`}
+      title={inSession ? "In session" : online ? "Online" : "Offline"}
     />
   );
 }
 
 function FriendRow({
   friend,
+  online,
   onJoin,
   onInvite,
 }: {
   friend: Profile;
+  online: boolean;
   onJoin: (sessionId: string) => void;
   onInvite: () => void;
 }) {
@@ -52,7 +67,7 @@ function FriendRow({
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-raise transition-colors group">
-      <StatusDot inSession={inSession} />
+      <StatusDot online={online} inSession={inSession} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-ink truncate">{name}</p>
         {inSession && worldLabel && friend.current_world_id ? (
@@ -128,6 +143,8 @@ export default function FriendsPanel({
   open,
   onClose,
   myProfile,
+  socketRef,
+  connectionState = "connecting",
   onJoinSession,
   onInviteFriend,
 }: Props) {
@@ -145,6 +162,11 @@ export default function FriendsPanel({
     error: listError,
     clearError: clearListError,
   } = useFriendsList(myProfile.id, open);
+  const { onlineFriendIds } = useOnlineFriends(
+    myProfile.id,
+    socketRef,
+    connectionState,
+  );
   const { searchQuery, setSearchQuery, searchResults, loading, handleSearch, sentRequests, sendRequest, error: searchError, clearError: clearSearchError } = useFriendSearch(myProfile.id);
 
   const friendIds = new Set(friends.map((f) => f.id));
@@ -291,6 +313,7 @@ export default function FriendsPanel({
                         <FriendRow
                           key={f.id}
                           friend={f}
+                          online={onlineFriendIds.has(f.id)}
                           onJoin={onJoinSession}
                           onInvite={() => onInviteFriend(f.id)}
                         />
