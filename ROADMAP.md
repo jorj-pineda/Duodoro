@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-02. PRs #35–#70 merged.
+Last updated: 2026-09-02. PRs #35–#71 merged.
 Migrations 016–021 are applied to Supabase. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -199,6 +199,15 @@ for exercising the deployed client → server → database flow.
       now resolves Express and body-parser's compatible transitive `qs` range
       to 6.16.0, clearing both moderate advisories without changing Express or
       application code. The server production audit is back to zero findings.
+- [x] **14x. Presence, invite, and reload resume** — this PR. A two-account
+      production pass showed friends as offline, rejected in-app invites with
+      “You can only invite friends,” and ejected both players on refresh
+      mid-focus. Presence now registers from the authenticated handshake,
+      friend lookup uses bound equality filters, online-friend and
+      `register_user` effects retry once the socket exists, resume waits for
+      `connected` the way share-invite already did, and expired tokens call
+      `refreshSession()`. The live two-account retest is still required after
+      deploy.
 
 ## Next up (recommended order)
 
