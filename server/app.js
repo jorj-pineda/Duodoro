@@ -277,7 +277,9 @@ async function areFriends(userId, otherUserId) {
   if (!supabase) return true;
   if (!userId || !otherUserId) return false;
   if (userId === otherUserId) return true;
-  const friendIds = await getFriendIds(userId);
+  // Do not treat a failed lookup as "not friends": that is how a database
+  // outage became the invite toast "You can only invite friends".
+  const friendIds = await fetchFriendIds(supabase, userId);
   return friendIds.includes(otherUserId);
 }
 
