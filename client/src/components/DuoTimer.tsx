@@ -156,6 +156,10 @@ export default function DuoTimer() {
   const resumingRef = useRef(false);
   useEffect(() => {
     if (appStep !== "home" || pendingShareInvite || !game.resumeSessionId) return;
+    // Share-invite redeem already waits for a live socket. Resume used to
+    // emit immediately, consume the stored id, and miss the 60s grace window
+    // whenever connectSocket() was still awaiting getSession().
+    if (game.connectionState !== "connected") return;
     resumingRef.current = true;
     game.joinSession(game.resumeSessionId, myAvatar);
     game.consumeResumeSession();
@@ -360,6 +364,7 @@ export default function DuoTimer() {
           profile={profile!}
           activeSessionId={game.sessionId || undefined}
           socketRef={game.socketRef}
+          connectionState={game.connectionState}
           onFocus={handleCreateSession}
           onOpenPremium={() => setPremiumOpen(true)}
           onRejoinSession={() => setAppStep("game")}
