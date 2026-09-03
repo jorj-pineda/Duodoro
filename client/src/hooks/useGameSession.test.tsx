@@ -117,12 +117,19 @@ describe("useGameSession connection lifecycle", () => {
     fakeSocket = createFakeSocket();
     setVisibility("visible");
     sessionStorage.clear();
+    localStorage.clear();
   });
   afterEach(() => vi.restoreAllMocks());
 
   // The socket is created after an await inside connectSocket(), so any effect
   // that reads socketRef.current on mount sees null. Handlers registered that
   // way are silently never attached.
+  it("reads a closed-tab resume id from localStorage", () => {
+    localStorage.setItem("duodoro:session", "kept-room");
+    const { result } = renderHook(() => useGameSession(null));
+    expect(result.current.resumeSessionId).toBe("kept-room");
+  });
+
   it("registers presence after the socket exists, not on the first mount", async () => {
     renderHook(() => useGameSession(profile));
     expect(fakeSocket.emittedNames()).not.toContain("register_user");
@@ -328,6 +335,7 @@ describe("useGameSession connection lifecycle", () => {
 
     await waitFor(() => expect(result.current.sessionId).toBe("current-room"));
     expect(sessionStorage.getItem("duodoro:session")).toBe("current-room");
+    expect(localStorage.getItem("duodoro:session")).toBe("current-room");
     expect(fakeSocket.emittedNames()).toContain("request_sync");
   });
 
@@ -376,6 +384,7 @@ describe("useGameSession pet stage", () => {
   beforeEach(() => {
     fakeSocket = createFakeSocket();
     sessionStorage.clear();
+    localStorage.clear();
   });
 
   const sync = (players: Record<string, unknown>) => ({

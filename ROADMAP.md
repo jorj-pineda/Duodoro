@@ -5,8 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-03. PRs #35–#72 in flight.
-Migrations 016–022 are applied to Supabase. **020 verified in production**
+Last updated: 2026-09-03. PRs #35–#74 merged; invite/resume follow-up in flight.
+Migrations 016–023 are applied to production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
 search_path. It went in *after* #40 reached main, so there was a window where
@@ -199,16 +199,13 @@ for exercising the deployed client → server → database flow.
       now resolves Express and body-parser's compatible transitive `qs` range
       to 6.16.0, clearing both moderate advisories without changing Express or
       application code. The server production audit is back to zero findings.
-- [x] **14x. Presence, invite, and reload resume** — this PR. A two-account
-      production pass showed friends as offline, rejected in-app invites with
-      “You can only invite friends,” and ejected both players on refresh
-      mid-focus. Presence now registers from the authenticated handshake;
-      `list_accepted_friend_ids` is a service-role-only RPC so a failed table
-      filter cannot look like “not friends”; the friends panel reads socket
-      presence during a live session; resume waits for `connected` and falls
-      back to `profiles.current_session_id` after a closed tab. **Apply
-      migration `list_accepted_friend_ids` before the server deploy.** The live
-      two-account retest is still required after that.
+- [x] **14x. Presence, invite, and reload resume** — PRs #72–#74 plus this
+      follow-up. A two-account production pass still showed grey dots, refused
+      in-app invites with “You can only invite friends,” and left a closed-tab
+      player grayed-out in a waiting room. Friend lookup now unwraps a nested
+      UUID[] RPC result and confirms via table filters when that parse is
+      empty; resume lives in localStorage and returns to the game screen even
+      from waiting, instead of treating Focus as “create a new session.”
 
 ## Next up (recommended order)
 

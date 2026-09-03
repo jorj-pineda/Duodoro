@@ -13,7 +13,10 @@ function parseAllowedOrigins(value = 'http://localhost:3000') {
 function createSupabaseClient() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return null;
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: {
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` },
+    },
   });
 }
 

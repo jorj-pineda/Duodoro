@@ -49,6 +49,17 @@ describe("normalizeFriendIds", () => {
     ]);
     expect(normalizeFriendIds(null)).toEqual([]);
   });
+
+  it("unwraps a PostgREST-wrapped UUID[] scalar", () => {
+    expect(normalizeFriendIds([["friend-a", "friend-b"]])).toEqual([
+      "friend-a",
+      "friend-b",
+    ]);
+    expect(normalizeFriendIds('["friend-a","friend-b"]')).toEqual([
+      "friend-a",
+      "friend-b",
+    ]);
+  });
 });
 
 describe("fetchFriendIds", () => {
@@ -70,6 +81,19 @@ describe("fetchFriendIds", () => {
     ]);
     expect(calls).toEqual([["list_accepted_friend_ids", { target: "me" }]]);
     expect(fromCalls).toEqual([]);
+  });
+
+  it("confirms via table filters when the RPC succeeds with an empty parse", async () => {
+    const { client, fromCalls } = fakeSupabase({
+      rpcResult: { data: [[]], error: null },
+      tableRows(filters) {
+        if (filters.requester_id === "me") return [{ addressee_id: "Friend-A" }];
+        return [];
+      },
+    });
+
+    await expect(fetchFriendIds(client, "me")).resolves.toEqual(["friend-a"]);
+    expect(fromCalls).toHaveLength(2);
   });
 
   it("falls back to bound table filters when the RPC fails", async () => {
