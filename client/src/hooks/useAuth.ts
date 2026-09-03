@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_AVATAR,
   type AvatarConfig,
@@ -236,6 +236,31 @@ export function useAuth() {
     cacheProfile(updated);
   };
 
+  const refreshProfilePresence = useCallback(async () => {
+    const userId = profile?.id;
+    if (!userId) return null;
+    const { data, error } = await sb
+      .from("profiles")
+      .select("current_session_id, current_world_id, current_room, updated_at")
+      .eq("id", userId)
+      .single();
+    if (error || !data) return null;
+    let next: Profile | null = null;
+    setProfile((current) => {
+      if (!current || current.id !== userId) return current;
+      next = {
+        ...current,
+        current_session_id: data.current_session_id,
+        current_world_id: data.current_world_id,
+        current_room: data.current_room,
+        updated_at: data.updated_at ?? current.updated_at,
+      };
+      cacheProfile(next);
+      return next;
+    });
+    return next;
+  }, [profile?.id, sb]);
+
   const isPremium = profile?.is_premium ?? false;
   const displayName = profile?.display_name ?? profile?.username ?? "You";
 
@@ -248,6 +273,7 @@ export function useAuth() {
     setMyAvatar,
     saveAvatar,
     updateProfile,
+    refreshProfilePresence,
     isPremium,
     displayName,
     sb,

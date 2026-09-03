@@ -48,25 +48,54 @@ export default function DuoTimer() {
     () => readPendingShareInvite(),
   );
   const shareJoinAttemptRef = useRef<string | null>(null);
+  const resumingRef = useRef(false);
+  const attemptedPresenceResumeRef = useRef<string | null>(null);
 
   const showError = (message: string) => {
     setErrorToast(message);
     window.setTimeout(() => setErrorToast(null), 4000);
   };
 
-  const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb } =
+  const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb, refreshProfilePresence } =
     auth;
   const initial = displayName.charAt(0).toUpperCase();
 
   // ── Wrappers that bridge auth + game ────────────────────────────────────
   const handleCreateSession = () => {
+    if (game.connectionState !== "connected") {
+      showError("Still connecting — try again in a moment");
+      return;
+    }
     game.createSession(myAvatar);
     setAppStep("game");
   };
 
   const handleJoinSession = (sid: string) => {
+    if (game.connectionState !== "connected") {
+      showError("Still connecting — try again in a moment");
+      return;
+    }
     game.joinSession(sid, myAvatar);
     setAppStep("game");
+  };
+
+  const handleFocus = () => {
+    const resumeId =
+      !game.sessionId && profile?.current_session_id
+        ? profile.current_session_id
+        : null;
+    if (resumeId) {
+      handleJoinSession(resumeId);
+      return;
+    }
+    handleCreateSession();
+  };
+
+  const handleRejoinSession = () => {
+    const sid = game.sessionId || profile?.current_session_id;
+    if (!sid) return;
+    if (!game.sessionId) handleJoinSession(sid);
+    else setAppStep("game");
   };
 
   const handleLeaveSession = () => {
@@ -104,6 +133,9 @@ export default function DuoTimer() {
   // empty game screen reading "Setting up…". Show it and send them home.
   useEffect(() => {
     if (!game.sessionError) return;
+    if (attemptedPresenceResumeRef.current) {
+      attemptedPresenceResumeRef.current = null;
+    }
     if (shareJoinAttemptRef.current) {
       shareJoinAttemptRef.current = null;
       clearPendingShareInvite();
@@ -153,8 +185,6 @@ export default function DuoTimer() {
   // The server holds our spot during its reconnect grace window; once we're
   // back on home with an avatar loaded, silently rejoin the stored session —
   // and jump straight back into the game screen if the timer is running.
-  const resumingRef = useRef(false);
-  const attemptedPresenceResumeRef = useRef<string | null>(null);
   useEffect(() => {
     if (appStep !== "home" || pendingShareInvite) return;
     if (game.connectionState !== "connected") return;
@@ -182,6 +212,13 @@ export default function DuoTimer() {
       setAppStep("game");
     }
   }, [game.sessionStarted, appStep, setAppStep]);
+
+  // Cached profiles drop presence fields; refresh them whenever home loads so
+  // a new tab can see the session the server still holds during grace.
+  useEffect(() => {
+    if (appStep !== "home" || !profile?.id) return;
+    void refreshProfilePresence();
+  }, [appStep, profile?.id, refreshProfilePresence]);
 
   // Danger-styled sibling of the "Invite sent!" toast; rendered on every
   // screen that can produce an error (avatar/home/game)
@@ -376,12 +413,14 @@ export default function DuoTimer() {
       <>
         <HomeDashboard
           profile={profile!}
-          activeSessionId={game.sessionId || undefined}
+          activeSessionId={
+            game.sessionId || profile?.current_session_id || undefined
+          }
           socketRef={game.socketRef}
           connectionState={game.connectionState}
-          onFocus={handleCreateSession}
+          onFocus={handleFocus}
           onOpenPremium={() => setPremiumOpen(true)}
-          onRejoinSession={() => setAppStep("game")}
+          onRejoinSession={handleRejoinSession}
           onJoinSession={handleJoinSession}
           onInvite={handleSendInvite}
           onEditAvatar={() => setAppStep("avatar")}
