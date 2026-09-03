@@ -72,7 +72,7 @@ describe("fetchFriendIds", () => {
     expect(fromCalls).toEqual([]);
   });
 
-  it("falls back to bound table filters when the RPC is missing", async () => {
+  it("falls back to bound table filters when the RPC fails", async () => {
     const { client, calls, fromCalls } = fakeSupabase({
       rpcResult: { data: null, error: { code: "PGRST202" } },
       tableRows(filters) {
@@ -90,9 +90,25 @@ describe("fetchFriendIds", () => {
     expect(fromCalls).toHaveLength(2);
   });
 
-  it("throws when the RPC fails for any other reason", async () => {
+  it("falls back to table filters for any RPC error, not only a missing function", async () => {
+    const { client, fromCalls } = fakeSupabase({
+      rpcResult: { data: null, error: { code: "PGRST301" } },
+      tableRows(filters) {
+        if (filters.requester_id === "me") return [{ addressee_id: "friend-a" }];
+        return [];
+      },
+    });
+
+    await expect(fetchFriendIds(client, "me")).resolves.toEqual(["friend-a"]);
+    expect(fromCalls).toHaveLength(2);
+  });
+
+  it("throws only when both the RPC and table reads fail", async () => {
     const { client } = fakeSupabase({
       rpcResult: { data: null, error: { code: "PGRST301" } },
+      tableRows() {
+        throw new Error("table read failed");
+      },
     });
     await expect(fetchFriendIds(client, "me")).rejects.toMatchObject({
       code: "PGRST301",

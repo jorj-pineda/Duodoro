@@ -1,11 +1,5 @@
-// Accepted-friend ids for one user. One service-role RPC, not a PostgREST
-// table filter: an empty error result here used to make `areFriends` refuse
-// real friends and `get_online_friends` report nobody.
-
-function isMissingRpc(error) {
-  const code = typeof error?.code === "string" ? error.code : "";
-  return code === "PGRST202" || code === "42883";
-}
+// Accepted-friend ids for one user. Prefer the service-role RPC; fall back to
+// bound table filters when PostgREST cannot call or parse the function.
 
 function normalizeFriendIds(data) {
   const raw = Array.isArray(data)
@@ -52,10 +46,12 @@ async function fetchFriendIds(supabase, userId) {
     target: userId,
   });
   if (!error) return normalizeFriendIds(data);
-  if (!isMissingRpc(error)) throw error;
 
-  // Migration not applied yet: keep invites working on the bound table filters.
-  return fetchFriendIdsFromTable(supabase, userId);
+  try {
+    return await fetchFriendIdsFromTable(supabase, userId);
+  } catch {
+    throw error;
+  }
 }
 
-module.exports = { fetchFriendIds, normalizeFriendIds };
+module.exports = { fetchFriendIds, normalizeFriendIds, fetchFriendIdsFromTable };
